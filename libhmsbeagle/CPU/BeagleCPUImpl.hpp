@@ -1884,7 +1884,7 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calcCrossProducts(const int *postBufferIn
 
     int returnCode = BEAGLE_SUCCESS;
 
-    const int secondDerivativeIndex = BEAGLE_OP_NONE;
+//    const int secondDerivativeIndex = BEAGLE_OP_NONE;
     const double *categoryRates = gCategoryRates[categoryRatesIndices[0]]; // TODO Generalize
     const REALTYPE *categoryWeights = gCategoryWeights[categoryWeightsIndices[0]]; // TODO Generalize
 
@@ -1903,9 +1903,9 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calcCrossProducts(const int *postBufferIn
         const int *tipStates = gTipStates[postBufferIndices[nodeNum]];
 
 //        const int firstDerivativeIndex = firstDerivativeIndices[nodeNum];
-        const int scalingFactorsIndex = -1; // cumulativeScaleIndices[nodeNum];
+//        const int scalingFactorsIndex = -1; // cumulativeScaleIndices[nodeNum];
 
-        const int patternOffset = nodeNum * kPatternCount;
+//        const int patternOffset = nodeNum * kPatternCount;
 //        double* outDerivativesForNode = (outDerivatives == NULL) ?
 //                NULL : outDerivatives + patternOffset;
 //        double* outSumDerivativesForNode = (outSumDerivatives == NULL) ?
@@ -4435,7 +4435,7 @@ void BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calcPreStatesPartialsFixedScaling(REALTY
     // increment for the extra column at the end
     matrixIncr += T_PAD;
 
-    int stateCountModFour = (kStateCount / 4) * 4;
+//    int stateCountModFour = (kStateCount / 4) * 4;
 //
 //#pragma omp parallel for num_threads(kCategoryCount)
 //    for (int l = 0; l < kCategoryCount; l++) {

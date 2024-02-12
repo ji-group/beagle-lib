@@ -475,9 +475,9 @@ int benchmarkResource(int resource,
     double deriv1 = 0.0;
     double deriv2 = 0.0;
     
-    double previousLogL = 0.0;
-    double previousDeriv1 = 0.0;
-    double previousDeriv2 = 0.0;
+//    double previousLogL = 0.0;
+//    double previousDeriv1 = 0.0;
+//    double previousDeriv2 = 0.0;
 
     int* eigenIndices = new int[edgeCount * modelCount];
     int* categoryRateIndices = new int[edgeCount * modelCount];
