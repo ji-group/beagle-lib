@@ -1,0 +1,13 @@
+option('build-opencl', description: 'Build beagle with OpenCL library', type: 'boolean', value: true)
+option('build-cuda',   description: 'Build beagle with CUDA library',   type: 'boolean', value: true)
+option('build-jni',    description: 'Build beagle with JNI library',    type: 'boolean', value: true)
+option('build-openmp', description: 'Build beagle with OpenMP library', type: 'boolean', value: true)
+option('build-action', description: 'Build beagle with action-based calculations', type: 'boolean', value: true)
+option('optimize-for-native-arch', description: 'Optimize for native arch', type: 'boolean', value: true)
+
+option('benchmark',    description: 'Print runtimes',      type: 'boolean', value: false)
+option('debug-flow',   description: 'Print flow',          type: 'boolean', value: false)
+option('debug-values', description: 'Print debug values',  type: 'boolean', value: false)
+option('experimental-ltdl', description: 'Use ltdl (experimental)', type: 'boolean', value: false)
+
+
