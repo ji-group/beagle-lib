@@ -59,10 +59,11 @@
 		dest##1 = VEC_SHUFFLE1(tmp_##dest##01, tmp_##dest##01); \
 		dest##2 = VEC_SHUFFLE0(tmp_##dest##23, tmp_##dest##23); \
 		dest##3 = VEC_SHUFFLE1(tmp_##dest##23, tmp_##dest##23);
-//  	dest##0 = _mm_shuffle_pd(tmp_##dest##01, tmp_##dest##01, _MM_SHUFFLE2(0,0)); \
-// 	 	dest##1 = _mm_shuffle_pd(tmp_##dest##01, tmp_##dest##01, _MM_SHUFFLE2(1,1)); \
-// 	 	dest##2 = _mm_shuffle_pd(tmp_##dest##23, tmp_##dest##23, _MM_SHUFFLE2(0,0)); \
-// 		dest##3 = _mm_shuffle_pd(tmp_##dest##23, tmp_##dest##23, _MM_SHUFFLE2(1,1));
+/*  	dest##0 = _mm_shuffle_pd(tmp_##dest##01, tmp_##dest##01, _MM_SHUFFLE2(0,0)); \
+ 	 	dest##1 = _mm_shuffle_pd(tmp_##dest##01, tmp_##dest##01, _MM_SHUFFLE2(1,1)); \
+ 	 	dest##2 = _mm_shuffle_pd(tmp_##dest##23, tmp_##dest##23, _MM_SHUFFLE2(0,0)); \
+ 		dest##3 = _mm_shuffle_pd(tmp_##dest##23, tmp_##dest##23, _MM_SHUFFLE2(1,1));
+*/
 
 #define SSE_PREFETCH_VECTORIZED_PARTIALS(dest, src, v) \
         dest##01 = _mm_load_pd(&src[v + 0]); \
@@ -79,10 +80,11 @@
 		dest##1 = VEC_SHUFFLE1(tmp_##dest##01, tmp_##dest##01); \
 		dest##2 = VEC_SHUFFLE0(tmp_##dest##23, tmp_##dest##23); \
 		dest##3 = VEC_SHUFFLE1(tmp_##dest##23, tmp_##dest##23);
-// 		dest##0 = _mm_shuffle_pd(tmp_##dest##01, tmp_##dest##01, _MM_SHUFFLE2(0,0)); \
-// 		dest##1 = _mm_shuffle_pd(tmp_##dest##01, tmp_##dest##01, _MM_SHUFFLE2(1,1)); \
-// 		dest##2 = _mm_shuffle_pd(tmp_##dest##23, tmp_##dest##23, _MM_SHUFFLE2(0,0)); \
-// 		dest##3 = _mm_shuffle_pd(tmp_##dest##23, tmp_##dest##23, _MM_SHUFFLE2(1,1));
+/* 		dest##0 = _mm_shuffle_pd(tmp_##dest##01, tmp_##dest##01, _MM_SHUFFLE2(0,0)); \
+ 		dest##1 = _mm_shuffle_pd(tmp_##dest##01, tmp_##dest##01, _MM_SHUFFLE2(1,1)); \
+ 		dest##2 = _mm_shuffle_pd(tmp_##dest##23, tmp_##dest##23, _MM_SHUFFLE2(0,0)); \
+ 		dest##3 = _mm_shuffle_pd(tmp_##dest##23, tmp_##dest##23, _MM_SHUFFLE2(1,1));
+*/
 #endif
 
 /* Loads (transposed) finite-time transition matrices into SSE vectors */
@@ -500,7 +502,7 @@ void BeagleCPU4StateSSEImpl<BEAGLE_CPU_4_SSE_DOUBLE>::calcPrePartialsStates(doub
     int v = 0;
     int w = 0;
 
-    V_Real	destq_01, destq_23, destr_01, destr_23;
+    V_Real	destq_01, destq_23; // destr_01, destr_23;
     VecUnion vu_mq[OFFSET][2], vu_mr[OFFSET][2];
     V_Real *destPvec = (V_Real *)destP;
 
@@ -779,8 +781,8 @@ void BeagleCPU4StateSSEImpl<BEAGLE_CPU_4_SSE_DOUBLE>::calcEdgeLogDerivativesPart
         VecUnion vu_m[OFFSET][2];
         SSE_PREFETCH_MATRIX(transMatrix + w, vu_m);
 
-        V_Real * vcl_p = (V_Real *)cl_p;
-        V_Real vwt = VEC_SPLAT(wt[l]);
+//        V_Real * vcl_p = (V_Real *)cl_p;
+//        V_Real vwt = VEC_SPLAT(wt[l]);
         for (int k = 0; k < kPatternCount; k++) {
 
             /* This would probably be faster on PPC/Altivec, which has a fused multiply-add
@@ -854,8 +856,8 @@ void BeagleCPU4StateSSEImpl<BEAGLE_CPU_4_SSE_DOUBLE>::calcEdgeLogDerivativesStat
         VecUnion vu_m[OFFSET][2];
         SSE_PREFETCH_MATRIX(transMatrix + w, vu_m);
 
-        V_Real * vcl_p = (V_Real *)cl_p;
-        V_Real vwt = VEC_SPLAT(wt[l]);
+//        V_Real * vcl_p = (V_Real *)cl_p;
+//        V_Real vwt = VEC_SPLAT(wt[l]);
         for (int k = 0; k < kPatternCount; k++) {
 
             const int stateChild = statesChild[k];

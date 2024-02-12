@@ -122,29 +122,31 @@
     p##lhs##2 * p##rhs##2 +        \
     p##lhs##3 * p##rhs##3
 
-//#define DO_INTEGRATION(num) \
-//    REALTYPE sum##num##0, sum##num##1, sum##num##2, sum##num##3; \
-//    sum##num##0  = m##num##00 * p##num##0; \
-//    sum##num##1  = m##num##10 * p##num##0; \
-//    sum##num##2  = m##num##20 * p##num##0; \
-//    sum##num##3  = m##num##30 * p##num##0; \
-// \
-//    sum##num##0 += m##num##01 * p##num##1; \
-//    sum##num##1 += m##num##11 * p##num##1; \
-//    sum##num##2 += m##num##21 * p##num##1; \
-//    sum##num##3 += m##num##31 * p##num##1; \
-// \
-//    sum##num##0 += m##num##02 * p##num##2; \
-//    sum##num##1 += m##num##12 * p##num##2; \
-//    sum##num##2 += m##num##22 * p##num##2; \
-//    sum##num##3 += m##num##32 * p##num##2; \
-// \
-//    sum##num##0 += m##num##03 * p##num##3; \
-//    sum##num##1 += m##num##13 * p##num##3; \
-//    sum##num##2 += m##num##23 * p##num##3; \
-//    sum##num##3 += m##num##33 * p##num##3;
-
+/*
 #define DO_INTEGRATION(num) \
+    REALTYPE sum##num##0, sum##num##1, sum##num##2, sum##num##3; \
+    sum##num##0  = m##num##00 * p##num##0; \
+    sum##num##1  = m##num##10 * p##num##0; \
+    sum##num##2  = m##num##20 * p##num##0; \
+    sum##num##3  = m##num##30 * p##num##0; \
+ \
+    sum##num##0 += m##num##01 * p##num##1; \
+    sum##num##1 += m##num##11 * p##num##1; \
+    sum##num##2 += m##num##21 * p##num##1; \
+    sum##num##3 += m##num##31 * p##num##1; \
+ \
+    sum##num##0 += m##num##02 * p##num##2; \
+    sum##num##1 += m##num##12 * p##num##2; \
+    sum##num##2 += m##num##22 * p##num##2; \
+    sum##num##3 += m##num##32 * p##num##2; \
+ \
+    sum##num##0 += m##num##03 * p##num##3; \
+    sum##num##1 += m##num##13 * p##num##3; \
+    sum##num##2 += m##num##23 * p##num##3; \
+    sum##num##3 += m##num##33 * p##num##3;
+*/
+
+#define DO_INTEGRATION(num)					 \
     REALTYPE sum##num##0, sum##num##1, sum##num##2, sum##num##3; \
     sum##num##0  = m##num##00 * p##num##0 + \
                    m##num##01 * p##num##1 + \
