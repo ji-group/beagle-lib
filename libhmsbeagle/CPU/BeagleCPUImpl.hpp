@@ -491,10 +491,9 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::createInstance(int tipCount,
                     gAutoPartitionIndices[i] = i;
                 }
                 gAutoPartitionOutSumLogLikelihoods = (double*) malloc(sizeof(double) * partitionCount);
-                kAutoRootPartitioningEnabled = false; //TODO: XJ: need to change this back to true
+                kAutoRootPartitioningEnabled = true;
             }
-            // TODO: XJ: need to change below back to true
-            kAutoPartitioningEnabled = false;
+            kAutoPartitioningEnabled = true;
         }
     }
 
