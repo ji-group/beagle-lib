@@ -11,3 +11,8 @@ if(CUDA_FOUND AND BUILD_CUDA)
     message(STATUS "CUDA Includes: ${CUDA_INCLUDE_DIRS}")
     add_subdirectory("CMake_CUDA")
 endif(CUDA_FOUND AND BUILD_CUDA)
+
+if(CUDA_FOUND AND BUILD_ACTION)
+    message(STATUS "CUDA Includes: ${CUDA_INCLUDE_DIRS}")
+    add_subdirectory("CMake_Action")
+endif(CUDA_FOUND AND BUILD_ACTION)
