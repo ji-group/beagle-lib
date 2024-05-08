@@ -5,7 +5,7 @@
  * @author Marc Suchard
  */
 
-#include "libhmsbeagle/GPU/BeagleGPUImpl.h"
+#include "libhmsbeagle/GPU/BeagleGPUActionImpl.h"
 #include "ActionCUDAPlugin.h"
 
 

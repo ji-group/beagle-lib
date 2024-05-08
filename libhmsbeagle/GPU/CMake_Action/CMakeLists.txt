@@ -33,8 +33,8 @@ add_custom_command(
 #add_custom_target(CudaKernels DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../kernels/BeagleCUDA_kernels.h)
 
 add_library(hmsbeagle-action-cuda SHARED
-        ../BeagleGPUImpl.h
-        ../BeagleGPUImpl.hpp
+        ../BeagleGPUActionImpl.h
+#        ../BeagleGPUActionImpl.hpp
         ../GPUImplDefs.h
         ../GPUImplHelper.cpp
         ../GPUImplHelper.h
