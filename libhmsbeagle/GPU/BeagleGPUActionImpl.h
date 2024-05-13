@@ -45,7 +45,22 @@ namespace gpu {
 #endif
 
 BEAGLE_GPU_TEMPLATE
-class BeagleGPUActionImpl : public BeagleGPUImpl<BEAGLE_GPU_GENERIC> {
+class BeagleGPUActionImpl : public BeagleGPUImpl<BEAGLE_GPU_GENERIC>
+{
+    int createInstance(int tipCount,
+		       int partialsBufferCount,
+		       int compactBufferCount,
+		       int stateCount,
+		       int patternCount,
+		       int eigenDecompositionCount,
+		       int matrixCount,
+		       int categoryCount,
+		       int scaleBufferCount,
+		       int globalResourceNumber,
+		       int pluginResourceNumber,
+		       long long preferenceFlags,
+		       long long requirementFlags);
+
 };
 
 BEAGLE_GPU_TEMPLATE

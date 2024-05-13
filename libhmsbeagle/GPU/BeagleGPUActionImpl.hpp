@@ -42,6 +42,38 @@ namespace gpu {
 #endif
 
 BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
+                                  int partialsBufferCount,
+                                  int compactBufferCount,
+                                  int stateCount,
+                                  int patternCount,
+                                  int eigenDecompositionCount,
+                                  int matrixCount,
+                                  int categoryCount,
+                                  int scaleBufferCount,
+                                  int globalResourceNumber,
+                                  int pluginResourceNumber,
+                                  long long preferenceFlags,
+                                  long long requirementFlags)
+{
+
+    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::create_instance(tipCount,
+							      partialsBufferCount,
+							      compactBufferCount,
+							      stateCount,
+							      patternCount,
+							      eigenDecompositionCount,
+							      matrixCount,
+							      categoryCount,
+							      scaleBufferCount,
+							      globalResourceNumber,
+							      pluginResourceNumber,
+							      preferenceFlags,
+							      requirementFlags);
+}
+
+
+BEAGLE_GPU_TEMPLATE
 BeagleImpl*  BeagleGPUActionImplFactory<BEAGLE_GPU_GENERIC>::createImpl(int tipCount,
                                               int partialsBufferCount,
                                               int compactBufferCount,
