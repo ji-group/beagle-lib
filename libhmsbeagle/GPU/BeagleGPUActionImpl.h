@@ -47,6 +47,7 @@ namespace gpu {
 BEAGLE_GPU_TEMPLATE
 class BeagleGPUActionImpl : public BeagleGPUImpl<BEAGLE_GPU_GENERIC>
 {
+public:
     const char* getName();
 
     long long getFlags();
@@ -65,6 +66,7 @@ class BeagleGPUActionImpl : public BeagleGPUImpl<BEAGLE_GPU_GENERIC>
 		       long long preferenceFlags,
 		       long long requirementFlags);
 
+    int setTipStates(int tipIndex, const int* inStates);
 };
 
 BEAGLE_GPU_TEMPLATE

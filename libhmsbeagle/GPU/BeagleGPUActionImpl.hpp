@@ -91,6 +91,20 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 
 
 BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipStates(int tipIndex, const int* inStates)
+{
+    std::cerr<<"\nBEAGLE: When using action-based likelihood computations, setTipStates( ) is not allowed.\n";
+    std::cerr<<"        Use setTipPartials( ) instead.\n\n";
+
+    // There does not appear to be a simple method of throwing C++ exceptions into Java through the JNI.
+    // However, throwing this exception makes Java print a stack trace that shows where the setTipStates( )
+    //   call is coming from.
+    throw std::runtime_error("This message will not be seen");
+
+    std::abort();
+}
+
+BEAGLE_GPU_TEMPLATE
 BeagleImpl*  BeagleGPUActionImplFactory<BEAGLE_GPU_GENERIC>::createImpl(int tipCount,
                                               int partialsBufferCount,
                                               int compactBufferCount,
