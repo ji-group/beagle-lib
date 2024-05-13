@@ -104,6 +104,51 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipStates(int tipIndex, const in
     std::abort();
 }
 
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
+							const int *operations,
+							int operationCount,
+							int cumulativeScalingIndex)
+{
+    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::upPartials(byPartition, operations, operationCount, cumulativeScalingIndex);
+}
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPrePartials(bool byPartition,
+							   const int *operations,
+							   int operationCount,
+							   int cumulativeScalingIndex)
+{
+    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::upPrePartials(byPartition, operations, operationCount, cumulativeScalingIndex);
+}
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setEigenDecomposition(int eigenIndex,
+								   const double *inEigenVectors,
+								   const double *inInverseEigenVectors,
+								   const double *inEigenValues)
+{
+    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::setEigenDecomposition(eigenIndex, inEigenVectors, inInverseEigenVectors, inEigenValues);
+}
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenIndex,
+								      const int* probabilityIndices,
+								      const int* firstDerivativeIndices,
+								      const int* secondDerivativeIndices,
+								      const double* edgeLengths,
+								      int count)
+{
+    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::updateTransitionProbabilityMatrices(eigenIndex,
+										  probabilityIndices,
+										  firstDerivativeIndices,
+										  secondDerivativeIndices,
+										  edgeLengths,
+										  count);
+}
+
+///-------------------------------- Factory -------------------------------------///	
 BEAGLE_GPU_TEMPLATE
 BeagleImpl*  BeagleGPUActionImplFactory<BEAGLE_GPU_GENERIC>::createImpl(int tipCount,
                                               int partialsBufferCount,

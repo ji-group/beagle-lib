@@ -67,6 +67,31 @@ public:
 		       long long requirementFlags);
 
     int setTipStates(int tipIndex, const int* inStates);
+
+protected:
+
+    int upPartials(bool byPartition,
+		   const int *operations,
+		   int operationCount,
+		   int cumulativeScalingIndex);
+
+    int upPrePartials(bool byPartition,
+		      const int *operations,
+		      int operationCount,
+		      int cumulativeScalingIndex);
+
+private:
+    int setEigenDecomposition(int eigenIndex,
+			      const double *inEigenVectors,
+			      const double *inInverseEigenVectors,
+			      const double *inEigenValues);
+
+    int updateTransitionMatrices(int eigenIndex,
+				 const int* probabilityIndices,
+				 const int* firstDerivativeIndices,
+				 const int* secondDerivativeIndices,
+				 const double* edgeLengths,
+				 int count);
 };
 
 BEAGLE_GPU_TEMPLATE
