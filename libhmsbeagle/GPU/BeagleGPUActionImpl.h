@@ -47,6 +47,10 @@ namespace gpu {
 BEAGLE_GPU_TEMPLATE
 class BeagleGPUActionImpl : public BeagleGPUImpl<BEAGLE_GPU_GENERIC>
 {
+    const char* getName();
+
+    long long getFlags();
+
     int createInstance(int tipCount,
 		       int partialsBufferCount,
 		       int compactBufferCount,

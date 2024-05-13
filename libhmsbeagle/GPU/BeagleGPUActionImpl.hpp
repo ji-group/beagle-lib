@@ -42,6 +42,23 @@ namespace gpu {
 #endif
 
 BEAGLE_GPU_TEMPLATE
+const char* BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getName()
+{
+    return BeagleGPUActionImplFactory<BEAGLE_GPU_GENERIC>::getName();
+}
+
+
+BEAGLE_GPU_TEMPLATE
+long long BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getFlags()
+{
+    auto flags = BeagleGPUImpl<BEAGLE_GPU_GENERIC>::getFlags();
+
+    flags |= BEAGLE_FLAG_COMPUTATION_ACTION;
+
+    return flags;
+}
+
+BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                   int partialsBufferCount,
                                   int compactBufferCount,
