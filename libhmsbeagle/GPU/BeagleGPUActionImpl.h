@@ -50,10 +50,30 @@ class BeagleGPUActionImpl : public BeagleGPUImpl<BEAGLE_GPU_GENERIC> {
 
 BEAGLE_GPU_TEMPLATE
 class BeagleGPUActionImplFactory : public BeagleGPUImplFactory<BEAGLE_GPU_GENERIC> {
+    virtual BeagleImpl* createImpl(int tipCount,
+                                   int partialsBufferCount,
+                                   int compactBufferCount,
+                                   int stateCount,
+                                   int patternCount,
+                                   int eigenBufferCount,
+                                   int matrixBufferCount,
+                                   int categoryCount,
+                                   int scaleBufferCount,
+                                   int resourceNumber,
+                                   int pluginResourceNumber,
+                                   long long preferenceFlags,
+                                   long long requirementFlags,
+                                   int* errorCode);
+
+    virtual const char* getName();
+    virtual long long getFlags();
 };
 
 } // namspace device
 }	// namespace gpu
 }	// namespace beagle
 
+#include "libhmsbeagle/GPU/BeagleGPUActionImpl.hpp"
+
 #endif
+

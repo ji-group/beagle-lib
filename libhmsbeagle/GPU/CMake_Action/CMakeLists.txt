@@ -34,7 +34,7 @@ add_custom_command(
 
 add_library(hmsbeagle-action-cuda SHARED
         ../BeagleGPUActionImpl.h
-#        ../BeagleGPUActionImpl.hpp
+        ../BeagleGPUActionImpl.hpp
         ../GPUImplDefs.h
         ../GPUImplHelper.cpp
         ../GPUImplHelper.h
