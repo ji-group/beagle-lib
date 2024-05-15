@@ -167,15 +167,13 @@ int main( int argc, const char* argv[] )
     // print resource list
     BeagleResourceList* rList;
     rList = beagleGetResourceList();
-    fprintf(stdout, "Available resources:\n");
+    std::cout<<"Available resources:\n";
     for (int i = 0; i < rList->length; i++) {
-        fprintf(stdout, "\tResource %i:\n\t\tName : %s\n", i, rList->list[i].name);
-        fprintf(stdout, "\t\tDesc : %s\n", rList->list[i].description);
-        fprintf(stdout, "\t\tFlags:");
-        fprintf(stdout, showFlags( BeagleFlags(rList->list[i].supportFlags ) ).c_str() );
-        fprintf(stdout, "\n");
+        std::cout<<"\tResource "<<i<<":\n\t\tName : "<<rList->list[i].name<<"\n";
+	std::cout<<"\t\tDesc : "<<rList->list[i].description<<"\n";
+	std::cout<<"\t\tFlags:"<<BeagleFlags(rList->list[i].supportFlags )<<"\n";
     }
-    fprintf(stdout, "\n");
+    std::cout<<"\n";
 
     bool scaling = true;
 
@@ -269,17 +267,17 @@ int main( int argc, const char* argv[] )
             requirementFlags, /**< Bit-flags indicating required implementation characteristics, see BeagleFlags (input) */
             &instDetails);
     if (instance < 0) {
-        fprintf(stderr, "Failed to obtain BEAGLE instance\n\n");
+        std::cerr<<"Failed to obtain BEAGLE instance\n\n";
         exit(1);
     }
 
 
     int rNumber = instDetails.resourceNumber;
-    fprintf(stdout, "Using resource %i:\n", rNumber);
-    fprintf(stdout, "\tRsrc Name : %s\n",instDetails.resourceName);
-    fprintf(stdout, "\tImpl Name : %s\n", instDetails.implName);
-    fprintf(stdout, "\tImpl Desc : %s\n", instDetails.implDescription);
-    fprintf(stdout, "\n");
+    std::cout<<"Using resource "<<rNumber<<":\n";
+    std::cout<<"\tRsrc Name : "<<instDetails.resourceName<<"\n";
+    std::cout<<"\tImpl Name : "<<instDetails.implName<<"\n";
+    std::cout<<"\tImpl Desc : "<<instDetails.implDescription<<"\n";
+    std::cout<<"\n";
 
     if (useTipStates) {
         // set the sequences for each tip using state likelihood arrays
@@ -577,7 +575,7 @@ int main( int argc, const char* argv[] )
 //                             1);                                    // count
 
 
-    fprintf(stdout, "logL = %.5f (R = -18.04619478977292)\n\n", logL);
+    std::cout<<"logL = "<<logL<<" (R = -18.04619478977292)\n\n";
 
     double * seerootPartials = (double*) malloc(sizeof(double) * stateCount * nPatterns * rateCategoryCount);
     int offset = 0;
