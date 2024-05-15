@@ -214,7 +214,10 @@ int main( int argc, const char* argv[] )
     bool useTipStates = false;
 
     int whichDevice = -1;
-    if (useGpu) {
+    if (useGpu)
+    {
+        useSSE = false;
+
         if (argc > 2) {
             whichDevice = atol(argv[2]);
             if (whichDevice < 0) {
@@ -225,26 +228,25 @@ int main( int argc, const char* argv[] )
 
     BeagleInstanceDetails instDetails;
 
+//    long requirementFlags = BEAGLE_FLAG_EIGEN_REAL;
+    long long requirementFlags = 0;
     long long preferenceFlags = BEAGLE_FLAG_COMPUTATION_ACTION;
 
     if (useGpu) {
-        preferenceFlags |= BEAGLE_FLAG_PROCESSOR_GPU;
+        requirementFlags |= BEAGLE_FLAG_PROCESSOR_GPU;
     } else {
-        preferenceFlags |= BEAGLE_FLAG_PROCESSOR_CPU;
+        requirementFlags |= BEAGLE_FLAG_PROCESSOR_CPU;
+	if (useSSE) {
+	  requirementFlags |= BEAGLE_FLAG_VECTOR_SSE;
+	} else {
+	  requirementFlags |= BEAGLE_FLAG_VECTOR_NONE;
+	}
     }
 
     if (singlePrecision) {
         preferenceFlags |= BEAGLE_FLAG_PRECISION_SINGLE;
     } else {
         preferenceFlags |= BEAGLE_FLAG_PRECISION_DOUBLE;
-    }
-
-//    long requirementFlags = BEAGLE_FLAG_EIGEN_REAL;
-    long long requirementFlags = BEAGLE_FLAG_FRAMEWORK_CPU;
-    if (useSSE) {
-        requirementFlags |= BEAGLE_FLAG_VECTOR_SSE;
-    } else {
-        requirementFlags |= BEAGLE_FLAG_VECTOR_NONE;
     }
 
     if (useThreading)
