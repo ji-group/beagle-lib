@@ -1,12 +1,13 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstring>
+#include <cstdlib>
 #include <iostream>
 #include <libhmsbeagle/BeagleImpl.h>
 #include <cmath>
 #include <vector>
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
+#include <sstream>
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
 typedef Eigen::Map<MatrixXd> MapType;
@@ -104,33 +105,61 @@ double* getPartials(char *sequence, int repeats) {
     return partials;
 }
 
-void printFlags(long inFlags) {
-    if (inFlags & BEAGLE_FLAG_PROCESSOR_CPU)      fprintf(stdout, " PROCESSOR_CPU");
-    if (inFlags & BEAGLE_FLAG_PROCESSOR_GPU)      fprintf(stdout, " PROCESSOR_GPU");
-    if (inFlags & BEAGLE_FLAG_PROCESSOR_FPGA)     fprintf(stdout, " PROCESSOR_FPGA");
-    if (inFlags & BEAGLE_FLAG_PROCESSOR_CELL)     fprintf(stdout, " PROCESSOR_CELL");
-    if (inFlags & BEAGLE_FLAG_PRECISION_DOUBLE)   fprintf(stdout, " PRECISION_DOUBLE");
-    if (inFlags & BEAGLE_FLAG_PRECISION_SINGLE)   fprintf(stdout, " PRECISION_SINGLE");
-    if (inFlags & BEAGLE_FLAG_COMPUTATION_ASYNCH) fprintf(stdout, " COMPUTATION_ASYNCH");
-    if (inFlags & BEAGLE_FLAG_COMPUTATION_SYNCH)  fprintf(stdout, " COMPUTATION_SYNCH");
-    if (inFlags & BEAGLE_FLAG_EIGEN_REAL)         fprintf(stdout, " EIGEN_REAL");
-    if (inFlags & BEAGLE_FLAG_EIGEN_COMPLEX)      fprintf(stdout, " EIGEN_COMPLEX");
-    if (inFlags & BEAGLE_FLAG_SCALING_MANUAL)     fprintf(stdout, " SCALING_MANUAL");
-    if (inFlags & BEAGLE_FLAG_SCALING_AUTO)       fprintf(stdout, " SCALING_AUTO");
-    if (inFlags & BEAGLE_FLAG_SCALING_ALWAYS)     fprintf(stdout, " SCALING_ALWAYS");
-    if (inFlags & BEAGLE_FLAG_SCALING_DYNAMIC)    fprintf(stdout, " SCALING_DYNAMIC");
-    if (inFlags & BEAGLE_FLAG_SCALERS_RAW)        fprintf(stdout, " SCALERS_RAW");
-    if (inFlags & BEAGLE_FLAG_SCALERS_LOG)        fprintf(stdout, " SCALERS_LOG");
-    if (inFlags & BEAGLE_FLAG_VECTOR_NONE)        fprintf(stdout, " VECTOR_NONE");
-    if (inFlags & BEAGLE_FLAG_VECTOR_SSE)         fprintf(stdout, " VECTOR_SSE");
-    if (inFlags & BEAGLE_FLAG_VECTOR_AVX)         fprintf(stdout, " VECTOR_AVX");
-    if (inFlags & BEAGLE_FLAG_THREADING_NONE)     fprintf(stdout, " THREADING_NONE");
-    if (inFlags & BEAGLE_FLAG_THREADING_CPP)      fprintf(stdout, " THREADING_CPP");
-    if (inFlags & BEAGLE_FLAG_THREADING_OPENMP)   fprintf(stdout, " THREADING_OPENMP");
-    if (inFlags & BEAGLE_FLAG_FRAMEWORK_CPU)      fprintf(stdout, " FRAMEWORK_CPU");
-    if (inFlags & BEAGLE_FLAG_FRAMEWORK_CUDA)     fprintf(stdout, " FRAMEWORK_CUDA");
-    if (inFlags & BEAGLE_FLAG_FRAMEWORK_OPENCL)   fprintf(stdout, " FRAMEWORK_OPENCL");
-    if (inFlags & BEAGLE_FLAG_COMPUTATION_ACTION)   fprintf(stdout, " COMPUTATION_ACTION");
+
+std::ostream& operator<<(std::ostream& o, BeagleFlags inFlags)
+{
+    if (inFlags & BEAGLE_FLAG_PRECISION_SINGLE)   o<<" PRECISION_SINGLE";
+    if (inFlags & BEAGLE_FLAG_PRECISION_DOUBLE)   o<<" PRECISION_DOUBLE";
+    if (inFlags & BEAGLE_FLAG_COMPUTATION_SYNCH)  o<<" COMPUTATION_SYNCH";
+    if (inFlags & BEAGLE_FLAG_COMPUTATION_ASYNCH) o<<" COMPUTATION_ASYNCH";
+    if (inFlags & BEAGLE_FLAG_EIGEN_REAL)         o<<" EIGEN_REAL";
+    if (inFlags & BEAGLE_FLAG_EIGEN_COMPLEX)      o<<" EIGEN_COMPLEX";
+
+    if (inFlags & BEAGLE_FLAG_SCALING_MANUAL)     o<<" SCALING_MANUAL";
+    if (inFlags & BEAGLE_FLAG_SCALING_AUTO)       o<<" SCALING_AUTO";
+    if (inFlags & BEAGLE_FLAG_SCALING_ALWAYS)     o<<" SCALING_ALWAYS";
+    if (inFlags & BEAGLE_FLAG_SCALING_DYNAMIC)    o<<" SCALING_DYNAMIC";
+    if (inFlags & BEAGLE_FLAG_SCALERS_RAW)        o<<" SCALERS_RAW";
+    if (inFlags & BEAGLE_FLAG_SCALERS_LOG)        o<<" SCALERS_LOG";
+
+    if (inFlags & BEAGLE_FLAG_INVEVEC_STANDARD)   o<<" INVENV_STANDARD";
+    if (inFlags & BEAGLE_FLAG_INVEVEC_TRANSPOSED) o<<" INVENV_STANDARD";
+
+    if (inFlags & BEAGLE_FLAG_VECTOR_SSE)         o<<" VECTOR_SSE";
+    if (inFlags & BEAGLE_FLAG_VECTOR_AVX)         o<<" VECTOR_AVX";
+    if (inFlags & BEAGLE_FLAG_VECTOR_NONE)        o<<" VECTOR_NONE";
+
+    if (inFlags & BEAGLE_FLAG_THREADING_CPP)      o<<" THREADING_CPP";
+    if (inFlags & BEAGLE_FLAG_THREADING_OPENMP)   o<<" THREADING_OPENMP";
+    if (inFlags & BEAGLE_FLAG_THREADING_NONE)     o<<" THREADING_NONE";
+
+    if (inFlags & BEAGLE_FLAG_PROCESSOR_CPU)      o<<" PROCESSOR_CPU";
+    if (inFlags & BEAGLE_FLAG_PROCESSOR_GPU)      o<<" PROCESSOR_GPU";
+    if (inFlags & BEAGLE_FLAG_PROCESSOR_FPGA)     o<<" PROCESSOR_FPGA";
+    if (inFlags & BEAGLE_FLAG_PROCESSOR_CELL)     o<<" PROCESSOR_CELL";
+    if (inFlags & BEAGLE_FLAG_PROCESSOR_PHI)      o<<" PROCESSOR_PHI";
+    if (inFlags & BEAGLE_FLAG_PROCESSOR_OTHER)    o<<" PROCESSOR_OTHER";
+
+    if (inFlags & BEAGLE_FLAG_FRAMEWORK_CUDA)     o<<" FRAMEWORK_CUDA";
+    if (inFlags & BEAGLE_FLAG_FRAMEWORK_OPENCL)   o<<" FRAMEWORK_OPENCL";
+    if (inFlags & BEAGLE_FLAG_FRAMEWORK_CPU)      o<<" FRAMEWORK_CPU";
+
+    if (inFlags & BEAGLE_FLAG_PARALLELOPS_STREAMS) o<<" PARALLEL_OPS_STREAMS";
+    if (inFlags & BEAGLE_FLAG_PARALLELOPS_GRID) o<<" PARALLEL_OPS_GRID";
+
+    if (inFlags & BEAGLE_FLAG_PREORDER_TRANSPOSE_MANUAL) o<<" PREORDER_TRANSPOSE_MANUAL";
+    if (inFlags & BEAGLE_FLAG_PREORDER_TRANSPOSE_AUTO) o<<" PREORDER_TRANSPOSE_MANUAL";
+
+    if (inFlags & BEAGLE_FLAG_COMPUTATION_ACTION) o<<" COMPUTATION_ACTION";
+
+    return o;
+}
+
+std::string showFlags(BeagleFlags flags)
+{
+    std::ostringstream o;
+    o<<flags;
+    return o.str();
 }
 
 int main( int argc, const char* argv[] )
@@ -143,7 +172,7 @@ int main( int argc, const char* argv[] )
         fprintf(stdout, "\tResource %i:\n\t\tName : %s\n", i, rList->list[i].name);
         fprintf(stdout, "\t\tDesc : %s\n", rList->list[i].description);
         fprintf(stdout, "\t\tFlags:");
-        printFlags(rList->list[i].supportFlags);
+        fprintf(stdout, showFlags( BeagleFlags(rList->list[i].supportFlags ) ).c_str() );
         fprintf(stdout, "\n");
     }
     fprintf(stdout, "\n");
