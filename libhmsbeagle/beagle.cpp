@@ -369,7 +369,7 @@ int filterResources(int* resourceList,
         for(PairedList::iterator it = possibleResources->begin();
             it != possibleResources->end(); ++it) {
             int resource = (*it).second;
-            long resourceFlag = rsrcList->list[resource].supportFlags;
+            long long resourceFlag = rsrcList->list[resource].supportFlags;
             if ( (resourceFlag & requirementFlags) < requirementFlags) {
                 if(it==possibleResources->begin()){
                     possibleResources->remove(*(it));
@@ -401,8 +401,8 @@ int rankResourceImplementationPairs(long long preferenceFlags,
     for(PairedList::iterator it = possibleResources->begin();
         it != possibleResources->end(); ++it) {
         int resource = (*it).second;
-        long resourceRequiredFlags = rsrcList->list[resource].requiredFlags;
-        long resourceSupportedFlags = rsrcList->list[resource].supportFlags;
+        long long resourceRequiredFlags = rsrcList->list[resource].requiredFlags;
+        long long resourceSupportedFlags = rsrcList->list[resource].supportFlags;
         int resourceScore = (*it).first;
 #ifdef BEAGLE_DEBUG_FLOW
         fprintf(stderr,"Possible resource: %s (%d)\n",rsrcList->list[resource].name,resourceScore);
@@ -410,7 +410,7 @@ int rankResourceImplementationPairs(long long preferenceFlags,
 
         for (std::list<beagle::BeagleImplFactory*>::iterator factory =
              implFactory->begin(); factory != implFactory->end(); factory++) {
-            long factoryFlags = (*factory)->getFlags();
+             long long factoryFlags = (*factory)->getFlags();
 #ifdef BEAGLE_DEBUG_FLOW
             fprintf(stderr,"\tExamining implementation: %s\n",(*factory)->getName());
 #endif
@@ -467,7 +467,7 @@ BeagleBenchmarkedResourceList* beagleGetBenchmarkedResourceList(int tipCount,
                                                                 int eigenModelCount,
                                                                 int partitionCount,
                                                                 int calculateDerivatives,
-                                                                long benchmarkFlags) {
+                                                                long long benchmarkFlags) {
 
 #ifdef BEAGLE_DEBUG_FP_REDUCED_PRECISION
     debugPatternCount = patternCount;
@@ -518,7 +518,7 @@ BeagleBenchmarkedResourceList* beagleGetBenchmarkedResourceList(int tipCount,
 
     int resourceNumber;
     char* implName;
-    long benchedFlags;
+    long long benchedFlags;
     double benchmarkResultCPU;
 
     bool instOnly = false;

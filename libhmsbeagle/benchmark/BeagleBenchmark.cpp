@@ -135,7 +135,7 @@ int benchmarkResource(int resource,
                          long long requirementFlags,
                          int* resourceNumber,
                          char** implName,
-                         long* benchedFlags,
+                         long long* benchedFlags,
                          double* benchmarkResult,
                          bool instOnly) {
 

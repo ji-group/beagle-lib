@@ -237,7 +237,7 @@ typedef struct {
     char* name;         /**< Name of resource as a NULL-terminated character string */
     char* description;  /**< Description of resource as a NULL-terminated character string */
     long long  supportFlags; /**< Bit-flags of supported capabilities on resource */
-    long  requiredFlags;/**< Bit-flags that identify resource type */
+    long long  requiredFlags;/**< Bit-flags that identify resource type */
 } BeagleResource;
 
 /**
@@ -256,10 +256,10 @@ typedef struct {
     char* name;         /**< Name of resource as a NULL-terminated character string */
     char* description;  /**< Description of resource as a NULL-terminated character string */
     long long  supportFlags; /**< Bit-flags of supported capabilities on resource */
-    long  requiredFlags;/**< Bit-flags that identify resource type */
+    long long  requiredFlags;/**< Bit-flags that identify resource type */
     int   returnCode;   /**< Return code of for benchmark attempt (see BeagleReturnCodes) */
     char* implName;     /**< Name of implementation used to benchmark resource */
-    long  benchedFlags; /**< Bit-flags that characterize the activate
+    long long  benchedFlags; /**< Bit-flags that characterize the activate
                          *   capabilities of the resource and implementation for this benchmark */
     double benchmarkResult; /**< Benchmark result in milliseconds */
     double performanceRatio; /**< Performance ratio relative to default CPU resource */
@@ -354,7 +354,7 @@ BEAGLE_DLLEXPORT BeagleBenchmarkedResourceList* beagleGetBenchmarkedResourceList
                                                     int eigenModelCount,
                                                     int partitionCount,
                                                     int calculateDerivatives,
-                                                    long benchmarkFlags);
+                                                    long long benchmarkFlags);
 
 /**
  * @brief Create a single instance
