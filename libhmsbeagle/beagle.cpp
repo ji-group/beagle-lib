@@ -334,7 +334,7 @@ BeagleResourceList* beagleGetResourceList() {
     return rsrcList;
 }
 
-int scoreFlags(long flags1, long flags2) {
+int scoreFlags(long long flags1, long long flags2) {
     int score = 0;
     unsigned long trait = 1;
     for(int bits=0; bits<64; bits++) {
