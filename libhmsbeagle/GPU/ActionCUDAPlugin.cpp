@@ -63,10 +63,9 @@ namespace beagle {
             if (anyGPUSupportsCUDA) {
                 using namespace cuda;
                 if (anyGPUSupportsDP) {
-                    // TODO Uncomment when working
-                    beagleFactories.push_back(new BeagleGPUImplFactory<double>());
+                    beagleFactories.push_back(new BeagleGPUActionImplFactory<double>());
                 }
-                beagleFactories.push_back(new BeagleGPUImplFactory<float>());
+                beagleFactories.push_back(new BeagleGPUActionImplFactory<float>());
             }
         }
 
