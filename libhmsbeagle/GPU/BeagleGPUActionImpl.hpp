@@ -74,19 +74,19 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                   long long requirementFlags)
 {
 
-    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::create_instance(tipCount,
-							      partialsBufferCount,
-							      compactBufferCount,
-							      stateCount,
-							      patternCount,
-							      eigenDecompositionCount,
-							      matrixCount,
-							      categoryCount,
-							      scaleBufferCount,
-							      globalResourceNumber,
-							      pluginResourceNumber,
-							      preferenceFlags,
-							      requirementFlags);
+    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::createInstance(tipCount,
+                                                             partialsBufferCount,
+                                                             compactBufferCount,
+                                                             stateCount,
+                                                             patternCount,
+                                                             eigenDecompositionCount,
+                                                             matrixCount,
+                                                             categoryCount,
+                                                             scaleBufferCount,
+                                                             globalResourceNumber,
+                                                             pluginResourceNumber,
+                                                             preferenceFlags,
+                                                             requirementFlags);
 }
 
 
@@ -140,12 +140,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenI
 								      const double* edgeLengths,
 								      int count)
 {
-    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::updateTransitionProbabilityMatrices(eigenIndex,
-										  probabilityIndices,
-										  firstDerivativeIndices,
-										  secondDerivativeIndices,
-										  edgeLengths,
-										  count);
+    return BEAGLE_ERROR_NO_IMPLEMENTATION;
 }
 
 ///-------------------------------- Factory -------------------------------------///	
