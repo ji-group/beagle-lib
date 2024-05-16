@@ -30,9 +30,6 @@
 #include "libhmsbeagle/config.h"
 #endif
 
-#define BEAGLE_DEBUG_FLOW
-#define BEAGLE_DEBUG_LOAD
-
 #ifdef _WIN32
 #include <windows.h>
 #endif
