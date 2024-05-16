@@ -30,6 +30,9 @@
 #include "libhmsbeagle/config.h"
 #endif
 
+#define BEAGLE_DEBUG_FLOW
+#define BEAGLE_DEBUG_LOAD
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -178,6 +181,19 @@ void beagleLoadPlugins(void) {
         beagle::plugin::Plugin* actionplug = pm.findPlugin("hmsbeagle-cpu-action");
         plugins->push_back(actionplug);
     }catch(beagle::plugin::SharedLibraryException sle){}
+
+    try{
+#ifdef BEAGLE_DEBUG_LOAD
+        std::cerr << "Loading hmsbeagle-action-cuda" << std::endl;
+#endif
+        beagle::plugin::Plugin* actiongpuplug = pm.findPlugin("hmsbeagle-action-cuda");
+        plugins->push_back(actiongpuplug);
+    }catch(beagle::plugin::SharedLibraryException sle){
+#ifdef BEAGLE_DEBUG_LOAD
+        std::cerr << "Unable to load hmsbeagle-action-cuda: " << sle.getError() << std::endl;
+#endif
+    }
+
 
     try{
         beagle::plugin::Plugin* avxplug = pm.findPlugin("hmsbeagle-cpu-avx");
