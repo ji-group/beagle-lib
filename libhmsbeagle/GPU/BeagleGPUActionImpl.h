@@ -81,6 +81,8 @@ protected:
 		      int cumulativeScalingIndex);
 
 private:
+    char* getInstanceName();
+
     int setEigenDecomposition(int eigenIndex,
 			      const double *inEigenVectors,
 			      const double *inInverseEigenVectors,

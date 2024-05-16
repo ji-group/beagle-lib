@@ -89,6 +89,27 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                                              requirementFlags);
 }
 
+#ifdef CUDA
+template<>
+char* BeagleGPUActionImpl<double>::getInstanceName() {
+    return (char*) "Action-CUDA-Double";
+}
+
+template<>
+char* BeagleGPUActionImpl<float>::getInstanceName() {
+    return (char*) "Action-CUDA-Single";
+}
+#elif defined(FW_OPENCL)
+            template<>
+char* BeagleGPUActionImpl<double>::getInstanceName() {
+    return (char*) "Action-OpenCL-Double";
+}
+
+template<>
+char* BeagleGPUActionImpl<float>::getInstanceName() {
+    return (char*) "Action-OpenCL-Single";
+}
+#endif
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipStates(int tipIndex, const int* inStates)
