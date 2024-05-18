@@ -648,7 +648,7 @@ namespace beagle {
                     << " edge length multiplier: " << edgeLengths[i]
                     << "  edgeMultiplier: "<< gEdgeMultipliers[nodeIndex * kCategoryCount + category]
                     << "  nodeIndex: "<< nodeIndex
-                    << std::endl << gScaledQs[nodeIndex][category]<<std::endl;
+                    <<std::endl;
 #endif
                 }
             }
