@@ -89,6 +89,13 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                                              requirementFlags);
 }
 
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getInstanceDetails(BeagleInstanceDetails* returnInfo) {
+    BeagleGPUImpl<BEAGLE_GPU_GENERIC>::getInstanceDetails(returnInfo);
+    returnInfo->implName = getInstanceName();
+    return BEAGLE_SUCCESS;
+}
+
 #ifdef CUDA
 template<>
 char* BeagleGPUActionImpl<double>::getInstanceName() {

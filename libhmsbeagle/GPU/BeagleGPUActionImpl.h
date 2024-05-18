@@ -52,6 +52,8 @@ public:
 
     long long getFlags();
 
+    int getInstanceDetails(BeagleInstanceDetails* retunInfo);
+
     int createInstance(int tipCount,
 		       int partialsBufferCount,
 		       int compactBufferCount,
