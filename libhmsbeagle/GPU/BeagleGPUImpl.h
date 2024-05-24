@@ -63,7 +63,7 @@ BEAGLE_GPU_TEMPLATE
 class BeagleGPUImpl : public BeagleImpl {
 
 
-private:
+protected:
     GPUInterface* gpu;
     KernelLauncher* kernels;
     

@@ -74,7 +74,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                   long long requirementFlags)
 {
 
-    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::createInstance(tipCount,
+    int parentCode = BeagleGPUImpl<BEAGLE_GPU_GENERIC>::createInstance(tipCount,
                                                              partialsBufferCount,
                                                              compactBufferCount,
                                                              stateCount,
@@ -87,6 +87,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                                              pluginResourceNumber,
                                                              preferenceFlags,
                                                              requirementFlags);
+    return BEAGLE_SUCCESS;
 }
 
 BEAGLE_GPU_TEMPLATE
