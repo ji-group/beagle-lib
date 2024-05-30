@@ -655,13 +655,6 @@ namespace beagle {
                 ds[matrixIndex].push_back( pow( approx_norm, 1.0/double(p) ) );
             }
 
-#ifdef BEAGLE_DEBUG_FLOW
-            std::cerr<<"In vlaues: \n";
-            for (int i = 0; i < numNonZeros; i++) {
-                std::cerr<< "("<<inEigenVectors[2 * i] << ", " << inEigenVectors[2 * i + 1] << ") = "<< inEigenValues[i]<< std::endl;
-            }
-            std::cerr<<"Instantaneous matrix " << std::endl << gInstantaneousMatrices[eigenIndex]<<std::endl;
-#endif
             return BEAGLE_SUCCESS;
         }
 
