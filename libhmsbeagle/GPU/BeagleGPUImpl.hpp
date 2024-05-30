@@ -1152,6 +1152,15 @@ int BeagleGPUImpl<BEAGLE_GPU_GENERIC>::setEigenDecomposition(int eigenIndex,
 }
 
 BEAGLE_GPU_TEMPLATE
+int BeagleGPUImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
+                                                       const int* rowIndices,
+                                                       const int* colIndices,
+                                                       const double* values,
+                                                       int numNonZeros) {
+    return BEAGLE_ERROR_NO_IMPLEMENTATION;
+}
+
+BEAGLE_GPU_TEMPLATE
 int BeagleGPUImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFrequenciesIndex,
                                        const double* inStateFrequencies) {
 #ifdef BEAGLE_DEBUG_FLOW

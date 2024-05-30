@@ -621,6 +621,51 @@ namespace beagle {
         }
 
         BEAGLE_CPU_ACTION_TEMPLATE
+        int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::setSparseMatrix(int matrixIndex,
+                                                                           const int* rowIndices,
+                                                                           const int* colIndices,
+                                                                           const double* values,
+                                                                           int numNonZeros) {
+
+
+            std::vector<Triplet> tripletList;
+            for (int i = 0; i < numNonZeros; i++) {
+                tripletList.push_back(Triplet(rowIndices[i], colIndices[i], values[i]));
+            }
+            gInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
+
+            double mu_B = 0.0;
+            for (int i = 0; i < kStateCount; i++) {
+                mu_B += gInstantaneousMatrices[matrixIndex].coeff(i, i);
+            }
+            mu_B /= (double) kStateCount;
+            gMuBs[matrixIndex] = mu_B;
+            gBs[matrixIndex] = gInstantaneousMatrices[matrixIndex] - mu_B * identity;
+            gB1Norms[matrixIndex] = normP1(gBs[matrixIndex]);
+
+            ds[matrixIndex].clear();
+
+            int pMax = getPMax();
+            for(int p=0;p <= pMax+1; p++)
+            {
+                int t = 5;
+                double approx_norm = normest1( gBs[matrixIndex], p, t);
+
+                // equation 3.7 in Al-Mohy and Higham
+                ds[matrixIndex].push_back( pow( approx_norm, 1.0/double(p) ) );
+            }
+
+#ifdef BEAGLE_DEBUG_FLOW
+            std::cerr<<"In vlaues: \n";
+            for (int i = 0; i < numNonZeros; i++) {
+                std::cerr<< "("<<inEigenVectors[2 * i] << ", " << inEigenVectors[2 * i + 1] << ") = "<< inEigenValues[i]<< std::endl;
+            }
+            std::cerr<<"Instantaneous matrix " << std::endl << gInstantaneousMatrices[eigenIndex]<<std::endl;
+#endif
+            return BEAGLE_SUCCESS;
+        }
+
+        BEAGLE_CPU_ACTION_TEMPLATE
         int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::updateTransitionMatrices(int eigenIndex,
                                                                                     const int* probabilityIndices,
                                                                                     const int* firstDerivativeIndices,

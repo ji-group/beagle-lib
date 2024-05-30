@@ -82,6 +82,12 @@ public:
                                       const double* inEigenVectors,
                                       const double* inInverseEigenVectors,
                                       const double* inEigenValues) = 0;
+
+    virtual int setSparseMatrix(int matrixIndex,
+                                const int* rowIndices,
+                                const int* colIndices,
+                                const double* values,
+                                int numNonZeros) = 0;
     
     virtual int setStateFrequencies(int stateFrequenciesIndex,
                                   const double* inStateFrequencies) = 0;    

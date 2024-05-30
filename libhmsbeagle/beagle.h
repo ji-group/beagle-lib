@@ -550,6 +550,27 @@ BEAGLE_DLLEXPORT int beagleSetEigenDecomposition(int instance,
                                 const double* inEigenValues);
 
 /**
+ * @brief Set a sparse matrix using non-zero entries
+ *
+ * This function sets a sparse matrix in an instance buffer.
+ *
+ * @param instance              Instance number (input)
+ * @param matrixIndex           Index of eigen-decomposition buffer (input)
+ * @param rowIndices            List of row indices of non-zero entries (input)
+ * @param colIndices            List of column indices of non-zero entries (input)
+ * @param values                List of non-zero entry values
+ * @param numNonZeros           Number of non-zero entries
+ *
+ * @return error code
+ */
+BEAGLE_DLLEXPORT int beagleSetSparseMatrix(int instance,
+                                           int matrixIndex,
+                                           const int* rowIndices,
+                                           const int* colIndices,
+                                           const double* values,
+                                           int numNonZeros);
+
+/**
  * @brief Set a state frequency buffer
  *
  * This function copies a state frequency array into an instance buffer.

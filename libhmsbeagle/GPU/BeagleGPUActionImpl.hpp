@@ -301,6 +301,16 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setEigenDecomposition(int eigenInde
 }
 
 BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
+                                                             const int* rowIndices,
+                                                             const int* colIndices,
+                                                             const double* values,
+                                                             int numNonZeros)
+{
+    return BEAGLE_ERROR_NO_IMPLEMENTATION;
+}
+
+BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenIndex,
 								      const int* probabilityIndices,
 								      const int* firstDerivativeIndices,

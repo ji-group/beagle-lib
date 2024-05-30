@@ -924,6 +924,21 @@ int beagleSetEigenDecomposition(int instance,
     }
 }
 
+int beagleSetSparseMatrix(int instance,
+                          int matrixIndex,
+                          const int* rowIndices,
+                          const int* colIndices,
+                          const double* values,
+                          int numNonZeros) {
+    DEBUG_START_TIME();
+    beagle::BeagleImpl* beagleInstance = beagle::getBeagleInstance(instance);
+    if (beagleInstance == NULL)
+        return BEAGLE_ERROR_UNINITIALIZED_INSTANCE;
+    int returnValue = beagleInstance->setSparseMatrix(matrixIndex, rowIndices, colIndices, values, numNonZeros);
+    DEBUG_END_TIME();
+    return returnValue;
+}
+
 int beagleSetStateFrequencies(int instance,
                               int stateFrequenciesIndex,
                               const double* inStateFrequencies) {

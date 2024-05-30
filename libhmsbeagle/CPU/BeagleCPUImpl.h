@@ -229,6 +229,12 @@ public:
                               const double* inInverseEigenVectors,
                               const double* inEigenValues);
 
+    int setSparseMatrix(int matrixIndex,
+                        const int* rowIndices,
+                        const int* colIndices,
+                        const double* values,
+                        int numNonZeros);
+
     int setStateFrequencies(int stateFrequenciesIndex,
                             const double* inStateFrequencies);
 

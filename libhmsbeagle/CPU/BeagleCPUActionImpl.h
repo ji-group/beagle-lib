@@ -194,6 +194,12 @@ namespace beagle {
                                               const double *inInverseEigenVectors,
                                               const double *inEigenValues);
 
+            virtual int setSparseMatrix(int matrixIndex,
+                                        const int* rowIndices,
+                                        const int* colIndices,
+                                        const double* values,
+                                        int numNonZeros);
+
             virtual int updateTransitionMatrices(int eigenIndex,
                                                  const int* probabilityIndices,
                                                  const int* firstDerivativeIndices,
