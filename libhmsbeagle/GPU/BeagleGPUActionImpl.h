@@ -37,10 +37,34 @@
 #include <vector>
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
+#include <cuda_runtime_api.h> // cudaMalloc, cudaMemcpy, etc.
+#include <cusparse.h>         // cusparseSpMV
+
+#define CHECK_CUDA(func)                                                       \
+{                                                                              \
+    cudaError_t status = (func);                                               \
+    if (status != cudaSuccess) {                                               \
+        printf("CUDA API failed at line %d with error: %s (%d)\n",             \
+               __LINE__, cudaGetErrorString(status), status);                  \
+        return EXIT_FAILURE;                                                   \
+    }                                                                          \
+}
+
+#define CHECK_CUSPARSE(func)                                                   \
+{                                                                              \
+    cusparseStatus_t status = (func);                                          \
+    if (status != CUSPARSE_STATUS_SUCCESS) {                                   \
+        printf("CUSPARSE API failed at line %d with error: %s (%d)\n",         \
+               __LINE__, cusparseGetErrorString(status), status);              \
+        return EXIT_FAILURE;                                                   \
+    }                                                                          \
+}
+
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
 typedef Eigen::Map<MatrixXd> MapType;
 typedef Eigen::SparseMatrix<double> SpMatrix;
+typedef Eigen::Triplet<double> Triplet;
 
 namespace beagle {
 namespace gpu {
@@ -77,9 +101,15 @@ public:
 
     int setTipStates(int tipIndex, const int* inStates);
 
+    int setTipPartials(int tipIndex, const double* inPartials);
+
 protected:
 
     std::vector<SpMatrix> hInstantaneousMatrices;
+    cusparseSpMatDescr_t* dInstantaneousMatrices;
+    cusparseDnMatDescr_t* dPartials;
+
+
 
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kInitialized;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kTipCount;
@@ -157,8 +187,8 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kDerivBuffersInitialised;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kMultipleDerivativesLength;
 
-    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartials;
-    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsOrigin;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartials;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsOrigin;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPartialsOffsets;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kIndexOffsetPat;
 

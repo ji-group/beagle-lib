@@ -213,7 +213,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     hMatrixCache = (Real*) gpu->CallocHost(hMatrixCacheSize, sizeof(Real));
     hInstantaneousMatrices.resize(kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
-        hInstantaneousMatrices[i] = SpMatrix(kStateCount, kStateCount);
+        hInstantaneousMatrices[i] = SpMatrix(kPaddedStateCount, kPaddedStateCount);
+    }
+    dInstantaneousMatrices = (cusparseSpMatDescr_t *) gpu->calloc(sizeof(cusparseSpMatDescr_t), kEigenDecompCount);
+    dPartials = (cusparseDnMatDescr_t *) gpu->calloc(sizeof(cusparseDnMatDescr_t), kPartialsBufferCount * kCategoryCount);
+    for (int i = 0; i < kPartialsBufferCount * kCategoryCount; i++) {
+        dPartials[i] = NULL;
     }
 
     dWeights = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
@@ -272,6 +277,47 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipStates(int tipIndex, const in
     std::abort();
 }
 
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const double* inPartials) {
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::setTipPartials\n");
+#endif
+
+    if (tipIndex < 0 || tipIndex >= kTipCount)
+        return BEAGLE_ERROR_OUT_OF_RANGE;
+
+    const double* inPartialsOffset = inPartials;
+    Real* tmpRealPartialsOffset = hPartialsCache;
+    for (int i = 0; i < kPatternCount; i++) {
+//#ifdef DOUBLE_PRECISION
+//        memcpy(tmpRealPartialsOffset, inPartialsOffset, sizeof(Real) * kStateCount);
+//#else
+//        MEMCNV(tmpRealPartialsOffset, inPartialsOffset, kStateCount, Real);
+//#endif
+        beagleMemCpy(tmpRealPartialsOffset, inPartialsOffset, kStateCount);
+        tmpRealPartialsOffset += kPaddedStateCount;
+        inPartialsOffset += kStateCount;
+    }
+
+//    int partialsLength = kPaddedPatternCount * kPaddedStateCount;
+//    for (int i = 1; i < kCategoryCount; i++) {
+//        memcpy(hPartialsCache + i * partialsLength, hPartialsCache, partialsLength * sizeof(Real));
+//    }
+
+    if (tipIndex < kTipCount) {
+        if (dPartials[tipIndex] == NULL) {
+            for (int i = 0; i < kCategoryCount; i++) {
+                CHECK_CUSPARSE(cusparseCreateDnMat(dPartials[kPartialsBufferCount * i + tipIndex], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, hPartialsCache,
+                                                   CUDA_R_64F, CUSPARSE_ORDER_COL))
+            }
+        }
+    }
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setTipPartials\n");
+#endif
+
+    return BEAGLE_SUCCESS;
+}
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
@@ -298,6 +344,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
                                                              const double* values,
                                                              int numNonZeros)
 {
+    std::vector<Triplet> tripletList;
+    for (int i = 0; i < numNonZeros; i++) {
+        tripletList.push_back(Triplet(rowIndices[i], colIndices[i], values[i]));
+    }
+    hInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
     return BEAGLE_ERROR_NO_IMPLEMENTATION;
 }
 
