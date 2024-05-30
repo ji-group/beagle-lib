@@ -216,6 +216,13 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
         hInstantaneousMatrices[i] = SpMatrix(kPaddedStateCount, kPaddedStateCount);
     }
     dInstantaneousMatrices = (cusparseSpMatDescr_t *) gpu->calloc(sizeof(cusparseSpMatDescr_t), kEigenDecompCount);
+    for (int i = 0; i < kEigenDecompCount; i++) {
+        dInstantaneousMatrices[i] = NULL;
+    }
+    CHECK_CUDA(cudaMalloc((void**) &dMatrixCsrOffsetsCache, (kPaddedStateCount + 1) * sizeof(int)))
+    dMatrixCsrColumnsCache = NULL;
+    currentCacheNNZ = 0;
+
     dPartials = (cusparseDnMatDescr_t *) gpu->calloc(sizeof(cusparseDnMatDescr_t), kPartialsBufferCount * kCategoryCount);
     for (int i = 0; i < kPartialsBufferCount * kCategoryCount; i++) {
         dPartials[i] = NULL;
@@ -224,7 +231,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     dWeights = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
     dFrequencies = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
 
-    dMatrices = (GPUPtr*) malloc(sizeof(GPUPtr) * kMatrixCount);
+//    dMatrices = (GPUPtr*) malloc(sizeof(GPUPtr) * kMatrixCount);
 
 
 
@@ -349,6 +356,24 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
         tripletList.push_back(Triplet(rowIndices[i], colIndices[i], values[i]));
     }
     hInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
+
+    const int currentNNZ = hInstantaneousMatrices[matrixIndex].nonZeros();
+    const int paddedNNZ = currentNNZ + 16 - currentNNZ%16;
+    if (currentCacheNNZ < paddedNNZ) {
+        currentCacheNNZ = paddedNNZ;
+        CHECK_CUDA(cudaMalloc((void**) &dMatrixCsrColumnsCache, currentCacheNNZ * sizeof(int)))
+        CHECK_CUDA(cudaMalloc((void**) &dMatrixCsrValuesCache, currentCacheNNZ * sizeof(Real)))
+    }
+
+    CHECK_CUDA(cudaMemcpy(dMatrixCsrOffsetsCache, hInstantaneousMatrices[matrixIndex].outerIndexPtr(), sizeof(int) * (kPaddedStateCount + 1), cudaMemcpyHostToDevice))
+    CHECK_CUDA(cudaMemcpy(dMatrixCsrColumnsCache, hInstantaneousMatrices[matrixIndex].innerIndexPtr(), sizeof(int) * currentNNZ, cudaMemcpyHostToDevice))
+    CHECK_CUDA(cudaMemcpy(dMatrixCsrValuesCache, hInstantaneousMatrices[matrixIndex].valuePtr(), sizeof(Real) * currentNNZ, cudaMemcpyHostToDevice))
+
+    CHECK_CUSPARSE(cusparseCreateCsr(dInstantaneousMatrices[matrixIndex], kPaddedStateCount, kPaddedStateCount, currentNNZ,
+                                     dMatrixCsrOffsetsCache, dMatrixCsrColumnsCache, dMatrixCsrValuesCache,
+                                     CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
+                                     CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) )
+
     return BEAGLE_ERROR_NO_IMPLEMENTATION;
 }
 

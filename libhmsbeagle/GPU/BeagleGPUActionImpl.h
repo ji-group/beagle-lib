@@ -108,6 +108,9 @@ protected:
     std::vector<SpMatrix> hInstantaneousMatrices;
     cusparseSpMatDescr_t* dInstantaneousMatrices;
     cusparseDnMatDescr_t* dPartials;
+    int *dMatrixCsrOffsetsCache, *dMatrixCsrColumnsCache;
+    Real *dMatrixCsrValuesCache;
+    int currentCacheNNZ;
 
 
 
