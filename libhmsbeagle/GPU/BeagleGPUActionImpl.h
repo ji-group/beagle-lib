@@ -211,11 +211,6 @@ protected:
 private:
     char* getInstanceName();
 
-    int setEigenDecomposition(int eigenIndex,
-			      const double *inEigenVectors,
-			      const double *inInverseEigenVectors,
-			      const double *inEigenValues);
-
     int setSparseMatrix(int matrixIndex,
                         const int* rowIndices,
                         const int* colIndices,

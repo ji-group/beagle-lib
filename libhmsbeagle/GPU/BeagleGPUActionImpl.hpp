@@ -292,15 +292,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPrePartials(bool byPartition,
 }
 
 BEAGLE_GPU_TEMPLATE
-int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setEigenDecomposition(int eigenIndex,
-								   const double *inEigenVectors,
-								   const double *inInverseEigenVectors,
-								   const double *inEigenValues)
-{
-    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::setEigenDecomposition(eigenIndex, inEigenVectors, inInverseEigenVectors, inEigenValues);
-}
-
-BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
                                                              const int* rowIndices,
                                                              const int* colIndices,
