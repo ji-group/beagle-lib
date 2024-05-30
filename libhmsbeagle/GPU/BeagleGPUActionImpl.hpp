@@ -74,19 +74,158 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                   long long requirementFlags)
 {
 
-    int parentCode = BeagleGPUImpl<BEAGLE_GPU_GENERIC>::createInstance(tipCount,
-                                                             partialsBufferCount,
-                                                             compactBufferCount,
-                                                             stateCount,
-                                                             patternCount,
-                                                             eigenDecompositionCount,
-                                                             matrixCount,
-                                                             categoryCount,
-                                                             scaleBufferCount,
-                                                             globalResourceNumber,
-                                                             pluginResourceNumber,
-                                                             preferenceFlags,
-                                                             requirementFlags);
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::createInstance\n");
+#endif
+
+    kInitialized = 0;
+
+    kTipCount = tipCount;
+    kPartialsBufferCount = partialsBufferCount;
+    kCompactBufferCount = 0; // XJ: ignore compact buffer count because of using all partials for tip states
+    kStateCount = stateCount;
+    kEigenDecompCount = eigenDecompositionCount;
+    kMatrixCount = matrixCount;
+    kCategoryCount = categoryCount;
+    kScaleBufferCount = scaleBufferCount;
+
+    kPartitionCount = 1; // XJ: seems related to stream setup
+    kMaxPartitionCount = kPartitionCount;
+    kPartitionsInitialised = false;
+    kPatternsReordered = false;
+
+    resourceNumber = globalResourceNumber;
+
+    kTipPartialsBufferCount = kTipCount; // use Partials for all tip states
+    kBufferCount = kPartialsBufferCount;
+
+    kInternalPartialsBufferCount = kBufferCount - kTipCount;
+
+    //TODO: check if pad state is necessary
+    kPaddedStateCount = kStateCount;
+
+    gpu = new GPUInterface();
+
+    gpu->Initialize();
+
+    int numDevices = 0;
+    numDevices = gpu->GetDeviceCount();
+    if (numDevices == 0) {
+        fprintf(stderr, "Error: No GPU devices\n");
+        return BEAGLE_ERROR_NO_RESOURCE;
+    }
+    if (pluginResourceNumber > numDevices) {
+        fprintf(stderr,"Error: Trying to initialize device # %d (which does not exist)\n",resourceNumber);
+        return BEAGLE_ERROR_NO_RESOURCE;
+    }
+
+    //TODO: check if pad patterns is necessary, ignored for now
+    bool CPUImpl = false;
+
+    kDeviceType = gpu->GetDeviceTypeFlag(pluginResourceNumber);
+    kDeviceCode = gpu->GetDeviceImplementationCode(pluginResourceNumber);
+
+    kPaddedPatternCount = kPatternCount;
+    kScaleBufferSize = kPaddedPatternCount;
+
+    kFlags = 0;
+
+    if (preferenceFlags & BEAGLE_FLAG_SCALING_AUTO || requirementFlags & BEAGLE_FLAG_SCALING_AUTO) {
+        kFlags |= BEAGLE_FLAG_SCALING_AUTO;
+        kFlags |= BEAGLE_FLAG_SCALERS_LOG;
+        kScaleBufferCount = kInternalPartialsBufferCount;
+        kScaleBufferSize *= kCategoryCount;
+    } else if (preferenceFlags & BEAGLE_FLAG_SCALING_ALWAYS || requirementFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
+        kFlags |= BEAGLE_FLAG_SCALING_ALWAYS;
+        kFlags |= BEAGLE_FLAG_SCALERS_LOG;
+        kScaleBufferCount = kInternalPartialsBufferCount + 1; // +1 for temp buffer used by edgelikelihood
+    } else if (preferenceFlags & BEAGLE_FLAG_SCALING_DYNAMIC || requirementFlags & BEAGLE_FLAG_SCALING_DYNAMIC) {
+        kFlags |= BEAGLE_FLAG_SCALING_DYNAMIC;
+        kFlags |= BEAGLE_FLAG_SCALERS_RAW;
+    } else if (preferenceFlags & BEAGLE_FLAG_SCALERS_LOG || requirementFlags & BEAGLE_FLAG_SCALERS_LOG) {
+        kFlags |= BEAGLE_FLAG_SCALING_MANUAL;
+        kFlags |= BEAGLE_FLAG_SCALERS_LOG;
+    } else {
+        kFlags |= BEAGLE_FLAG_SCALING_MANUAL;
+        kFlags |= BEAGLE_FLAG_SCALERS_RAW;
+    }
+    //TODO: remember to implement scaling
+
+//    if (preferenceFlags & BEAGLE_FLAG_EIGEN_COMPLEX || requirementFlags & BEAGLE_FLAG_EIGEN_COMPLEX) {
+//        kFlags |= BEAGLE_FLAG_EIGEN_COMPLEX;
+//    } else {
+//        kFlags |= BEAGLE_FLAG_EIGEN_REAL;
+//    }
+
+    if (requirementFlags & BEAGLE_FLAG_INVEVEC_TRANSPOSED || preferenceFlags & BEAGLE_FLAG_INVEVEC_TRANSPOSED)
+        kFlags |= BEAGLE_FLAG_INVEVEC_TRANSPOSED;
+    else
+        kFlags |= BEAGLE_FLAG_INVEVEC_STANDARD;
+
+
+    // TODO: this chunk of control is not checked
+    if (kDeviceCode == BEAGLE_OPENCL_DEVICE_APPLE_CPU)
+        kFlags |= BEAGLE_FLAG_PARALLELOPS_STREAMS;
+    else if (requirementFlags & BEAGLE_FLAG_PARALLELOPS_STREAMS || preferenceFlags & BEAGLE_FLAG_PARALLELOPS_STREAMS)
+        kFlags |= BEAGLE_FLAG_PARALLELOPS_STREAMS;
+    else if (requirementFlags & BEAGLE_FLAG_PARALLELOPS_GRID || preferenceFlags & BEAGLE_FLAG_PARALLELOPS_GRID)
+        kFlags |= BEAGLE_FLAG_PARALLELOPS_GRID;
+
+    if (preferenceFlags & BEAGLE_FLAG_COMPUTATION_ASYNCH || requirementFlags & BEAGLE_FLAG_COMPUTATION_ASYNCH) {
+        kFlags |= BEAGLE_FLAG_COMPUTATION_ASYNCH;
+    } else {
+        kFlags |= BEAGLE_FLAG_COMPUTATION_SYNCH;
+    }
+
+    if (preferenceFlags & BEAGLE_FLAG_PREORDER_TRANSPOSE_AUTO || requirementFlags & BEAGLE_FLAG_PREORDER_TRANSPOSE_AUTO) {
+        kFlags |= BEAGLE_FLAG_PREORDER_TRANSPOSE_AUTO;
+    } else {
+        kFlags |= BEAGLE_FLAG_PREORDER_TRANSPOSE_MANUAL;
+    }
+
+    Real r = 0;
+    modifyFlagsForPrecision(&kFlags, r);
+
+    //TODO: sum block size ignored
+    kPartialsSize = kPaddedPatternCount * kPaddedStateCount * kCategoryCount;
+    kMatrixSize = kPaddedStateCount * kPaddedStateCount;
+
+    kLastCompactBufferIndex = -1;
+    kLastTipPartialsBufferIndex = -1;
+
+    //TODO: we probably don't use the kernel resource anyway, separate it?
+    gpu->SetDevice(pluginResourceNumber, kPaddedStateCount, kCategoryCount,
+                   kPaddedPatternCount, kPatternCount, kTipCount, kFlags);
+
+    int ptrQueueLength = kMatrixCount * kCategoryCount * 3 * 3; // first '3' for derivatives, last '3' is for 3 ops for uTMWMM
+    if (kInternalPartialsBufferCount > ptrQueueLength)
+        ptrQueueLength = kInternalPartialsBufferCount;
+
+    // TODO: not sure if need kernels
+//    kernels = new KernelLauncher(gpu);
+
+    hWeightsCache = (Real*) gpu->CallocHost(kCategoryCount, sizeof(Real));
+    hFrequenciesCache = (Real*) gpu->CallocHost(kPaddedStateCount, sizeof(Real));
+    hPartialsCache = (Real*) gpu->CallocHost(kPartialsSize, sizeof(Real));
+
+    int hMatrixCacheSize = kMatrixSize * kCategoryCount * BEAGLE_CACHED_MATRICES_COUNT;  //TODO: use Eigen csr representation?
+    hLogLikelihoodsCache = (Real*) gpu->MallocHost(kPatternCount * sizeof(Real));
+    hMatrixCache = (Real*) gpu->CallocHost(hMatrixCacheSize, sizeof(Real));
+    hInstantaneousMatrices.resize(kEigenDecompCount);
+    for (int i = 0; i < kEigenDecompCount; i++) {
+        hInstantaneousMatrices[i] = SpMatrix(kStateCount, kStateCount);
+    }
+
+    dWeights = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
+    dFrequencies = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
+
+    dMatrices = (GPUPtr*) malloc(sizeof(GPUPtr) * kMatrixCount);
+
+
+
+
+
+
     return BEAGLE_SUCCESS;
 }
 

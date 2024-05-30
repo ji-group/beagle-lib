@@ -34,6 +34,13 @@
 #endif
 
 #include "libhmsbeagle/GPU/BeagleGPUImpl.h"
+#include <vector>
+#include <Eigen/Sparse>
+#include <Eigen/Dense>
+
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
+typedef Eigen::Map<MatrixXd> MapType;
+typedef Eigen::SparseMatrix<double> SpMatrix;
 
 namespace beagle {
 namespace gpu {
@@ -71,6 +78,8 @@ public:
     int setTipStates(int tipIndex, const int* inStates);
 
 protected:
+
+    std::vector<SpMatrix> hInstantaneousMatrices;
 
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kInitialized;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kTipCount;
