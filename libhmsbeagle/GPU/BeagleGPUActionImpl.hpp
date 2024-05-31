@@ -125,6 +125,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     kDeviceType = gpu->GetDeviceTypeFlag(pluginResourceNumber);
     kDeviceCode = gpu->GetDeviceImplementationCode(pluginResourceNumber);
 
+    kPatternCount = patternCount;
     kPaddedPatternCount = kPatternCount;
     kScaleBufferSize = kPaddedPatternCount;
 
@@ -205,6 +206,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 //    kernels = new KernelLauncher(gpu);
 
     hWeightsCache = (Real*) gpu->CallocHost(kCategoryCount, sizeof(Real));
+    hPatternWeightsCache = (Real*) gpu->CallocHost(kPatternCount, sizeof(Real));
     hFrequenciesCache = (Real*) gpu->CallocHost(kPaddedStateCount, sizeof(Real));
     hPartialsCache = (Real*) gpu->CallocHost(kPartialsSize, sizeof(Real));
 
@@ -215,7 +217,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     for (int i = 0; i < kEigenDecompCount; i++) {
         hInstantaneousMatrices[i] = SpMatrix(kPaddedStateCount, kPaddedStateCount);
     }
-    dInstantaneousMatrices = (cusparseSpMatDescr_t *) gpu->calloc(sizeof(cusparseSpMatDescr_t), kEigenDecompCount);
+    dInstantaneousMatrices = (cusparseSpMatDescr_t *) calloc(sizeof(cusparseSpMatDescr_t), kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         dInstantaneousMatrices[i] = NULL;
     }
@@ -223,7 +225,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     dMatrixCsrColumnsCache = NULL;
     currentCacheNNZ = 0;
 
-    dPartials = (cusparseDnMatDescr_t *) gpu->calloc(sizeof(cusparseDnMatDescr_t), kPartialsBufferCount * kCategoryCount);
+    dPartials = (cusparseDnMatDescr_t *) calloc(sizeof(cusparseDnMatDescr_t), kPartialsBufferCount * kCategoryCount);
     for (int i = 0; i < kPartialsBufferCount * kCategoryCount; i++) {
         dPartials[i] = NULL;
     }
@@ -231,7 +233,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     dWeights = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
     dFrequencies = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
 
+    hCategoryRates = (double**) calloc(sizeof(double*),kEigenDecompCount); // Keep in double-precision
+    hCategoryRates[0] = (double*) gpu->MallocHost(sizeof(double) * kCategoryCount);
+    checkHostMemory(hCategoryRates[0]);
+
 //    dMatrices = (GPUPtr*) malloc(sizeof(GPUPtr) * kMatrixCount);
+    CHECK_CUDA(cudaMalloc((void**) &dPatternWeightsCache, kPatternCount * sizeof(Real)))
 
 
 
@@ -269,6 +276,31 @@ char* BeagleGPUActionImpl<float>::getInstanceName() {
     return (char*) "Action-OpenCL-Single";
 }
 #endif
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const double* inPatternWeights) {
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::setPatternWeights\n");
+#endif
+
+//#ifdef DOUBLE_PRECISION
+//  const double* tmpWeights = inPatternWeights;
+//#else
+//  Real* tmpWeights = hPatternWeightsCache;
+//  MEMCNV(hPatternWeightsCache, inPatternWeights, kPatternCount, Real);
+//#endif
+//    const Real* tmpWeights = beagleCastIfNecessary(inPatternWeights, hPatternWeightsCache, kPatternCount);
+    CHECK_CUDA(cudaMemcpy(dPatternWeightsCache, inPatternWeights, kPatternCount * sizeof(Real), cudaMemcpyHostToDevice))
+
+    CHECK_CUSPARSE(cusparseCreateDnVec(dPatternWeights, kPatternCount, dPatternWeightsCache, CUDA_R_64F))
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setPatternWeights\n");
+#endif
+
+    return BEAGLE_SUCCESS;
+}
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipStates(int tipIndex, const int* inStates)
@@ -314,7 +346,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
     if (tipIndex < kTipCount) {
         if (dPartials[tipIndex] == NULL) {
             for (int i = 0; i < kCategoryCount; i++) {
-                CHECK_CUSPARSE(cusparseCreateDnMat(dPartials[kPartialsBufferCount * i + tipIndex], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, hPartialsCache,
+                CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[kPartialsBufferCount * i + tipIndex], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, hPartialsCache,
                                                    CUDA_R_64F, CUSPARSE_ORDER_COL))
             }
         }
@@ -369,12 +401,17 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
     CHECK_CUDA(cudaMemcpy(dMatrixCsrColumnsCache, hInstantaneousMatrices[matrixIndex].innerIndexPtr(), sizeof(int) * currentNNZ, cudaMemcpyHostToDevice))
     CHECK_CUDA(cudaMemcpy(dMatrixCsrValuesCache, hInstantaneousMatrices[matrixIndex].valuePtr(), sizeof(Real) * currentNNZ, cudaMemcpyHostToDevice))
 
-    CHECK_CUSPARSE(cusparseCreateCsr(dInstantaneousMatrices[matrixIndex], kPaddedStateCount, kPaddedStateCount, currentNNZ,
+    CHECK_CUSPARSE(cusparseCreateCsr(&dInstantaneousMatrices[matrixIndex], kPaddedStateCount, kPaddedStateCount, currentNNZ,
                                      dMatrixCsrOffsetsCache, dMatrixCsrColumnsCache, dMatrixCsrValuesCache,
                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                                     CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F) )
+                                     CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F))
 
-    return BEAGLE_ERROR_NO_IMPLEMENTATION;
+
+//#ifdef BEAGLE_DEBUG_FLOW
+//    std::cerr<<"Setting host matrix: "<<matrixIndex<<std::endl<<hInstantaneousMatrices[matrixIndex]<<std::endl
+//    <<std::endl<<"Setting device matrix: " << matrixIndex << std::endl << dInstantaneousMatrices[matrixIndex]<<std::endl;
+//#endif
+    return BEAGLE_SUCCESS;
 }
 
 BEAGLE_GPU_TEMPLATE

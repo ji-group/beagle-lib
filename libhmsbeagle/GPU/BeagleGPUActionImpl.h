@@ -103,6 +103,14 @@ public:
 
     int setTipPartials(int tipIndex, const double* inPartials);
 
+    int setSparseMatrix(int matrixIndex,
+                        const int* rowIndices,
+                        const int* colIndices,
+                        const double* values,
+                        int numNonZeros);
+
+    int setPatternWeights(const double* inPatternWeights);
+
 protected:
 
     std::vector<SpMatrix> hInstantaneousMatrices;
@@ -111,6 +119,8 @@ protected:
     int *dMatrixCsrOffsetsCache, *dMatrixCsrColumnsCache;
     Real *dMatrixCsrValuesCache;
     int currentCacheNNZ;
+    Real *dPatternWeightsCache;
+    cusparseDnVecDescr_t* dPatternWeights;
 
 
 
@@ -183,7 +193,7 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kWeightsOffset;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kFrequenciesOffset;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIntegrationTmp;
-    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPatternWeights;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPatternWeights;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dSumLogLikelihood;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsTmp;
 
@@ -243,12 +253,6 @@ protected:
 
 private:
     char* getInstanceName();
-
-    int setSparseMatrix(int matrixIndex,
-                        const int* rowIndices,
-                        const int* colIndices,
-                        const double* values,
-                        int numNonZeros);
 
     int updateTransitionMatrices(int eigenIndex,
 				 const int* probabilityIndices,
