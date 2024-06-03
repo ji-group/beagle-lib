@@ -65,7 +65,8 @@ namespace beagle {
                 if (anyGPUSupportsDP) {
                     beagleFactories.push_back(new BeagleGPUActionImplFactory<double>());
                 }
-                beagleFactories.push_back(new BeagleGPUActionImplFactory<float>());
+                // We don't support `Real = float`.
+                // beagleFactories.push_back(new BeagleGPUActionImplFactory<float>());
             }
         }
 
