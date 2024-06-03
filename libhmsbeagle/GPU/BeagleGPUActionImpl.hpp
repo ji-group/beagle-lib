@@ -47,14 +47,17 @@ double random_plus_minus_1_func(double x)
     else
         return -1;
 }
+
 // Algorithm 2.4 from Higham and Tisseur (2000), A BLOCK ALGORITHM FOR MATRIX 1-NORM ESTIMATION,
 //    WITH AN APPLICATION TO 1-NORM PSEUDOSPECTRA.
 // See OneNormEst in https://eprints.maths.manchester.ac.uk/2195/1/thesis-main.pdf
 //    This seems to have a bug where it checks if columns in S are parallel to EVERY column of S_old.
 // See also https://github.com/gnu-octave/octave/blob/default/scripts/linear-algebra/normest1.m
 // See dlacn1.f
-double normest1(const SpMatrix& A, int p, int t=2, int itmax=5)
+double normest1(const SpMatrix<double>& A, int p, int t=2, int itmax=5)
 {
+    typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
+
     assert(p >= 0);
     assert(t != 0); // negative means t = n
     assert(itmax >= 1);
@@ -430,11 +433,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     int hMatrixCacheSize = kMatrixSize * kCategoryCount * BEAGLE_CACHED_MATRICES_COUNT;  //TODO: use Eigen csr representation?
     hLogLikelihoodsCache = (Real*) gpu->MallocHost(kPatternCount * sizeof(Real));
     hMatrixCache = (Real*) gpu->CallocHost(hMatrixCacheSize, sizeof(Real));
-    hIdentity = SpMatrix(kPaddedStateCount, kPaddedStateCount);
+    hIdentity = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     hIdentity.setIdentity();
     hInstantaneousMatrices.resize(kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
-        hInstantaneousMatrices[i] = SpMatrix(kPaddedStateCount, kPaddedStateCount);
+        hInstantaneousMatrices[i] = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     }
     hBs.resize(kEigenDecompCount);
     hMuBs.resize(kEigenDecompCount);
@@ -502,7 +505,7 @@ char* BeagleGPUActionImpl<float>::getInstanceName() {
 #endif
 
 BEAGLE_GPU_TEMPLATE
-int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const double* inPatternWeights) {
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const Real* inPatternWeights) {
 
 #ifdef BEAGLE_DEBUG_FLOW
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::setPatternWeights\n");
@@ -532,7 +535,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const double* inP
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFrequenciesIndex,
-                                                           const double* inStateFrequencies) {
+								 const Real* inStateFrequencies) {
 #ifdef BEAGLE_DEBUG_FLOW
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::setStateFrequencies\n");
 #endif
@@ -561,7 +564,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFreque
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setCategoryWeights(int categoryWeightsIndex,
-                                                          const double* inCategoryWeights) {
+                                                          const Real* inCategoryWeights) {
 #ifdef BEAGLE_DEBUG_FLOW
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::setCategoryWeights\n");
 #endif
@@ -605,7 +608,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipStates(int tipIndex, const in
 }
 
 BEAGLE_GPU_TEMPLATE
-int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const double* inPartials) {
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const Real* inPartials) {
 #ifdef BEAGLE_DEBUG_FLOW
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::setTipPartials\n");
 #endif
@@ -613,7 +616,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
     if (tipIndex < 0 || tipIndex >= kTipCount)
         return BEAGLE_ERROR_OUT_OF_RANGE;
 
-    const double* inPartialsOffset = inPartials;
+    const Real* inPartialsOffset = inPartials;
     Real* tmpRealPartialsOffset = hPartialsCache;
     for (int i = 0; i < kPatternCount; i++) {
         beagleMemCpy(tmpRealPartialsOffset, inPartialsOffset, kStateCount);
@@ -656,7 +659,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartials(int bufferIndex,
                                                    int scaleIndex,
-                                                   double* outPartials) {
+                                                   Real* outPartials) {
 #ifdef BEAGLE_DEBUG_FLOW
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::getPartials\n");
 #endif
@@ -666,7 +669,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartials(int bufferIndex,
                               sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToHost))
     }
 
-    double *outPartialsOffset = outPartials;
+    Real *outPartialsOffset = outPartials;
     Real *tmpRealPartialsOffset = hPartialsCache;
 
     for (int c = 0; c < kCategoryCount; c++) {
@@ -712,12 +715,12 @@ BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
                                                              const int* rowIndices,
                                                              const int* colIndices,
-                                                             const double* values,
+                                                             const Real* values,
                                                              int numNonZeros)
 {
-    std::vector<Triplet> tripletList;
+    std::vector<Triplet<Real>> tripletList;
     for (int i = 0; i < numNonZeros; i++) {
-        tripletList.push_back(Triplet(rowIndices[i], colIndices[i], values[i]));
+        tripletList.push_back(Triplet<Real>(rowIndices[i], colIndices[i], values[i]));
     }
     hInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
 
@@ -738,11 +741,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F))
     //TODO: use cusparse function for diagonal sum?
-    double mu_B = 0.0;
+    Real mu_B = 0.0;
     for (int i = 0; i < kStateCount; i++) {
         mu_B += hInstantaneousMatrices[matrixIndex].coeff(i, i);
     }
-    mu_B /= (double) kStateCount;
+    mu_B /= (Real) kStateCount;
 
     hMuBs[matrixIndex] = mu_B;
     hBs[matrixIndex] = hInstantaneousMatrices[matrixIndex] - mu_B * hIdentity;
@@ -754,10 +757,10 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
     for(int p=0;p <= pMax+1; p++)
     {
         int t = 5;
-        double approx_norm = normest1( hBs[matrixIndex], p, t);
+        Real approx_norm = normest1( hBs[matrixIndex], p, t);
 
         // equation 3.7 in Al-Mohy and Higham
-        ds[matrixIndex].push_back( pow( approx_norm, 1.0/double(p) ) );
+        ds[matrixIndex].push_back( pow( approx_norm, 1.0/Real(p) ) );
     }
 
 //#ifdef BEAGLE_DEBUG_FLOW
@@ -778,7 +781,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenI
 								      const int* probabilityIndices,
 								      const int* firstDerivativeIndices,
 								      const int* secondDerivativeIndices,
-								      const double* edgeLengths,
+								      const Real* edgeLengths,
 								      int count)
 {
     for (int i = 0; i < count; i++) {

@@ -83,11 +83,21 @@ double normPInf(const T& matrix) {
     }                                                                          \
 }
 
+template <typename Real>
+using SpMatrix = Eigen::SparseMatrix<Real>;
 
-typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
-typedef Eigen::Map<MatrixXd> MapType;
-typedef Eigen::SparseMatrix<double> SpMatrix;
-typedef Eigen::Triplet<double> Triplet;
+template <typename Real>
+using Triplet = Eigen::Triplet<Real>;
+
+//template <typename Real>
+//using DnMatrix = Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>;
+
+//template <typename Real>
+//using DnVector = Eigen::Matrix<Real, 1, Eigen::Dynamic>;
+//using DnVector = Eigen::Matrix<Real, Eigen::Dynamic, 1>;
+
+//template <typename Real>
+//using MapType = DnMatrix<Real>;
 
 namespace beagle {
 namespace gpu {
@@ -124,34 +134,34 @@ public:
 
     int setTipStates(int tipIndex, const int* inStates);
 
-    int setTipPartials(int tipIndex, const double* inPartials);
+    int setTipPartials(int tipIndex, const Real* inPartials);
 
     int setSparseMatrix(int matrixIndex,
                         const int* rowIndices,
                         const int* colIndices,
-                        const double* values,
+                        const Real* values,
                         int numNonZeros);
 
-    int setPatternWeights(const double* inPatternWeights);
+    int setPatternWeights(const Real* inPatternWeights);
 
     int setStateFrequencies(int stateFrequenciesIndex,
-                            const double* inStateFrequencies);
+                            const Real* inStateFrequencies);
 
     int setCategoryWeights(int categoryWeightsIndex,
-                           const double* inCategoryWeights);
+                           const Real* inCategoryWeights);
 
     int getPartials(int bufferIndex,
                     int scaleIndex,
-                    double* outPartials);
+                    Real* outPartials);
 protected:
 
-    std::vector<SpMatrix> hInstantaneousMatrices;
-    SpMatrix hIdentity;
-    std::vector<SpMatrix> hBs;
-    std::vector<double> hMuBs;
-    std::vector<double> hB1Norms;
+    std::vector<SpMatrix<Real>> hInstantaneousMatrices;
+    SpMatrix<Real> hIdentity;
+    std::vector<SpMatrix<Real>> hBs;
+    std::vector<Real> hMuBs;
+    std::vector<Real> hB1Norms;
     const int mMax = 55;
-    std::vector<std::vector<double>> ds;
+    std::vector<std::vector<Real>> ds;
     std::map<int, double> thetaConstants = {
             //The first 30 values are from table A.3 of  Computing Matrix Functions.
             // For double precision, tol = 2^(-53)
@@ -207,7 +217,7 @@ protected:
     cusparseDnVecDescr_t dPatternWeights;
 
     std::vector<int> hEigenMaps;
-    std::vector<double> hEdgeMultipliers;
+    std::vector<Real> hEdgeMultipliers;
 
 
 
@@ -345,7 +355,7 @@ private:
 				 const int* probabilityIndices,
 				 const int* firstDerivativeIndices,
 				 const int* secondDerivativeIndices,
-				 const double* edgeLengths,
+				 const Real* edgeLengths,
 				 int count);
     double getPMax() const;
 
