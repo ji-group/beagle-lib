@@ -192,6 +192,7 @@ protected:
 
     cusparseSpMatDescr_t* dInstantaneousMatrices;
     cusparseDnMatDescr_t* dPartials;
+    Real **dPartialCache;
     Real **dFrequenciesCache, **dWeightsCache;
     cusparseDnVecDescr_t *dFrequencies;
     cusparseDnVecDescr_t *dWeights;

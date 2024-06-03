@@ -431,8 +431,10 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     currentCacheNNZ = 0;
 
     dPartials = (cusparseDnMatDescr_t *) calloc(sizeof(cusparseDnMatDescr_t), kPartialsBufferCount * kCategoryCount);
+    dPartialCache = (Real **) calloc(sizeof(Real*), kPartialsBufferCount * kCategoryCount);
     for (int i = 0; i < kPartialsBufferCount * kCategoryCount; i++) {
         dPartials[i] = NULL;
+        dPartialCache[i] = NULL;
     }
 
     dFrequenciesCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);
@@ -538,7 +540,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFreque
     if (dFrequenciesCache[stateFrequenciesIndex] == NULL) {
         CHECK_CUDA(cudaMalloc((void**) &dFrequenciesCache[stateFrequenciesIndex], sizeof(Real) * kPaddedStateCount))
     }
-    CHECK_CUDA(cudaMemcpy(dFrequenciesCache[stateFrequenciesIndex], hFrequenciesCache, kStateCount, cudaMemcpyHostToDevice))
+    CHECK_CUDA(cudaMemcpy(dFrequenciesCache[stateFrequenciesIndex], hFrequenciesCache, sizeof(Real) * kStateCount, cudaMemcpyHostToDevice))
     if (dFrequencies[stateFrequenciesIndex] == NULL) {
         CHECK_CUSPARSE(cusparseCreateDnVec(&dFrequencies[stateFrequenciesIndex], kPaddedStateCount, dFrequenciesCache[stateFrequenciesIndex], CUDA_R_64F))
     } else {
@@ -609,15 +611,18 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
     const double* inPartialsOffset = inPartials;
     Real* tmpRealPartialsOffset = hPartialsCache;
     for (int i = 0; i < kPatternCount; i++) {
-//#ifdef DOUBLE_PRECISION
-//        memcpy(tmpRealPartialsOffset, inPartialsOffset, sizeof(Real) * kStateCount);
-//#else
-//        MEMCNV(tmpRealPartialsOffset, inPartialsOffset, kStateCount, Real);
-//#endif
         beagleMemCpy(tmpRealPartialsOffset, inPartialsOffset, kStateCount);
         tmpRealPartialsOffset += kPaddedStateCount;
         inPartialsOffset += kStateCount;
     }
+    for (int i = 0; i < kCategoryCount; i++) {
+        if (dPartialCache[getPartialIndex(tipIndex, i)] == NULL) {
+            CHECK_CUDA(cudaMalloc((void**) &dPartialCache[getPartialIndex(tipIndex, i)], kPaddedStateCount * kPaddedPatternCount))
+        }
+        CHECK_CUDA(cudaMemcpy(dPartialCache[getPartialIndex(tipIndex, i)], hPartialsCache, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount))
+    }
+
+
 
 //    int partialsLength = kPaddedPatternCount * kPaddedStateCount;
 //    for (int i = 1; i < kCategoryCount; i++) {
@@ -627,7 +632,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
     if (tipIndex < kTipCount) {
         if (dPartials[tipIndex] == NULL) {
             for (int i = 0; i < kCategoryCount; i++) {
-                CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[getPartialIndex(tipIndex, i)], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, hPartialsCache,
+                CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[getPartialIndex(tipIndex, i)], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[getPartialIndex(tipIndex, i)],
                                                    CUDA_R_64F, CUSPARSE_ORDER_COL))
             }
         }
