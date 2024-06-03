@@ -343,6 +343,8 @@ private:
 				 const double* edgeLengths,
 				 int count);
     double getPMax() const;
+
+    int getPartialIndex(int nodeIndex, int categoryIndex);
 };
 
 BEAGLE_GPU_TEMPLATE

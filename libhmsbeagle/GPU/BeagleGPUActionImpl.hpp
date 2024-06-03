@@ -446,6 +446,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
         dWeights[i] = NULL;
     }
 
+    hEigenMaps.resize(kPartialsBufferCount);
+    hEdgeMultipliers.resize(kPartialsBufferCount * kCategoryCount);
+
     hCategoryRates = (double**) calloc(sizeof(double*),kEigenDecompCount); // Keep in double-precision
     hCategoryRates[0] = (double*) gpu->MallocHost(sizeof(double) * kCategoryCount);
     checkHostMemory(hCategoryRates[0]);
@@ -624,7 +627,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
     if (tipIndex < kTipCount) {
         if (dPartials[tipIndex] == NULL) {
             for (int i = 0; i < kCategoryCount; i++) {
-                CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[kPartialsBufferCount * i + tipIndex], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, hPartialsCache,
+                CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[getPartialIndex(tipIndex, i)], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, hPartialsCache,
                                                    CUDA_R_64F, CUSPARSE_ORDER_COL))
             }
         }
@@ -634,6 +637,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
 #endif
 
     return BEAGLE_SUCCESS;
+}
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialIndex(int nodeIndex, int categoryIndex) {
+    return kPartialsBufferCount * categoryIndex + nodeIndex;
 }
 
 BEAGLE_GPU_TEMPLATE
