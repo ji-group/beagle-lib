@@ -111,11 +111,17 @@ public:
 
     int setPatternWeights(const double* inPatternWeights);
 
+    int setStateFrequencies(int stateFrequenciesIndex,
+                            const double* inStateFrequencies);
+
 protected:
 
     std::vector<SpMatrix> hInstantaneousMatrices;
     cusparseSpMatDescr_t* dInstantaneousMatrices;
     cusparseDnMatDescr_t* dPartials;
+    Real **dFrequenciesCache, **dWeightsCache;
+    cusparseDnVecDescr_t *dFrequencies;
+    cusparseDnVecDescr_t *dWeights;
     int *dMatrixCsrOffsetsCache, *dMatrixCsrColumnsCache;
     Real *dMatrixCsrValuesCache;
     int currentCacheNNZ;
@@ -175,11 +181,11 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hStatesCache;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hLogLikelihoodsCache;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hMatrixCache;
-    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dEvec;
-    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIevc;
-    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dEigenValues;
-    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dWeights;
-    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dFrequencies;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dEvec;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIevc;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dEigenValues;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dWeights;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dFrequencies;
 
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dMatrices;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kIndexOffsetMat;

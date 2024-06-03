@@ -230,8 +230,16 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
         dPartials[i] = NULL;
     }
 
-    dWeights = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
-    dFrequencies = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
+    dFrequenciesCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);
+    dWeightsCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);;
+    dWeights = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kEigenDecompCount);
+    dFrequencies = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kEigenDecompCount);
+    for (int i = 0; i < kEigenDecompCount; i++) {
+        dFrequenciesCache[i] = NULL;
+        dWeightsCache[i] = NULL;
+        dWeights[i] = NULL;
+        dFrequencies[i] = NULL;
+    }
 
     hCategoryRates = (double**) calloc(sizeof(double*),kEigenDecompCount); // Keep in double-precision
     hCategoryRates[0] = (double*) gpu->MallocHost(sizeof(double) * kCategoryCount);
@@ -301,6 +309,41 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const double* inP
 
     return BEAGLE_SUCCESS;
 }
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFrequenciesIndex,
+                                                           const double* inStateFrequencies) {
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::setStateFrequencies\n");
+#endif
+
+    if (stateFrequenciesIndex < 0 || stateFrequenciesIndex >= kEigenDecompCount)
+        return BEAGLE_ERROR_OUT_OF_RANGE;
+
+//#ifdef DOUBLE_PRECISION
+//    memcpy(hFrequenciesCache, inStateFrequencies, kStateCount * sizeof(Real));
+//#else
+//    MEMCNV(hFrequenciesCache, inStateFrequencies, kStateCount, Real);
+//#endif
+    beagleMemCpy(hFrequenciesCache, inStateFrequencies, kStateCount);
+
+    if (dFrequenciesCache[stateFrequenciesIndex] == NULL) {
+        CHECK_CUDA(cudaMalloc((void**) &dFrequenciesCache[stateFrequenciesIndex], sizeof(Real) * kPaddedStateCount))
+    }
+    CHECK_CUDA(cudaMemcpy(dFrequenciesCache[stateFrequenciesIndex], hFrequenciesCache, kStateCount, cudaMemcpyHostToDevice))
+    if (dFrequencies[stateFrequenciesIndex] == NULL) {
+        CHECK_CUSPARSE(cusparseCreateDnVec(&dFrequencies[stateFrequenciesIndex], kPaddedStateCount, dFrequenciesCache[stateFrequenciesIndex], CUDA_R_64F))
+    } else {
+        CHECK_CUSPARSE(cusparseDnVecSetValues(dFrequencies[stateFrequenciesIndex], dFrequenciesCache[stateFrequenciesIndex]))
+    }
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setStateFrequencies\n");
+#endif
+
+    return BEAGLE_SUCCESS;
+}
+
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipStates(int tipIndex, const int* inStates)
