@@ -199,7 +199,10 @@ protected:
     Real *dMatrixCsrValuesCache;
     int currentCacheNNZ;
     Real *dPatternWeightsCache;
-    cusparseDnVecDescr_t* dPatternWeights;
+    cusparseDnVecDescr_t dPatternWeights;
+
+    std::vector<int> hEigenMaps;
+    std::vector<double> hEdgeMultipliers;
 
 
 

@@ -421,6 +421,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     hBs.resize(kEigenDecompCount);
     hMuBs.resize(kEigenDecompCount);
     hB1Norms.resize(kEigenDecompCount);
+    ds.resize(kEigenDecompCount);
     dInstantaneousMatrices = (cusparseSpMatDescr_t *) calloc(sizeof(cusparseSpMatDescr_t), kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         dInstantaneousMatrices[i] = NULL;
@@ -451,6 +452,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 
 //    dMatrices = (GPUPtr*) malloc(sizeof(GPUPtr) * kMatrixCount);
     CHECK_CUDA(cudaMalloc((void**) &dPatternWeightsCache, kPatternCount * sizeof(Real)))
+    dPatternWeights = NULL;
 
 
 
@@ -505,7 +507,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const double* inP
 //    const Real* tmpWeights = beagleCastIfNecessary(inPatternWeights, hPatternWeightsCache, kPatternCount);
     CHECK_CUDA(cudaMemcpy(dPatternWeightsCache, inPatternWeights, kPatternCount * sizeof(Real), cudaMemcpyHostToDevice))
 
-    CHECK_CUSPARSE(cusparseCreateDnVec(dPatternWeights, kPatternCount, dPatternWeightsCache, CUDA_R_64F))
+    if (dPatternWeights == NULL) {
+        CHECK_CUSPARSE(cusparseCreateDnVec(&dPatternWeights, kPatternCount, dPatternWeightsCache, CUDA_R_64F))
+    } else {
+        CHECK_CUSPARSE(cusparseDnVecSetValues(dPatternWeights, dPatternWeightsCache))
+    }
 
 #ifdef BEAGLE_DEBUG_FLOW
     fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setPatternWeights\n");
@@ -721,6 +727,16 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenI
 								      const double* edgeLengths,
 								      int count)
 {
+    for (int i = 0; i < count; i++) {
+        const int nodeIndex = probabilityIndices[i];
+        hEigenMaps[nodeIndex] = eigenIndex;
+
+        for (int category = 0; category < kCategoryCount; category++) {
+            const double categoryRate = hCategoryRates[0][category]; // XJ: because rate categories are only set for first eigen index
+            hEdgeMultipliers[nodeIndex * kCategoryCount + category] = edgeLengths[i] * categoryRate;
+        }
+    }
+    // TODO: check if need to copy it from host to device afterwards
     return BEAGLE_ERROR_NO_IMPLEMENTATION;
 }
 
