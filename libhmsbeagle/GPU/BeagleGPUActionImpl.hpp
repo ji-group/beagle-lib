@@ -259,6 +259,14 @@ long long BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getFlags()
     return flags;
 }
 
+template <typename T> cusparseIndexType_t IndexType;
+template <> cusparseIndexType_t IndexType<int32_t> = CUSPARSE_INDEX_32I;
+template <> cusparseIndexType_t IndexType<int64_t> = CUSPARSE_INDEX_64I;
+
+template <typename T> cudaDataType DataType;
+template <> cudaDataType DataType<float> = CUDA_R_32F;
+template <> cudaDataType DataType<double> = CUDA_R_64F;
+
 template <typename T>
 T* cudaDeviceNew(int n)
 {
@@ -520,7 +528,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const Real* inPat
     MemcpyHostToDevice(dPatternWeightsCache, inPatternWeights, kPatternCount);
 
     if (dPatternWeights == NULL) {
-        CHECK_CUSPARSE(cusparseCreateDnVec(&dPatternWeights, kPatternCount, dPatternWeightsCache, CUDA_R_64F))
+        CHECK_CUSPARSE(cusparseCreateDnVec(&dPatternWeights, kPatternCount, dPatternWeightsCache, DataType<Real>))
     } else {
         CHECK_CUSPARSE(cusparseDnVecSetValues(dPatternWeights, dPatternWeightsCache))
     }
@@ -549,7 +557,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFreque
     }
     MemcpyHostToDevice(dFrequenciesCache[stateFrequenciesIndex], hFrequenciesCache, kStateCount);
     if (dFrequencies[stateFrequenciesIndex] == NULL) {
-        CHECK_CUSPARSE(cusparseCreateDnVec(&dFrequencies[stateFrequenciesIndex], kPaddedStateCount, dFrequenciesCache[stateFrequenciesIndex], CUDA_R_64F))
+        CHECK_CUSPARSE(cusparseCreateDnVec(&dFrequencies[stateFrequenciesIndex], kPaddedStateCount, dFrequenciesCache[stateFrequenciesIndex], DataType<Real>))
     } else {
         CHECK_CUSPARSE(cusparseDnVecSetValues(dFrequencies[stateFrequenciesIndex], dFrequenciesCache[stateFrequenciesIndex]))
     }
@@ -579,7 +587,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setCategoryWeights(int categoryWeig
     MemcpyHostToDevice(dWeightsCache[categoryWeightsIndex], hWeightsCache, kCategoryCount);
 
     if (dWeights[categoryWeightsIndex] == NULL) {
-        CHECK_CUSPARSE(cusparseCreateDnVec(&dWeights[categoryWeightsIndex], kCategoryCount, dWeightsCache[categoryWeightsIndex], CUDA_R_64F))
+        CHECK_CUSPARSE(cusparseCreateDnVec(&dWeights[categoryWeightsIndex], kCategoryCount, dWeightsCache[categoryWeightsIndex], DataType<Real>))
     } else {
         CHECK_CUSPARSE(cusparseDnVecSetValues(dWeights[categoryWeightsIndex], dWeightsCache[categoryWeightsIndex]))
     }
@@ -641,7 +649,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
             const int partialIndex = getPartialIndex(tipIndex, i);
             if (dPartials[partialIndex] == NULL) {
                 CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[partialIndex], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[partialIndex],
-                                                   CUDA_R_64F, CUSPARSE_ORDER_COL))
+                                                   DataType<Real>, CUSPARSE_ORDER_COL))
             } else {
                 CHECK_CUSPARSE(cusparseDnMatSetValues(dPartials[partialIndex], dPartialCache[partialIndex]))
             }
@@ -737,8 +745,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
 
     CHECK_CUSPARSE(cusparseCreateCsr(&dInstantaneousMatrices[matrixIndex], kPaddedStateCount, kPaddedStateCount, currentNNZ,
                                      dMatrixCsrOffsetsCache, dMatrixCsrColumnsCache, dMatrixCsrValuesCache,
-                                     CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                                     CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F))
+                                     IndexType<int>, IndexType<int>,
+                                     CUSPARSE_INDEX_BASE_ZERO, DataType<Real>))
     //TODO: use cusparse function for diagonal sum?
     Real mu_B = 0.0;
     for (int i = 0; i < kStateCount; i++) {
