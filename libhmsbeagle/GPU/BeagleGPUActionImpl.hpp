@@ -257,6 +257,16 @@ long long BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getFlags()
     return flags;
 }
 
+template <typename T>
+T* cudaDeviceNew(int n)
+{
+    T* result;
+    auto status = cudaMalloc((void**)&result, n*sizeof(T));
+    if (status != cudaSuccess)
+	throw std::runtime_error("cudaMalloc: failed!");
+    return result;
+}
+
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                   int partialsBufferCount,
@@ -423,7 +433,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     hB1Norms.resize(kEigenDecompCount);
     ds.resize(kEigenDecompCount);
     dInstantaneousMatrices = std::vector<cusparseSpMatDescr_t>(kEigenDecompCount, nullptr);
-    CHECK_CUDA(cudaMalloc((void**) &dMatrixCsrOffsetsCache, (kPaddedStateCount + 1) * sizeof(int)))
+
+    dMatrixCsrOffsetsCache = cudaDeviceNew<int>(kPaddedStateCount + 1);
     dMatrixCsrColumnsCache = NULL;
     currentCacheNNZ = 0;
 
@@ -447,13 +458,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     checkHostMemory(hCategoryRates[0]);
 
 //    dMatrices = (GPUPtr*) malloc(sizeof(GPUPtr) * kMatrixCount);
-    CHECK_CUDA(cudaMalloc((void**) &dPatternWeightsCache, kPatternCount * sizeof(Real)))
+    dPatternWeightsCache = cudaDeviceNew<Real>(kPatternCount);
     dPatternWeights = NULL;
-
-
-
-
-
 
     return BEAGLE_SUCCESS;
 }
@@ -529,7 +535,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFreque
     beagleMemCpy(hFrequenciesCache, inStateFrequencies, kStateCount);
 
     if (dFrequenciesCache[stateFrequenciesIndex] == NULL) {
-        CHECK_CUDA(cudaMalloc((void**) &dFrequenciesCache[stateFrequenciesIndex], sizeof(Real) * kPaddedStateCount))
+        dFrequenciesCache[stateFrequenciesIndex] = cudaDeviceNew<Real>(kPaddedStateCount);
     }
     CHECK_CUDA(cudaMemcpy(dFrequenciesCache[stateFrequenciesIndex], hFrequenciesCache, sizeof(Real) * kStateCount, cudaMemcpyHostToDevice))
     if (dFrequencies[stateFrequenciesIndex] == NULL) {
@@ -558,7 +564,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setCategoryWeights(int categoryWeig
     beagleMemCpy(hWeightsCache, inCategoryWeights, kCategoryCount);
 
     if (dWeightsCache[categoryWeightsIndex] == NULL) {
-        CHECK_CUDA(cudaMalloc((void**) &dWeightsCache[categoryWeightsIndex], sizeof(Real) * kCategoryCount))
+        dWeightsCache[categoryWeightsIndex] = cudaDeviceNew<Real>(kCategoryCount);
     }
     CHECK_CUDA(cudaMemcpy(dWeightsCache[categoryWeightsIndex], hWeightsCache, kCategoryCount, cudaMemcpyHostToDevice))
 
@@ -608,7 +614,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
     }
     for (int i = 0; i < kCategoryCount; i++) {
         if (dPartialCache[getPartialIndex(tipIndex, i)] == NULL) {
-            CHECK_CUDA(cudaMalloc((void**) &dPartialCache[getPartialIndex(tipIndex, i)], kPaddedStateCount * kPaddedPatternCount))
+            dPartialCache[getPartialIndex(tipIndex, i)] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
         }
         CHECK_CUDA(cudaMemcpy(dPartialCache[getPartialIndex(tipIndex, i)], hPartialsCache, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyHostToDevice))
     }
@@ -711,8 +717,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
     const int paddedNNZ = currentNNZ + 16 - currentNNZ%16;
     if (currentCacheNNZ < paddedNNZ) {
         currentCacheNNZ = paddedNNZ;
-        CHECK_CUDA(cudaMalloc((void**) &dMatrixCsrColumnsCache, currentCacheNNZ * sizeof(int)))
-        CHECK_CUDA(cudaMalloc((void**) &dMatrixCsrValuesCache, currentCacheNNZ * sizeof(Real)))
+        dMatrixCsrColumnsCache = cudaDeviceNew<int>(currentCacheNNZ);
+        dMatrixCsrValuesCache = cudaDeviceNew<Real>(currentCacheNNZ);
     }
 
     CHECK_CUDA(cudaMemcpy(dMatrixCsrOffsetsCache, hInstantaneousMatrices[matrixIndex].outerIndexPtr(), sizeof(int) * (kPaddedStateCount + 1), cudaMemcpyHostToDevice))
