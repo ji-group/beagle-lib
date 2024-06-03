@@ -139,6 +139,10 @@ public:
 
     int setCategoryWeights(int categoryWeightsIndex,
                            const double* inCategoryWeights);
+
+    int getPartials(int bufferIndex,
+                    int scaleIndex,
+                    double* outPartials);
 protected:
 
     std::vector<SpMatrix> hInstantaneousMatrices;

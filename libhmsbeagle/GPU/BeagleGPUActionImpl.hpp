@@ -619,7 +619,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
         if (dPartialCache[getPartialIndex(tipIndex, i)] == NULL) {
             CHECK_CUDA(cudaMalloc((void**) &dPartialCache[getPartialIndex(tipIndex, i)], kPaddedStateCount * kPaddedPatternCount))
         }
-        CHECK_CUDA(cudaMemcpy(dPartialCache[getPartialIndex(tipIndex, i)], hPartialsCache, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount))
+        CHECK_CUDA(cudaMemcpy(dPartialCache[getPartialIndex(tipIndex, i)], hPartialsCache, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyHostToDevice))
     }
 
 
@@ -630,15 +630,51 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
 //    }
 
     if (tipIndex < kTipCount) {
-        if (dPartials[tipIndex] == NULL) {
-            for (int i = 0; i < kCategoryCount; i++) {
-                CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[getPartialIndex(tipIndex, i)], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[getPartialIndex(tipIndex, i)],
+        for (int i = 0; i < kCategoryCount; i++) {
+            const int partialIndex = getPartialIndex(tipIndex, i);
+            if (dPartials[partialIndex] == NULL) {
+                CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[partialIndex], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[partialIndex],
                                                    CUDA_R_64F, CUSPARSE_ORDER_COL))
+            } else {
+                CHECK_CUSPARSE(cusparseDnMatSetValues(dPartials[partialIndex], dPartialCache[partialIndex]))
             }
         }
     }
 #ifdef BEAGLE_DEBUG_FLOW
     fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setTipPartials\n");
+#endif
+
+    return BEAGLE_SUCCESS;
+}
+
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartials(int bufferIndex,
+                                                   int scaleIndex,
+                                                   double* outPartials) {
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::getPartials\n");
+#endif
+
+    for (int i = 0; i < kCategoryCount; i++) {
+        CHECK_CUDA(cudaMemcpy(hPartialsCache + i * kPaddedStateCount * kPaddedPatternCount, dPartialCache[getPartialIndex(bufferIndex, i)],
+                              sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToHost))
+    }
+
+    double *outPartialsOffset = outPartials;
+    Real *tmpRealPartialsOffset = hPartialsCache;
+
+    for (int c = 0; c < kCategoryCount; c++) {
+        for (int i = 0; i < kPatternCount; i++) {
+            beagleMemCpy(outPartialsOffset, tmpRealPartialsOffset, kStateCount);
+            tmpRealPartialsOffset += kPaddedStateCount;
+            outPartialsOffset += kStateCount;
+        }
+        tmpRealPartialsOffset += kPaddedStateCount * (kPaddedPatternCount - kPatternCount);
+    }
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::getPartials\n");
 #endif
 
     return BEAGLE_SUCCESS;
