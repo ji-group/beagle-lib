@@ -114,6 +114,8 @@ public:
     int setStateFrequencies(int stateFrequenciesIndex,
                             const double* inStateFrequencies);
 
+    int setCategoryWeights(int categoryWeightsIndex,
+                           const double* inCategoryWeights);
 protected:
 
     std::vector<SpMatrix> hInstantaneousMatrices;

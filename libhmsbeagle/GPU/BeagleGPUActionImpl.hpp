@@ -231,14 +231,16 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     }
 
     dFrequenciesCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);
-    dWeightsCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);;
-    dWeights = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kEigenDecompCount);
+    dWeightsCache = (Real**) gpu->MallocHost(sizeof(Real*) * kCategoryCount);;
+    dWeights = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kCategoryCount);
     dFrequencies = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         dFrequenciesCache[i] = NULL;
+        dFrequencies[i] = NULL;
+    }
+    for (int i = 0; i < kCategoryCount; i++) {
         dWeightsCache[i] = NULL;
         dWeights[i] = NULL;
-        dFrequencies[i] = NULL;
     }
 
     hCategoryRates = (double**) calloc(sizeof(double*),kEigenDecompCount); // Keep in double-precision
@@ -320,11 +322,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFreque
     if (stateFrequenciesIndex < 0 || stateFrequenciesIndex >= kEigenDecompCount)
         return BEAGLE_ERROR_OUT_OF_RANGE;
 
-//#ifdef DOUBLE_PRECISION
-//    memcpy(hFrequenciesCache, inStateFrequencies, kStateCount * sizeof(Real));
-//#else
-//    MEMCNV(hFrequenciesCache, inStateFrequencies, kStateCount, Real);
-//#endif
     beagleMemCpy(hFrequenciesCache, inStateFrequencies, kStateCount);
 
     if (dFrequenciesCache[stateFrequenciesIndex] == NULL) {
@@ -339,6 +336,36 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFreque
 
 #ifdef BEAGLE_DEBUG_FLOW
     fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setStateFrequencies\n");
+#endif
+
+    return BEAGLE_SUCCESS;
+}
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setCategoryWeights(int categoryWeightsIndex,
+                                                          const double* inCategoryWeights) {
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::setCategoryWeights\n");
+#endif
+
+    if (categoryWeightsIndex < 0 || categoryWeightsIndex >= kEigenDecompCount)
+        return BEAGLE_ERROR_OUT_OF_RANGE;
+
+    beagleMemCpy(hWeightsCache, inCategoryWeights, kPaddedPatternCount);
+
+    if (dWeightsCache[categoryWeightsIndex] == NULL) {
+        CHECK_CUDA(cudaMalloc((void**) &dWeightsCache[categoryWeightsIndex], sizeof(Real) * kPaddedPatternCount))
+    }
+    CHECK_CUDA(cudaMemcpy(dWeightsCache[categoryWeightsIndex], hWeightsCache, kPaddedPatternCount, cudaMemcpyHostToDevice))
+
+    if (dWeights[categoryWeightsIndex] == NULL) {
+        CHECK_CUSPARSE(cusparseCreateDnVec(&dWeights[categoryWeightsIndex], kPaddedPatternCount, dWeightsCache[categoryWeightsIndex], CUDA_R_64F))
+    } else {
+        CHECK_CUSPARSE(cusparseDnVecSetValues(dWeights[categoryWeightsIndex], dWeightsCache[categoryWeightsIndex]))
+    }
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setCategoryWeights\n");
 #endif
 
     return BEAGLE_SUCCESS;
