@@ -531,7 +531,7 @@ int main( int argc, const char* argv[] )
 
     double * seeprePartials  = (double*) malloc(sizeof(double) * stateCount * nPatterns * rateCategoryCount);
 
-    beagleGetPartials(instance, 4, BEAGLE_OP_NONE, seeprePartials);
+    beagleGetPartials(instance, 0, BEAGLE_OP_NONE, seeprePartials);
     MapType * testMaps = (MapType *) malloc(sizeof(MapType) * rateCategoryCount);
     for (int i = 0; i < rateCategoryCount; i++) {
         new (& testMaps[i]) MapType(seeprePartials + i * nPatterns * stateCount, stateCount, nPatterns);
@@ -543,7 +543,7 @@ int main( int argc, const char* argv[] )
 
     int l = 0;
     for(int s = 0; s < rateCategoryCount; s++){
-        std::cout<<"See partial"<< 3 <<" rate category"<< s+1<< ": \n";
+        std::cout<<"See partial"<< 0 <<" rate category"<< s+1<< ": \n";
         for(int k = 0; k<nPatterns; k++){
             for(int j=0; j < stateCount; j++){
                 std::cout<<seeprePartials[l++]<<", ";
