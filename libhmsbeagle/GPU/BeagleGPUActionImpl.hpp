@@ -231,14 +231,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     }
 
     dFrequenciesCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);
-    dWeightsCache = (Real**) gpu->MallocHost(sizeof(Real*) * kCategoryCount);;
-    dWeights = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kCategoryCount);
+    dWeightsCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);;
+    dWeights = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kEigenDecompCount);
     dFrequencies = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         dFrequenciesCache[i] = NULL;
         dFrequencies[i] = NULL;
-    }
-    for (int i = 0; i < kCategoryCount; i++) {
         dWeightsCache[i] = NULL;
         dWeights[i] = NULL;
     }
@@ -351,15 +349,15 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setCategoryWeights(int categoryWeig
     if (categoryWeightsIndex < 0 || categoryWeightsIndex >= kEigenDecompCount)
         return BEAGLE_ERROR_OUT_OF_RANGE;
 
-    beagleMemCpy(hWeightsCache, inCategoryWeights, kPaddedPatternCount);
+    beagleMemCpy(hWeightsCache, inCategoryWeights, kCategoryCount);
 
     if (dWeightsCache[categoryWeightsIndex] == NULL) {
-        CHECK_CUDA(cudaMalloc((void**) &dWeightsCache[categoryWeightsIndex], sizeof(Real) * kPaddedPatternCount))
+        CHECK_CUDA(cudaMalloc((void**) &dWeightsCache[categoryWeightsIndex], sizeof(Real) * kCategoryCount))
     }
-    CHECK_CUDA(cudaMemcpy(dWeightsCache[categoryWeightsIndex], hWeightsCache, kPaddedPatternCount, cudaMemcpyHostToDevice))
+    CHECK_CUDA(cudaMemcpy(dWeightsCache[categoryWeightsIndex], hWeightsCache, kCategoryCount, cudaMemcpyHostToDevice))
 
     if (dWeights[categoryWeightsIndex] == NULL) {
-        CHECK_CUSPARSE(cusparseCreateDnVec(&dWeights[categoryWeightsIndex], kPaddedPatternCount, dWeightsCache[categoryWeightsIndex], CUDA_R_64F))
+        CHECK_CUSPARSE(cusparseCreateDnVec(&dWeights[categoryWeightsIndex], kCategoryCount, dWeightsCache[categoryWeightsIndex], CUDA_R_64F))
     } else {
         CHECK_CUSPARSE(cusparseDnVecSetValues(dWeights[categoryWeightsIndex], dWeightsCache[categoryWeightsIndex]))
     }
