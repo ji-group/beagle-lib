@@ -194,12 +194,12 @@ protected:
             {55, 9.9},
     };
 
-    cusparseSpMatDescr_t* dInstantaneousMatrices;
-    cusparseDnMatDescr_t* dPartials;
-    Real **dPartialCache;
+    std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
+    std::vector<cusparseDnMatDescr_t> dPartials;
+    std::vector<Real*> dPartialCache;
     Real **dFrequenciesCache, **dWeightsCache;
-    cusparseDnVecDescr_t *dFrequencies;
-    cusparseDnVecDescr_t *dWeights;
+    std::vector<cusparseDnVecDescr_t> dFrequencies;
+    std::vector<cusparseDnVecDescr_t> dWeights;
     int *dMatrixCsrOffsetsCache, *dMatrixCsrColumnsCache;
     Real *dMatrixCsrValuesCache;
     int currentCacheNNZ;

@@ -422,30 +422,21 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     hMuBs.resize(kEigenDecompCount);
     hB1Norms.resize(kEigenDecompCount);
     ds.resize(kEigenDecompCount);
-    dInstantaneousMatrices = (cusparseSpMatDescr_t *) calloc(sizeof(cusparseSpMatDescr_t), kEigenDecompCount);
-    for (int i = 0; i < kEigenDecompCount; i++) {
-        dInstantaneousMatrices[i] = NULL;
-    }
+    dInstantaneousMatrices = std::vector<cusparseSpMatDescr_t>(kEigenDecompCount, nullptr);
     CHECK_CUDA(cudaMalloc((void**) &dMatrixCsrOffsetsCache, (kPaddedStateCount + 1) * sizeof(int)))
     dMatrixCsrColumnsCache = NULL;
     currentCacheNNZ = 0;
 
-    dPartials = (cusparseDnMatDescr_t *) calloc(sizeof(cusparseDnMatDescr_t), kPartialsBufferCount * kCategoryCount);
-    dPartialCache = (Real **) calloc(sizeof(Real*), kPartialsBufferCount * kCategoryCount);
-    for (int i = 0; i < kPartialsBufferCount * kCategoryCount; i++) {
-        dPartials[i] = NULL;
-        dPartialCache[i] = NULL;
-    }
+    dPartials = std::vector<cusparseDnMatDescr_t>(kPartialsBufferCount * kCategoryCount, nullptr);
+    dPartialCache = std::vector<Real*>(kPartialsBufferCount * kCategoryCount, nullptr);
 
     dFrequenciesCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);
     dWeightsCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);;
-    dWeights = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kEigenDecompCount);
-    dFrequencies = (cusparseDnVecDescr_t *) calloc(sizeof(cusparseDnVecDescr_t), kEigenDecompCount);
+    dWeights = std::vector<cusparseDnVecDescr_t>(kEigenDecompCount, nullptr);
+    dFrequencies = std::vector<cusparseDnVecDescr_t>(kEigenDecompCount, nullptr);
     for (int i = 0; i < kEigenDecompCount; i++) {
         dFrequenciesCache[i] = NULL;
-        dFrequencies[i] = NULL;
         dWeightsCache[i] = NULL;
-        dWeights[i] = NULL;
     }
 
     hEigenMaps.resize(kPartialsBufferCount);
