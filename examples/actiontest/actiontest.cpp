@@ -427,6 +427,43 @@ int main( int argc, const char* argv[] )
             3, 3,
     };
 
+    int rowIndices[16] = {
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            2,
+            3,
+            3,
+            3,
+            3,
+    };
+    int colIndices[16] = {
+            0,
+            1,
+            2,
+            3,
+            0,
+            1,
+            2,
+            3,
+            0,
+            1,
+            2,
+            3,
+            0,
+            1,
+            2,
+            3,
+    };
+
     double ivec[1] = {16};
 
     ///array of real parts + array of imaginary parts
@@ -465,7 +502,8 @@ int main( int argc, const char* argv[] )
 
 
     // set the Eigen decomposition
-    beagleSetEigenDecomposition(instance, 0, evec, ivec, eval);
+//    beagleSetEigenDecomposition(instance, 0, evec, ivec, eval);
+    beagleSetSparseMatrix(instance, 0, rowIndices, colIndices, eval, 16);
 
     // a list of indices and edge lengths
     int nodeIndices[4] = { 0, 1, 2, 3 };
