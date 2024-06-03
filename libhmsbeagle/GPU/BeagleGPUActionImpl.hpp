@@ -32,6 +32,205 @@
 #ifndef BEAGLE_BEAGLEGPUACTIONIMPL_HPP
 #define BEAGLE_BEAGLEGPUACTIONIMPL_HPP
 
+
+// Duplicated from CPU code
+std::independent_bits_engine<std::mt19937_64,1,unsigned short> engine;
+
+bool random_bool()
+{
+    return engine();
+}
+double random_plus_minus_1_func(double x)
+{
+    if (random_bool())
+        return 1;
+    else
+        return -1;
+}
+// Algorithm 2.4 from Higham and Tisseur (2000), A BLOCK ALGORITHM FOR MATRIX 1-NORM ESTIMATION,
+//    WITH AN APPLICATION TO 1-NORM PSEUDOSPECTRA.
+// See OneNormEst in https://eprints.maths.manchester.ac.uk/2195/1/thesis-main.pdf
+//    This seems to have a bug where it checks if columns in S are parallel to EVERY column of S_old.
+// See also https://github.com/gnu-octave/octave/blob/default/scripts/linear-algebra/normest1.m
+// See dlacn1.f
+double normest1(const SpMatrix& A, int p, int t=2, int itmax=5)
+{
+    assert(p >= 0);
+    assert(t != 0); // negative means t = n
+    assert(itmax >= 1);
+
+    if (p == 0) return 1.0;
+
+    // A is (n,n);
+    assert(A.rows() == A.cols());
+    int n = A.cols();
+
+    // Handle t too large
+    t = std::min(n,t);
+
+    // Interpret negative t as t == n
+    if (t < 0) t = n;
+
+    // Defer to normP1 if p=1 and n is small or we want an exact answer.
+    if (p == 1 and (n <= 4 or t == n))
+        return normP1(A);
+
+    // (0) Choose starting matrix X that is (n,t) with columns of unit 1-norm.
+    MatrixXd X(n,t);
+    // We choose the first column to be all 1s.
+    X.col(0).setOnes();
+    // The other columns have randomly chosen {-1,+1} entries.
+    X = X.unaryExpr( &random_plus_minus_1_func );
+    // Divide by n so that the norm of each column is 1.
+    X /= n;
+
+    // 3.
+    std::vector<bool> ind_hist(n,0);
+    std::vector<int> indices(n,0);
+    int ind_best = -1;
+    double est_old = 0;
+    MatrixXd S = MatrixXd::Ones(n,t);
+    MatrixXd S_old = MatrixXd::Ones(n,t);
+    MatrixXi prodS(t,t);
+    MatrixXd Y(n,t);
+    MatrixXd Z(n,t);
+    Eigen::VectorXd h(n);
+
+    for(int k=1; k<=itmax; k++)
+    {
+        // std::cerr<<"iter "<<k<<"\n";
+        Y = A*X; // Y is (n,n) * (n,t) = (n,t)
+        for(int i=1;i<p;i++)
+            Y = A*Y;
+
+        auto [est, j] = ArgNormP1(Y);
+
+        if (est > est_old or k == 2)
+        {
+            // Note that j is in [0,t-1], but indices[j] is in [0,n-1].
+            ind_best = indices[j];
+            // w = Y.col(ind_best);
+        }
+        // std::cerr<<"  est = "<<est<<"  (est_old = "<<est_old<<")\n";
+        assert(ind_best < n);
+
+        // (1) of Algorithm 2.4
+        if (est < est_old and k >= 2)
+        {
+            // std::cerr<<"  The new estimate ("<<est<<") is smaller than the old estimate ("<<est_old<<")\n";
+            return est_old;
+        }
+
+        est_old = est;
+
+        assert(est >= est_old);
+
+        // S = sign(Y), 0.0 -> 1.0
+        S = Y.unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
+
+        // prodS is (t,t)
+        prodS = (S_old.transpose() * S).matrix().cwiseAbs().cast<int>() ;
+
+        // (2) If each columns in S is parallel to SOME column of S_old
+        if (prodS.colwise().maxCoeff().sum() == n * t and k >= 2)
+        {
+            // std::cerr<<"  All columns of S parallel to S_old\n";
+            return est;
+        }
+
+        if (t > 1)
+        {
+            // If S(j) is parallel to S_old(i), replace S(j) with random column
+            for(int j=0;j<S.cols();j++)
+            {
+                for(int i=0;i<S_old.cols();i++)
+                    if (prodS(i,j) == n)
+                    {
+                        // std::cerr<<"  S.col("<<j<<") parallel to S_old.col("<<i<<")\n";
+                        S.col(j) = S.col(j).unaryExpr( &random_plus_minus_1_func );
+                        break;
+                    }
+            }
+
+            // If S(j) is parallel to S(i) for i<j, replace S(j) with random column
+            prodS = (S.transpose() * S).matrix().cast<int>() ;
+            for(int i=0;i<S.cols();i++)
+                for(int j=i+1;j<S.cols();j++)
+                    if (prodS(i,j) == n)
+                    {
+                        // std::cerr<<"  S.col("<<j<<") parallel to S.col("<<i<<")\n";
+                        S.col(j) = S.col(j).unaryExpr( &random_plus_minus_1_func );
+                        break;
+                    }
+        }
+
+        // (3) of Algorithm 2.4
+        Z = A.transpose() * S; // (t,n) * (n,t) -> (t,t)
+
+        h = Z.cwiseAbs().rowwise().maxCoeff();
+
+        // (4) of Algorithm 2.4
+        if (k >= 2 and h.maxCoeff() == h[ind_best])
+        {
+            // std::cerr<<"  The best column ("<<ind_best<<") is not new\n";
+
+            // According to Algorithm 2.4, we should exit here.
+
+            // However, continuing until we find a different reason to exit
+            // seems to providegreater accuracy.
+
+            // return est;
+        }
+
+        indices.resize(n);
+        for(int i=0;i<n;i++)
+            indices[i] = i;
+
+        // reorder idx so that the highest values of h[indices[i]] come first.
+        std::sort(indices.begin(), indices.end(), [&](int i,int j) {return h[i] > h[j];});
+
+        // (5) of Algorithm 2.4
+        int n_found = 0;
+        for(int i=0;i<t;i++)
+            if (ind_hist[indices[i]])
+                n_found++;
+
+        if (n_found == t)
+        {
+            assert(k >= 2);
+            // std::cerr<<"  All columns were found in the column history.\n";
+            return est;
+        }
+
+        // find the first t indices that are not in ind_hist
+        int l=0;
+        for(int i=0;i<indices.size() and l < t;i++)
+        {
+            if (not ind_hist[indices[i]])
+            {
+                indices[l] = indices[i];
+                l++;
+            }
+        }
+        indices.resize( std::min(l,t) );
+        assert(not indices.empty());
+
+        int tmax = std::min<int>(t, indices.size());
+
+        X = MatrixXd::Zero(n, tmax);
+        for(int j=0; j < tmax; j++)
+            X(indices[j], j) = 1; // X(:,j) = e(indices[j])
+
+        for(int i: indices)
+            ind_hist[i] = true;
+
+        S_old = S;
+    }
+
+    return est_old;
+}
+
+
 namespace beagle {
 namespace gpu {
 
@@ -213,10 +412,15 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     int hMatrixCacheSize = kMatrixSize * kCategoryCount * BEAGLE_CACHED_MATRICES_COUNT;  //TODO: use Eigen csr representation?
     hLogLikelihoodsCache = (Real*) gpu->MallocHost(kPatternCount * sizeof(Real));
     hMatrixCache = (Real*) gpu->CallocHost(hMatrixCacheSize, sizeof(Real));
+    hIdentity = SpMatrix(kPaddedStateCount, kPaddedStateCount);
+    hIdentity.setIdentity();
     hInstantaneousMatrices.resize(kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         hInstantaneousMatrices[i] = SpMatrix(kPaddedStateCount, kPaddedStateCount);
     }
+    hBs.resize(kEigenDecompCount);
+    hMuBs.resize(kEigenDecompCount);
+    hB1Norms.resize(kEigenDecompCount);
     dInstantaneousMatrices = (cusparseSpMatDescr_t *) calloc(sizeof(cusparseSpMatDescr_t), kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         dInstantaneousMatrices[i] = NULL;
@@ -473,13 +677,40 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
                                      dMatrixCsrOffsetsCache, dMatrixCsrColumnsCache, dMatrixCsrValuesCache,
                                      CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_64F))
+    //TODO: use cusparse function for diagonal sum?
+    double mu_B = 0.0;
+    for (int i = 0; i < kStateCount; i++) {
+        mu_B += hInstantaneousMatrices[matrixIndex].coeff(i, i);
+    }
+    mu_B /= (double) kStateCount;
 
+    hMuBs[matrixIndex] = mu_B;
+    hBs[matrixIndex] = hInstantaneousMatrices[matrixIndex] - mu_B * hIdentity;
+    hB1Norms[matrixIndex] = normP1(hBs[matrixIndex]);
+
+    ds[matrixIndex].clear();
+
+    int pMax = getPMax();
+    for(int p=0;p <= pMax+1; p++)
+    {
+        int t = 5;
+        double approx_norm = normest1( hBs[matrixIndex], p, t);
+
+        // equation 3.7 in Al-Mohy and Higham
+        ds[matrixIndex].push_back( pow( approx_norm, 1.0/double(p) ) );
+    }
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"Setting host matrix: "<<matrixIndex<<std::endl<<hInstantaneousMatrices[matrixIndex]<<std::endl
 //    <<std::endl<<"Setting device matrix: " << matrixIndex << std::endl << dInstantaneousMatrices[matrixIndex]<<std::endl;
 //#endif
     return BEAGLE_SUCCESS;
+}
+
+BEAGLE_GPU_TEMPLATE
+double BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPMax() const
+{
+    return floor(0.5 + 0.5 * sqrt(5.0 + 4.0 * mMax));
 }
 
 BEAGLE_GPU_TEMPLATE
