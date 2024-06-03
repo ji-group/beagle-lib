@@ -518,7 +518,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const Real* inPat
 //  MEMCNV(hPatternWeightsCache, inPatternWeights, kPatternCount, Real);
 //#endif
 //    const Real* tmpWeights = beagleCastIfNecessary(inPatternWeights, hPatternWeightsCache, kPatternCount);
-    CHECK_CUDA(cudaMemcpy(dPatternWeightsCache, inPatternWeights, kPatternCount * sizeof(Real), cudaMemcpyHostToDevice))
+    MemcpyHostToDevice(dPatternWeightsCache, inPatternWeights, kPatternCount);
 
     if (dPatternWeights == NULL) {
         CHECK_CUSPARSE(cusparseCreateDnVec(&dPatternWeights, kPatternCount, dPatternWeightsCache, CUDA_R_64F))
@@ -732,9 +732,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
         dMatrixCsrValuesCache = cudaDeviceNew<Real>(currentCacheNNZ);
     }
 
-    CHECK_CUDA(cudaMemcpy(dMatrixCsrOffsetsCache, hInstantaneousMatrices[matrixIndex].outerIndexPtr(), sizeof(int) * (kPaddedStateCount + 1), cudaMemcpyHostToDevice))
-    CHECK_CUDA(cudaMemcpy(dMatrixCsrColumnsCache, hInstantaneousMatrices[matrixIndex].innerIndexPtr(), sizeof(int) * currentNNZ, cudaMemcpyHostToDevice))
-    CHECK_CUDA(cudaMemcpy(dMatrixCsrValuesCache, hInstantaneousMatrices[matrixIndex].valuePtr(), sizeof(Real) * currentNNZ, cudaMemcpyHostToDevice))
+    MemcpyHostToDevice(dMatrixCsrOffsetsCache, hInstantaneousMatrices[matrixIndex].outerIndexPtr(), kPaddedStateCount + 1);
+    MemcpyHostToDevice(dMatrixCsrColumnsCache, hInstantaneousMatrices[matrixIndex].innerIndexPtr(), currentNNZ);
+    MemcpyHostToDevice(dMatrixCsrValuesCache, hInstantaneousMatrices[matrixIndex].valuePtr(), currentNNZ);
 
     CHECK_CUSPARSE(cusparseCreateCsr(&dInstantaneousMatrices[matrixIndex], kPaddedStateCount, kPaddedStateCount, currentNNZ,
                                      dMatrixCsrOffsetsCache, dMatrixCsrColumnsCache, dMatrixCsrValuesCache,
