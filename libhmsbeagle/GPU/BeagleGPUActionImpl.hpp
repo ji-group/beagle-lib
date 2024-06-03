@@ -54,10 +54,9 @@ double random_plus_minus_1_func(double x)
 //    This seems to have a bug where it checks if columns in S are parallel to EVERY column of S_old.
 // See also https://github.com/gnu-octave/octave/blob/default/scripts/linear-algebra/normest1.m
 // See dlacn1.f
-double normest1(const SpMatrix<double>& A, int p, int t=2, int itmax=5)
+template <typename Real>
+Real normest1(const SpMatrix<Real>& A, int p, int t=2, int itmax=5)
 {
-    typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
-
     assert(p >= 0);
     assert(t != 0); // negative means t = n
     assert(itmax >= 1);
@@ -79,7 +78,7 @@ double normest1(const SpMatrix<double>& A, int p, int t=2, int itmax=5)
         return normP1(A);
 
     // (0) Choose starting matrix X that is (n,t) with columns of unit 1-norm.
-    MatrixXd X(n,t);
+    DnMatrix<Real> X(n,t);
     // We choose the first column to be all 1s.
     X.col(0).setOnes();
     // The other columns have randomly chosen {-1,+1} entries.
@@ -91,13 +90,13 @@ double normest1(const SpMatrix<double>& A, int p, int t=2, int itmax=5)
     std::vector<bool> ind_hist(n,0);
     std::vector<int> indices(n,0);
     int ind_best = -1;
-    double est_old = 0;
-    MatrixXd S = MatrixXd::Ones(n,t);
-    MatrixXd S_old = MatrixXd::Ones(n,t);
+    Real est_old = 0;
+    DnMatrix<Real> S = DnMatrix<Real>::Ones(n,t);
+    DnMatrix<Real> S_old = DnMatrix<Real>::Ones(n,t);
     MatrixXi prodS(t,t);
-    MatrixXd Y(n,t);
-    MatrixXd Z(n,t);
-    Eigen::VectorXd h(n);
+    DnMatrix<Real> Y(n,t);
+    DnMatrix<Real> Z(n,t);
+    DnVector<Real> h(n);
 
     for(int k=1; k<=itmax; k++)
     {
@@ -129,10 +128,10 @@ double normest1(const SpMatrix<double>& A, int p, int t=2, int itmax=5)
         assert(est >= est_old);
 
         // S = sign(Y), 0.0 -> 1.0
-        S = Y.unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
+        S = Y.unaryExpr([](const Real& x) {return (x>=0) ? 1.0 : -1.0 ;});
 
         // prodS is (t,t)
-        prodS = (S_old.transpose() * S).matrix().cwiseAbs().cast<int>() ;
+        prodS = (S_old.transpose() * S).matrix().cwiseAbs().template cast<int>() ;
 
         // (2) If each columns in S is parallel to SOME column of S_old
         if (prodS.colwise().maxCoeff().sum() == n * t and k >= 2)
@@ -156,7 +155,7 @@ double normest1(const SpMatrix<double>& A, int p, int t=2, int itmax=5)
             }
 
             // If S(j) is parallel to S(i) for i<j, replace S(j) with random column
-            prodS = (S.transpose() * S).matrix().cast<int>() ;
+            prodS = (S.transpose() * S).matrix().template cast<int>() ;
             for(int i=0;i<S.cols();i++)
                 for(int j=i+1;j<S.cols();j++)
                     if (prodS(i,j) == n)
@@ -220,7 +219,7 @@ double normest1(const SpMatrix<double>& A, int p, int t=2, int itmax=5)
 
         int tmax = std::min<int>(t, indices.size());
 
-        X = MatrixXd::Zero(n, tmax);
+        X = DnMatrix<Real>::Zero(n, tmax);
         for(int j=0; j < tmax; j++)
             X(indices[j], j) = 1; // X(:,j) = e(indices[j])
 

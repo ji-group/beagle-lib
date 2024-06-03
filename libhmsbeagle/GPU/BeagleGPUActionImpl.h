@@ -89,12 +89,11 @@ using SpMatrix = Eigen::SparseMatrix<Real>;
 template <typename Real>
 using Triplet = Eigen::Triplet<Real>;
 
-//template <typename Real>
-//using DnMatrix = Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>;
+template <typename Real>
+using DnMatrix = Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>;
 
-//template <typename Real>
-//using DnVector = Eigen::Matrix<Real, 1, Eigen::Dynamic>;
-//using DnVector = Eigen::Matrix<Real, Eigen::Dynamic, 1>;
+template <typename Real>
+using DnVector = Eigen::Matrix<Real, Eigen::Dynamic, 1>;
 
 //template <typename Real>
 //using MapType = DnMatrix<Real>;
