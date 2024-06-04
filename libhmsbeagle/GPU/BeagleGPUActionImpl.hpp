@@ -305,6 +305,22 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::createInstance\n");
 #endif
 
+    int status = BeagleGPUImpl<Real>::createInstance(tipCount,
+						     partialsBufferCount,
+						     compactBufferCount,
+						     stateCount,
+						     patternCount,
+						     eigenDecompositionCount,
+						     matrixCount,
+						     categoryCount,
+						     scaleBufferCount,
+						     globalResourceNumber,
+						     pluginResourceNumber,
+						     preferenceFlags,
+						     requirementFlags);
+
+    if (status != BEAGLE_SUCCESS) return status;
+/*
     kInitialized = 0;
 
     kTipCount = tipCount;
@@ -478,6 +494,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 //    dMatrices = (GPUPtr*) malloc(sizeof(GPUPtr) * kMatrixCount);
     dPatternWeightsCache = cudaDeviceNew<Real>(kPatternCount);
     dPatternWeights = NULL;
+*/
 
     return BEAGLE_SUCCESS;
 }
