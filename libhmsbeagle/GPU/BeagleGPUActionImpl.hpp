@@ -601,6 +601,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setCategoryWeights(int categoryWeig
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::setCategoryWeights\n");
 #endif
 
+    return BeagleGPUImpl<Real>::setCategoryWeights(categoryWeightsIndex, inCategoryWeights);
+
+/*
     if (categoryWeightsIndex < 0 || categoryWeightsIndex >= kEigenDecompCount)
         return BEAGLE_ERROR_OUT_OF_RANGE;
 
@@ -622,6 +625,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setCategoryWeights(int categoryWeig
 #endif
 
     return BEAGLE_SUCCESS;
+*/
 }
 
 
