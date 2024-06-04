@@ -535,6 +535,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const Real* inPat
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::setPatternWeights\n");
 #endif
 
+    return BeagleGPUImpl<Real>::setPatternWeights(inPatternWeights);
+
+/*
 //#ifdef DOUBLE_PRECISION
 //  const double* tmpWeights = inPatternWeights;
 //#else
@@ -555,6 +558,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPatternWeights(const Real* inPat
 #endif
 
     return BEAGLE_SUCCESS;
+*/
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -564,6 +568,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFreque
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::setStateFrequencies\n");
 #endif
 
+    return BeagleGPUImpl<Real>::setStateFrequencies(stateFrequenciesIndex, inStateFrequencies);
+
+/*
     if (stateFrequenciesIndex < 0 || stateFrequenciesIndex >= kEigenDecompCount)
         return BEAGLE_ERROR_OUT_OF_RANGE;
 
@@ -584,6 +591,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFreque
 #endif
 
     return BEAGLE_SUCCESS;
+*/
 }
 
 BEAGLE_GPU_TEMPLATE
