@@ -637,6 +637,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::setTipPartials\n");
 #endif
 
+    return BeagleGPUImpl<Real>::setTipPartials(tipIndex, inPartials);
+
+/*
     if (tipIndex < 0 || tipIndex >= kTipCount)
         return BEAGLE_ERROR_OUT_OF_RANGE;
 
@@ -677,6 +680,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
 #endif
 
     return BEAGLE_SUCCESS;
+*/
 }
 
 
