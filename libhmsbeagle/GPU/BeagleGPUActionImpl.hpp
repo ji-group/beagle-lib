@@ -762,8 +762,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
     DnMatrix<Real> V = es.pseudoEigenvectors();
     DnMatrix<Real> inverseV = es.pseudoEigenvectors().inverse();
 
-    std::vector<Real> eigenVectors(2*kStateCount*kStateCount, 0);
-    std::vector<Real> inverseEigenVectors(2*kStateCount*kStateCount, 0);
+    std::vector<Real> eigenVectors(kStateCount*kStateCount, 0);
+    std::vector<Real> inverseEigenVectors(kStateCount*kStateCount, 0);
     std::vector<Real> eigenValues(2*kStateCount, 0);
 
 #ifdef EIGEN_DEBUG_FLOW
@@ -797,7 +797,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
     }
 
     BeagleGPUImpl<Real>::setEigenDecomposition(matrixIndex, eigenVectors.data(), inverseEigenVectors.data(), eigenValues.data());
-//    exit(1);
 
 /*
     const int currentNNZ = hInstantaneousMatrices[matrixIndex].nonZeros();
