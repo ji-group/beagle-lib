@@ -32,6 +32,7 @@
 #ifndef BEAGLE_BEAGLEGPUACTIONIMPL_HPP
 #define BEAGLE_BEAGLEGPUACTIONIMPL_HPP
 
+#include <Eigen/Eigenvalues>
 
 // Duplicated from CPU code
 std::independent_bits_engine<std::mt19937_64,1,unsigned short> engine;
@@ -706,28 +707,13 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartials(int bufferIndex,
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::getPartials\n");
 #endif
 
-    for (int i = 0; i < kCategoryCount; i++) {
-        CHECK_CUDA(cudaMemcpy(hPartialsCache + i * kPaddedStateCount * kPaddedPatternCount, dPartialCache[getPartialIndex(bufferIndex, i)],
-                              sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToHost))
-    }
-
-    Real *outPartialsOffset = outPartials;
-    Real *tmpRealPartialsOffset = hPartialsCache;
-
-    for (int c = 0; c < kCategoryCount; c++) {
-        for (int i = 0; i < kPatternCount; i++) {
-            beagleMemCpy(outPartialsOffset, tmpRealPartialsOffset, kStateCount);
-            tmpRealPartialsOffset += kPaddedStateCount;
-            outPartialsOffset += kStateCount;
-        }
-        tmpRealPartialsOffset += kPaddedStateCount * (kPaddedPatternCount - kPatternCount);
-    }
+    int status = BeagleGPUImpl<Real>::getPartials(bufferIndex, scaleIndex, outPartials);
 
 #ifdef BEAGLE_DEBUG_FLOW
     fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::getPartials\n");
 #endif
 
-    return BEAGLE_SUCCESS;
+    return status;
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -763,11 +749,56 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
 #ifdef BEAGLE_DEBUG_FLOW
     std::cerr<<"\tEntering BeagleGPUActionImpl::setSparseMatrix\n";
 #endif
+
     std::vector<Triplet<Real>> tripletList;
     for (int i = 0; i < numNonZeros; i++) {
         tripletList.push_back(Triplet<Real>(rowIndices[i], colIndices[i], values[i]));
     }
     hInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
+
+    DnMatrix<Real> tmp = hInstantaneousMatrices[matrixIndex];
+    Eigen::EigenSolver<DnMatrix<Real>> es(tmp);
+
+    DnMatrix<Real> V = es.pseudoEigenvectors();
+    DnMatrix<Real> inverseV = es.pseudoEigenvectors().inverse();
+
+    std::vector<Real> eigenVectors(2*kStateCount*kStateCount, 0);
+    std::vector<Real> inverseEigenVectors(2*kStateCount*kStateCount, 0);
+    std::vector<Real> eigenValues(2*kStateCount, 0);
+
+#ifdef EIGEN_DEBUG_FLOW
+    std::cerr<< "The eigenvalues of Matrix are:" << std::endl << es.pseudoEigenvalueMatrix().diagonal() << std::endl;
+    std::cerr<< "The matrix of eigenvectors, V, is:" << std::endl << es.pseudoEigenvectors() << std::endl << std::endl;
+    std::cerr<< "The matrix of inverse eigenvectors, invV, is:" << std::endl << inverseV << std::endl << std::endl;
+#endif
+    bool complexPair = false;
+    for (int i = 0; i < kStateCount; i++) {
+	eigenValues[i] = es.pseudoEigenvalueMatrix().col(i)[i];
+	if (complexPair) {
+	    eigenValues[kStateCount + i] = es.pseudoEigenvalueMatrix().col(i - 1)[i];
+	    complexPair = false;
+	} else {
+	    double nextValue = i < kStateCount - 1 ? es.pseudoEigenvalueMatrix().col(i + 1)[i] : 0;
+	    if (nextValue != 0) {
+		complexPair = true;
+		eigenValues[kStateCount + i] = nextValue;
+	    } else {
+		eigenValues[kStateCount + i] = 0;
+	    }
+	}
+	for (int j = 0; j < kStateCount; j++) {
+	    eigenVectors[kStateCount * i + j] = V.col(j)[i];
+	    inverseEigenVectors[kStateCount * i + j] = inverseV.col(j)[i];
+	}
+#ifdef EIGEN_DEBUG_FLOW
+	std::cerr<< "The " << i <<"th eigenvalue :" << std::endl << eigenValues[i] << "," << eigenValues[i + kStateCount] << std::endl;
+#endif
+
+    }
+
+    BeagleGPUImpl<Real>::setEigenDecomposition(matrixIndex, eigenVectors.data(), inverseEigenVectors.data(), eigenValues.data());
+//    exit(1);
+
 /*
     const int currentNNZ = hInstantaneousMatrices[matrixIndex].nonZeros();
     const int paddedNNZ = currentNNZ + 16 - currentNNZ%16;
@@ -834,6 +865,13 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenI
 								      const Real* edgeLengths,
 								      int count)
 {
+    return BeagleGPUImpl<Real>::updateTransitionMatrices(eigenIndex,
+							 probabilityIndices,
+							 firstDerivativeIndices,
+							 secondDerivativeIndices,
+							 edgeLengths,
+							 count);
+/*
     for (int i = 0; i < count; i++) {
         const int nodeIndex = probabilityIndices[i];
         hEigenMaps[nodeIndex] = eigenIndex;
@@ -844,6 +882,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenI
         }
     }
     // TODO: check if need to copy it from host to device afterwards
+*/
     return BEAGLE_ERROR_NO_IMPLEMENTATION;
 }
 
