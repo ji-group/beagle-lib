@@ -760,12 +760,15 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
                                                              const Real* values,
                                                              int numNonZeros)
 {
+#ifdef BEAGLE_DEBUG_FLOW
+    std::cerr<<"\tEntering BeagleGPUActionImpl::setSparseMatrix\n";
+#endif
     std::vector<Triplet<Real>> tripletList;
     for (int i = 0; i < numNonZeros; i++) {
         tripletList.push_back(Triplet<Real>(rowIndices[i], colIndices[i], values[i]));
     }
     hInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
-
+/*
     const int currentNNZ = hInstantaneousMatrices[matrixIndex].nonZeros();
     const int paddedNNZ = currentNNZ + 16 - currentNNZ%16;
     if (currentCacheNNZ < paddedNNZ) {
@@ -809,6 +812,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
 //    std::cerr<<"Setting host matrix: "<<matrixIndex<<std::endl<<hInstantaneousMatrices[matrixIndex]<<std::endl
 //    <<std::endl<<"Setting device matrix: " << matrixIndex << std::endl << dInstantaneousMatrices[matrixIndex]<<std::endl;
 //#endif
+
+*/
+#ifdef BEAGLE_DEBUG_FLOW
+    std::cerr<<"\tLeaving BeagleGPUActionImpl::setSparseMatrix\n";
+#endif
     return BEAGLE_SUCCESS;
 }
 
