@@ -155,8 +155,8 @@ public:
 protected:
 
     std::vector<SpMatrix<Real>> hInstantaneousMatrices;
-    SpMatrix<Real> hIdentity;
     std::vector<SpMatrix<Real>> hBs;
+    SpMatrix<Real> hIdentity;
     std::vector<Real> hMuBs;
     std::vector<Real> hB1Norms;
     const int mMax = 55;
@@ -205,13 +205,16 @@ protected:
 
     std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
     std::vector<cusparseDnMatDescr_t> dPartials;
+    std::vector<cusparseSpMatDescr_t> dAs;
+    std::vector<Real*> dACache;
     std::vector<Real*> dPartialCache;
     Real **dFrequenciesCache, **dWeightsCache;
     std::vector<cusparseDnVecDescr_t> dFrequencies;
     std::vector<cusparseDnVecDescr_t> dWeights;
-    int *dMatrixCsrOffsetsCache, *dMatrixCsrColumnsCache;
-    Real *dMatrixCsrValuesCache;
-    int currentCacheNNZ;
+    std::vector<int *> dMatrixCsrOffsetsCache;
+    std::vector<int *> dMatrixCsrColumnsCache;
+    std::vector<Real*> dMatrixCsrValuesCache;
+    std::vector<int> currentCacheNNZs;
     Real *dPatternWeightsCache;
     cusparseDnVecDescr_t dPatternWeights;
 
@@ -359,6 +362,20 @@ private:
     double getPMax() const;
 
     int getPartialIndex(int nodeIndex, int categoryIndex);
+
+    void calcPartialsPartials(int destPIndex,
+                              int partials1Index,
+                              int edgeIndex1,
+                              int partials2Index,
+                              int edgeIndex2);
+
+    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int edgeMultiplierIndex, bool transpose) const;
+
+    std::tuple<int,int> getStatistics2(double t, int nCol, double edgeMultiplier,
+                                       int eigenIndex) const;
+
+    double getDValue(int p, int eigenIndex) const;
+
 };
 
 BEAGLE_GPU_TEMPLATE

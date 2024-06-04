@@ -443,21 +443,32 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     hIdentity = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     hIdentity.setIdentity();
     hInstantaneousMatrices.resize(kEigenDecompCount);
+    hBs.resize(kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         hInstantaneousMatrices[i] = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
+        hBs[i] = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     }
-    hBs.resize(kEigenDecompCount);
     hMuBs.resize(kEigenDecompCount);
     hB1Norms.resize(kEigenDecompCount);
     ds.resize(kEigenDecompCount);
     dInstantaneousMatrices = std::vector<cusparseSpMatDescr_t>(kEigenDecompCount, nullptr);
 
-    dMatrixCsrOffsetsCache = cudaDeviceNew<int>(kPaddedStateCount + 1);
-    dMatrixCsrColumnsCache = NULL;
-    currentCacheNNZ = 0;
+    dMatrixCsrOffsetsCache.resize(kEigenDecompCount);
+    dMatrixCsrColumnsCache.resize(kEigenDecompCount);
+    dMatrixCsrValuesCache.resize(kEigenDecompCount);
+    currentCacheNNZs = std::vector<int>(kEigenDecompCount, 0);
+    for (int i = 0; i < kEigenDecompCount; i++) {
+        dMatrixCsrOffsetsCache[i] = cudaDeviceNew<int>(kPaddedStateCount + 1);
+        dMatrixCsrColumnsCache[i] = cudaDeviceNew<int>(kPaddedStateCount + 1);
+        dMatrixCsrValuesCache[i] = cudaDeviceNew<Real>(currentCacheNNZs[i] + 1);
+    }
+
 
     dPartials = std::vector<cusparseDnMatDescr_t>(kPartialsBufferCount * kCategoryCount, nullptr);
     dPartialCache = std::vector<Real*>(kPartialsBufferCount * kCategoryCount, nullptr);
+
+    dAs = std::vector<cusparseSpMatDescr_t>(kCategoryCount, nullptr);
+    dACache = std::vector<Real*>(kCategoryCount, nullptr);
 
     dFrequenciesCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);
     dWeightsCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);;
@@ -706,8 +717,167 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 							int operationCount,
 							int cumulativeScalingIndex)
 {
-    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::upPartials(byPartition, operations, operationCount, cumulativeScalingIndex);
+    //TODO: implement/re-use scaling code
+
+    for (int op = 0; op < operationCount; op++) {
+        const int numOps = BEAGLE_OP_COUNT;
+
+        const int destinationPartialIndex = operations[op * numOps];
+        const int writeScalingIndex = operations[op * numOps + 1];
+        const int readScalingIndex = operations[op * numOps + 2];
+        const int firstChildPartialIndex = operations[op * numOps + 3];
+        const int firstChildSubstitutionMatrixIndex = operations[op * numOps + 4];
+        const int secondChildPartialIndex = operations[op * numOps + 5];
+        const int secondChildSubstitutionMatrixIndex = operations[op * numOps + 6];
+
+        calcPartialsPartials(destinationPartialIndex, firstChildPartialIndex, firstChildSubstitutionMatrixIndex,
+                             secondChildPartialIndex, secondChildSubstitutionMatrixIndex);
+
+    }
+    return BEAGLE_SUCCESS;
 }
+
+BEAGLE_GPU_TEMPLATE
+void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPIndex,
+                                                                   int partials1Index,
+                                                                   int edgeIndex1,
+                                                                   int partials2Index,
+                                                                   int edgeIndex2) {
+    for (int category = 0; category < kCategoryCount; category++)
+    {
+        const int destPartialindex = getPartialIndex(destPIndex, category);
+        const int partial1Index = getPartialIndex(partial1Index, category);
+        const int partial2Index = getPartialIndex(partial2Index, category);
+        const int edgeMultiplier1 = edgeIndex1 * kCategoryCount + category;
+        const int edgeMultiplier2 = edgeIndex2 * kCategoryCount + category;
+
+//        auto partials1 = partialsMap(partials1Index, category, startPattern, endPattern);
+//        auto partials1Cache = partialsCacheMap(partials1Index, category, startPattern, endPattern);
+//        simpleAction2(partials1Cache, partials1, edgeIndex1, category, false);
+//
+//        auto partials2 = partialsMap(partials2Index, category, startPattern, endPattern);
+//        auto partials2Cache = partialsCacheMap(partials2Index, category, startPattern, endPattern);
+//        simpleAction2(partials2Cache, partials2, edgeIndex2, category, false);
+//
+//        auto destP = partialsMap(destPIndex, category, startPattern, endPattern);
+//        destP = partials1Cache.cwiseProduct(partials2Cache);
+    }
+}
+
+BEAGLE_GPU_TEMPLATE
+double BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPMax() const
+{
+    return floor(0.5 + 0.5 * sqrt(5.0 + 4.0 * mMax));
+}
+
+BEAGLE_GPU_TEMPLATE
+std::tuple<int,int> BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getStatistics2(double t, int nCol,
+                                                              double edgeMultiplier,
+                                                              int eigenIndex) const {
+    assert( t >= 0 );
+    assert( nCol >= 0);
+    assert( edgeMultiplier >= 0 );
+    assert( eigenIndex >= 0);
+
+    if (t * hB1Norms[eigenIndex] == 0.0)
+        return {0, 1};
+
+    int bestM = INT_MAX;
+    double bestS = INT_MAX;  // Not all the values of s can fit in a 32-bit int.
+
+    const double theta = thetaConstants.at(mMax);
+    const double pMax = getPMax();
+    // pMax is the largest positive integer such that p*(p-1) <= mMax + 1
+
+    const bool conditionFragment313 = hB1Norms[eigenIndex] * edgeMultiplier <= 2.0 * theta / ((double) nCol * mMax) * pMax * (pMax + 3);
+    // using l = 1 as in equation 3.13
+    if (conditionFragment313) {
+        for (auto& [thisM, thetaM]: thetaConstants) {
+            const double thisS = ceil(hB1Norms[eigenIndex] * edgeMultiplier / thetaM);
+            if (bestM == INT_MAX || ((double) thisM) * thisS < bestM * bestS) {
+                bestS = thisS;
+                bestM = thisM;
+            }
+        }
+    } else {
+        for (int p = 2; p < pMax; p++) {
+            for (int thisM = p * (p - 1) - 1; thisM < mMax + 1; thisM++) {
+                auto it = thetaConstants.find(thisM);
+                if (it != thetaConstants.end()) {
+                    // equation 3.7 in Al-Mohy and Higham
+                    const double dValueP = getDValue(p, eigenIndex);
+                    const double dValuePPlusOne = getDValue(p + 1, eigenIndex);
+                    const double alpha = std::max(dValueP, dValuePPlusOne) * edgeMultiplier;
+                    // part of equation 3.10
+                    const double thisS = ceil(alpha / thetaConstants.at(thisM));
+                    if (bestM == INT_MAX || ((double) thisM) * thisS < bestM * bestS) {
+                        bestS = thisS;
+                        bestM = thisM;
+                    }
+                }
+            }
+        }
+    }
+    bestS = std::max(std::min<double>(bestS, INT_MAX), 1.0);
+    assert( bestS >= 1 );
+    assert( bestS <= INT_MAX );
+
+    int m = bestM;
+    int s = (int) bestS;
+
+    assert(m >= 0);
+    assert(s >= 1);
+
+    return {m,s};
+}
+
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int edgeMultiplierIndex, bool transpose) const {
+    const double tol = pow(2.0, -53.0);
+    const double t = 1.0;
+    const int nCol = kPaddedStateCount * kPaddedPatternCount;
+
+    const double edgeMultiplier = hEdgeMultipliers[edgeMultiplierIndex];
+
+    auto [m, s] = getStatistics2(t, nCol, edgeMultiplier, hEigenMaps[edgeIndex]);
+
+
+#ifdef BEAGLE_DEBUG_FLOW
+    std::cerr << "simpleAction2: m = " << m << "  s = " << s << std::endl;
+#endif
+
+//    destP = partials;
+    CHECK_CUSPARSE(cusparseDnMatSetValues(dPartials[destPIndex], dPartialCache[partialsIndex]))
+    SpMatrix<Real> A = hBs[hEigenMaps[edgeIndex]] * edgeMultiplier;
+    if (transpose) {
+        A = A.transpose();
+    }
+
+//    MatrixXd F(kStateCount, nCol);
+//    F = destP;
+//
+//    const double eta = exp(t * gMuBs[gEigenMaps[edgeIndex]] * edgeMultiplier / (double) s);
+//
+//    for (int i = 0; i < s; i++) {
+//        double c1 = normPInf(destP);
+//        for (int j = 1; j < m + 1; j++) {
+//            destP = A * destP;
+//            destP *= t / ((double) s * j);
+//            double c2 = normPInf(destP);
+//            F += destP;
+//            if (c1 + c2 <= tol * normPInf(F)) {
+//                break;
+//            }
+//            c1 = c2;
+//        }
+//        F *= eta;
+//        destP = F;
+//    }
+
+    return BEAGLE_SUCCESS;
+}
+
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPrePartials(bool byPartition,
@@ -733,18 +903,18 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
 
     const int currentNNZ = hInstantaneousMatrices[matrixIndex].nonZeros();
     const int paddedNNZ = currentNNZ + 16 - currentNNZ%16;
-    if (currentCacheNNZ < paddedNNZ) {
-        currentCacheNNZ = paddedNNZ;
-        dMatrixCsrColumnsCache = cudaDeviceNew<int>(currentCacheNNZ);
-        dMatrixCsrValuesCache = cudaDeviceNew<Real>(currentCacheNNZ);
+    if (currentCacheNNZs[matrixIndex] < paddedNNZ) {
+        currentCacheNNZs[matrixIndex] = paddedNNZ;
+        dMatrixCsrColumnsCache[matrixIndex] = cudaDeviceNew<int>(paddedNNZ);
+        dMatrixCsrValuesCache[matrixIndex] = cudaDeviceNew<Real>(paddedNNZ);
     }
 
-    MemcpyHostToDevice(dMatrixCsrOffsetsCache, hInstantaneousMatrices[matrixIndex].outerIndexPtr(), kPaddedStateCount + 1);
-    MemcpyHostToDevice(dMatrixCsrColumnsCache, hInstantaneousMatrices[matrixIndex].innerIndexPtr(), currentNNZ);
-    MemcpyHostToDevice(dMatrixCsrValuesCache, hInstantaneousMatrices[matrixIndex].valuePtr(), currentNNZ);
+    MemcpyHostToDevice(dMatrixCsrOffsetsCache[matrixIndex], hInstantaneousMatrices[matrixIndex].outerIndexPtr(), kPaddedStateCount + 1);
+    MemcpyHostToDevice(dMatrixCsrColumnsCache[matrixIndex], hInstantaneousMatrices[matrixIndex].innerIndexPtr(), currentNNZ);
+    MemcpyHostToDevice(dMatrixCsrValuesCache[matrixIndex], hInstantaneousMatrices[matrixIndex].valuePtr(), currentNNZ);
 
     CHECK_CUSPARSE(cusparseCreateCsr(&dInstantaneousMatrices[matrixIndex], kPaddedStateCount, kPaddedStateCount, currentNNZ,
-                                     dMatrixCsrOffsetsCache, dMatrixCsrColumnsCache, dMatrixCsrValuesCache,
+                                     dMatrixCsrOffsetsCache[matrixIndex], dMatrixCsrColumnsCache[matrixIndex], dMatrixCsrValuesCache[matrixIndex],
                                      IndexType<int>, IndexType<int>,
                                      CUSPARSE_INDEX_BASE_ZERO, DataType<Real>))
     //TODO: use cusparse function for diagonal sum?
@@ -775,12 +945,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
 //    <<std::endl<<"Setting device matrix: " << matrixIndex << std::endl << dInstantaneousMatrices[matrixIndex]<<std::endl;
 //#endif
     return BEAGLE_SUCCESS;
-}
-
-BEAGLE_GPU_TEMPLATE
-double BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPMax() const
-{
-    return floor(0.5 + 0.5 * sqrt(5.0 + 4.0 * mMax));
 }
 
 BEAGLE_GPU_TEMPLATE
