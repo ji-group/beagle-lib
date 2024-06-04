@@ -458,10 +458,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     hMatrixCache = (Real*) gpu->CallocHost(hMatrixCacheSize, sizeof(Real));
     hIdentity = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     hIdentity.setIdentity();
+*/
     hInstantaneousMatrices.resize(kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         hInstantaneousMatrices[i] = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     }
+/*
     hBs.resize(kEigenDecompCount);
     hMuBs.resize(kEigenDecompCount);
     hB1Norms.resize(kEigenDecompCount);
