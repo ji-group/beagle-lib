@@ -817,19 +817,17 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 
 
 	if (kFlags & BEAGLE_FLAG_SCALING_DYNAMIC)
-	    kernels->PartialsPartialsPruningDynamicCheckScaling(partials1, partials2, partials3,
-								matrices1, matrices2, writeScalingIndex, readScalingIndex,
-								cumulativeScalingIndex, dScalingFactors, dScalingFactorsMaster,
-								kPaddedPatternCount, kCategoryCount,
-								rescale, hRescalingTrigger, dRescalingTrigger, sizeof(Real));
-	else
-	    kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
-							   matrices1, matrices2, scalingFactors,
-							   cumulativeScalingBuffer,
-							   startPattern, endPattern,
-							   kPaddedPatternCount, kCategoryCount,
-							   rescale,
-							   streamIndex, waitIndex);
+	{
+	    std::cerr<<"GPU-Action: upPartials( ): boldly ignoring BEAGLE_FLAG_SCALING_DYNAMIC!";
+	}
+
+	kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
+						       matrices1, matrices2, scalingFactors,
+						       cumulativeScalingBuffer,
+						       startPattern, endPattern,
+						       kPaddedPatternCount, kCategoryCount,
+						       rescale,
+						       streamIndex, waitIndex);
 
         if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
             int parScalingIndex = parIndex - kTipCount;
