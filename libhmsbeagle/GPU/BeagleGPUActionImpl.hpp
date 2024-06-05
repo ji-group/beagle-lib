@@ -1097,13 +1097,13 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
     hInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
 
     const int currentNNZ = hInstantaneousMatrices[matrixIndex].nonZeros();
-    const int paddedNNZ = currentNNZ + 16 - currentNNZ%16;
-    if (currentCacheNNZs[matrixIndex] < paddedNNZ) {
-        currentCacheNNZs[matrixIndex] = paddedNNZ;
-        dInstantaneousMatrixCsrColumnsCache[matrixIndex] = cudaDeviceNew<int>(paddedNNZ);
-        dInstantaneousMatrixCsrValuesCache[matrixIndex] = cudaDeviceNew<Real>(paddedNNZ);
+//    const int paddedNNZ = currentNNZ%16 == 0? currentNNZ : currentNNZ + 16 - currentNNZ%16;
+    if (currentCacheNNZs[matrixIndex] != currentNNZ) {
+        currentCacheNNZs[matrixIndex] = currentNNZ;
+        dInstantaneousMatrixCsrColumnsCache[matrixIndex] = cudaDeviceNew<int>(currentNNZ);
+        dInstantaneousMatrixCsrValuesCache[matrixIndex] = cudaDeviceNew<Real>(currentNNZ);
         for (int category = 0; category < kCategoryCount; category++) {
-            dACscValuesCache[matrixIndex * kCategoryCount + category] = cudaDeviceNew<Real>(paddedNNZ);
+            dACscValuesCache[matrixIndex * kCategoryCount + category] = cudaDeviceNew<Real>(currentNNZ);
         }
     }
 
