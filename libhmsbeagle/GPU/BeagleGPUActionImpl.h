@@ -46,24 +46,6 @@ using std::vector;
 using std::tuple;
 using Eigen::MatrixXi;
 
-template <typename T>
-double normP1(const T& matrix) {
-    return (Eigen::RowVectorXd::Ones(matrix.rows()) * matrix.cwiseAbs()).maxCoeff();
-}
-
-template <typename T>
-tuple<double,int> ArgNormP1(const T& matrix)
-{
-    int x=-1;
-    double v = matrix.colwise().template lpNorm<1>().maxCoeff(&x);
-    return {v,x};
-}
-
-template <typename T>
-double normPInf(const T& matrix) {
-    return matrix.template lpNorm<Eigen::Infinity>();
-}
-
 #define CHECK_CUDA(func)                                                       \
 {                                                                              \
     cudaError_t status = (func);                                               \
@@ -93,6 +75,37 @@ double normPInf(const T& matrix) {
             throw std::runtime_error("cublas error");                                              \
         }                                                                                          \
     } while (0)
+
+
+template <typename T>
+double normP1(const T& matrix) {
+    return (Eigen::RowVectorXd::Ones(matrix.rows()) * matrix.cwiseAbs()).maxCoeff();
+}
+
+template <typename T>
+tuple<double,int> ArgNormP1(const T& matrix)
+{
+    int x=-1;
+    double v = matrix.colwise().template lpNorm<1>().maxCoeff(&x);
+    return {v,x};
+}
+
+template <typename T>
+double normPInf(const T& matrix) {
+    return matrix.template lpNorm<Eigen::Infinity>();
+}
+
+
+double normPInf(double* matrix, int nRows, int nCols, cublasHandle_t cublasH) {
+    std::vector<double> absoluteRowSums(nRows, 0);
+    for (int i = 0; i < nRows; i++) {
+        CUBLAS_CHECK(cublasDasum(cublasH, nCols, matrix + i * nCols, 1, &absoluteRowSums[i]));
+    }
+    cudaDeviceSynchronize();
+    return *std::max_element(absoluteRowSums.begin(), absoluteRowSums.end());
+}
+
+
 
 
 template <typename Real>
@@ -217,9 +230,24 @@ protected:
 
     std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
     std::vector<cusparseDnMatDescr_t> dPartials;
+    std::vector<cusparseDnMatDescr_t> dFLeft;
+    std::vector<cusparseDnMatDescr_t> dFRight;
+    std::vector<cusparseDnMatDescr_t> dIntegrationTmpLeft;
+    std::vector<cusparseDnMatDescr_t> dIntegrationTmpRight;
     std::vector<cusparseSpMatDescr_t> dAs;
     std::vector<Real*> dACache;
     std::vector<Real*> dPartialCache;
+    std::vector<Real*> dFLeftCache;
+    std::vector<Real*> dFRightCache;
+    std::vector<Real*> dIntegrationTmpLeftCache;
+    std::vector<Real*> dIntegrationTmpRightCache;
+    std::vector<int> integrationLeftBufferSize;
+    std::vector<int> integrationLeftStoredBufferSize;
+    std::vector<void*> dIntegrationLeftBuffer;
+    std::vector<int> integrationRightBufferSize;
+    std::vector<int> integrationRightStoredBufferSize;
+    std::vector<void*> dIntegrationRightBuffer;
+
     Real **dFrequenciesCache, **dWeightsCache;
     std::vector<cusparseDnVecDescr_t> dFrequencies;
     std::vector<cusparseDnVecDescr_t> dWeights;
@@ -231,7 +259,8 @@ protected:
     Real *dPatternWeightsCache;
     cusparseDnVecDescr_t dPatternWeights;
 
-    cublasHandle_t cublasH;
+    cublasHandle_t cublasHandle;
+    cusparseHandle_t cusparseHandle;
 
     std::vector<int> hEigenMaps;
     std::vector<Real> hEdgeMultipliers;
@@ -386,7 +415,7 @@ private:
                               int partials2Index,
                               int edgeIndex2);
 
-    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool transpose) const;
+    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose) const;
 
     int cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose) const;
 
