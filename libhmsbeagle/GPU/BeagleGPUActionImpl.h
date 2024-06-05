@@ -95,11 +95,15 @@ double normPInf(const T& matrix) {
     return matrix.template lpNorm<Eigen::Infinity>();
 }
 
-
-double normPInf(double* matrix, int nRows, int nCols, cublasHandle_t cublasH) {
-    std::vector<double> absoluteRowSums(nRows, 0);
+template <typename Real>
+double normPInf(Real* matrix, int nRows, int nCols, cublasHandle_t cublasH) {
+    std::vector<Real> absoluteRowSums(nRows, 0);
     for (int i = 0; i < nRows; i++) {
-        CUBLAS_CHECK(cublasDasum(cublasH, nCols, matrix + i * nCols, 1, &absoluteRowSums[i]));
+        if constexpr (std::is_same<Real, float>::value) {
+            CUBLAS_CHECK(cublasSasum(cublasH, nCols, matrix + i * nCols, 1, &absoluteRowSums[i]));
+        } else {
+            CUBLAS_CHECK(cublasDasum(cublasH, nCols, matrix + i * nCols, 1, &absoluteRowSums[i]));
+        }
     }
     cudaDeviceSynchronize();
     return *std::max_element(absoluteRowSums.begin(), absoluteRowSums.end());
@@ -245,11 +249,11 @@ protected:
     std::vector<Real*> dFRightCache;
     std::vector<Real*> dIntegrationTmpLeftCache;
     std::vector<Real*> dIntegrationTmpRightCache;
-    std::vector<int> integrationLeftBufferSize;
-    std::vector<int> integrationLeftStoredBufferSize;
+    std::vector<size_t> integrationLeftBufferSize;
+    std::vector<size_t> integrationLeftStoredBufferSize;
     std::vector<void*> dIntegrationLeftBuffer;
-    std::vector<int> integrationRightBufferSize;
-    std::vector<int> integrationRightStoredBufferSize;
+    std::vector<size_t> integrationRightBufferSize;
+    std::vector<size_t> integrationRightStoredBufferSize;
     std::vector<void*> dIntegrationRightBuffer;
 
     Real **dFrequenciesCache, **dWeightsCache;
@@ -421,7 +425,7 @@ private:
 
     int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose) const;
 
-    int cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose) const;
+    int cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose);
 
     std::tuple<int,int> getStatistics2(double t, int nCol, double edgeMultiplier,
                                        int eigenIndex) const;
