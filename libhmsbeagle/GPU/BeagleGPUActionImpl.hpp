@@ -731,22 +731,19 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
     fprintf(stderr, "\tEntering BeagleGPUImpl::upPartials\n");
 #endif
 
+    if (byPartition)
+    {
+	std::cerr<<"GPU-Action: upPartials( ): byPartition is true, but must be false!";
+	throw std::runtime_error("This will not be seen by java");
+    }
+
     GPUPtr cumulativeScalingBuffer = 0;
     if (cumulativeScalingIndex != BEAGLE_OP_NONE)
         cumulativeScalingBuffer = dScalingFactors[cumulativeScalingIndex];
 
     int numOps = BEAGLE_OP_COUNT;
-    if (byPartition) {
-        numOps = BEAGLE_PARTITION_OP_COUNT;
-    }
 
-    int gridLaunches = 0;
-    int* gridStartOp;
-    int* gridOpType;
-    int* gridOpBlocks;
-    int parentMinIndex = 0;
     int lastStreamIndex = 0;
-    int gridOpIndex = 0;
 
     int anyRescale = BEAGLE_OP_NONE;
 
@@ -768,14 +765,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
         const int child2Index = operations[op * numOps + 5];
         const int child2TransMatIndex = operations[op * numOps + 6];
         int currentPartition = 0;
-        if (byPartition) {
-            currentPartition = operations[op * numOps + 7];
-            cumulativeScalingIndex = operations[op * numOps + 8];
-            if (cumulativeScalingIndex != BEAGLE_OP_NONE)
-                cumulativeScalingBuffer = dScalingFactors[cumulativeScalingIndex];
-            else
-                cumulativeScalingBuffer = 0;
-        }
 
         if (anyRescale == 1 && kPartitionsInitialised) {
             int pOffset = currentPartition * kBufferCount;
@@ -790,7 +779,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
             }
             streamIndex = hStreamIndices[parIndex + pOffset];
         }
-
+	
         GPUPtr matrices1 = dMatrices[child1TransMatIndex];
         GPUPtr matrices2 = dMatrices[child2TransMatIndex];
 
@@ -822,85 +811,53 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
             rescale = 0;
             scalingFactors = dScalingFactors[readScalingIndex];
         }
-// printf("op[%d]: c1 %d (%d), c2 %d (%d), c1m %d, c2m %d, par %d, rescale %d, wsi %d, rsi %d, cp %d\n", op, child1Index, tipStates1, child2Index, tipStates2, child1TransMatIndex, child2TransMatIndex, parIndex, rescale, writeScalingIndex, readScalingIndex, currentPartition);
-// printf("op[%03d]: c1 %03d (%d), c2 %03d (%d), par %03d, c1m %03d, c2m %03d, rescale %d, streamIndex %03d, waitIndex %03d\n", op, child1Index, (tipStates1?1:0), child2Index, (tipStates2?1:0), parIndex, child1TransMatIndex, child2TransMatIndex, rescale, streamIndex, waitIndex);
-
-// printf("%03d %03d %03d %03d %03d\n", parIndex, child1Index, child2Index, streamIndex, waitIndex);
-
-
-#ifdef BEAGLE_DEBUG_VALUES
-        fprintf(stderr, "kPaddedPatternCount = %d\n", kPaddedPatternCount);
-        fprintf(stderr, "kPatternCount = %d\n", kPatternCount);
-        fprintf(stderr, "categoryCount  = %d\n", kCategoryCount);
-        fprintf(stderr, "partialSize = %d\n", kPartialsSize);
-        fprintf(stderr, "writeIndex = %d,  readIndex = %d, rescale = %d\n",writeScalingIndex,readScalingIndex,rescale);
-        fprintf(stderr, "child1 = \n");
-        Real r = 0;
-        if (tipStates1)
-            gpu->PrintfDeviceInt(tipStates1, kPaddedPatternCount);
-        else
-            gpu->PrintfDeviceVector(partials1, kPartialsSize, r);
-        fprintf(stderr, "child2 = \n");
-        if (tipStates2)
-            gpu->PrintfDeviceInt(tipStates2, kPaddedPatternCount);
-        else
-            gpu->PrintfDeviceVector(partials2, kPartialsSize, r);
-        fprintf(stderr, "node index = %d\n", parIndex);
-#endif
 
         int startPattern = 0;
         int endPattern = 0;
 
-	{
-            if (byPartition) {
-                startPattern = hPatternPartitionsStartPatterns[currentPartition];
-                endPattern = hPatternPartitionsStartPatterns[currentPartition+1];
-            }
-
-
-            if (tipStates1 != 0) {
-                if (tipStates2 != 0 ) {
-                    kernels->StatesStatesPruningDynamicScaling(tipStates1, tipStates2, partials3,
-                                                               matrices1, matrices2, scalingFactors,
-                                                               cumulativeScalingBuffer,
-                                                               startPattern, endPattern,
-                                                               kPaddedPatternCount, kCategoryCount,
-                                                               rescale,
-                                                               streamIndex, waitIndex);
-                } else {
-                    kernels->StatesPartialsPruningDynamicScaling(tipStates1, partials2, partials3,
-                                                                 matrices1, matrices2, scalingFactors,
-                                                                 cumulativeScalingBuffer,
-                                                                 startPattern, endPattern,
-                                                                 kPaddedPatternCount, kCategoryCount,
-                                                                 rescale,
-                                                                 streamIndex, waitIndex);
-                }
+        
+        if (tipStates1 != 0) {
+            if (tipStates2 != 0 ) {
+                kernels->StatesStatesPruningDynamicScaling(tipStates1, tipStates2, partials3,
+                                                           matrices1, matrices2, scalingFactors,
+                                                           cumulativeScalingBuffer,
+                                                           startPattern, endPattern,
+                                                           kPaddedPatternCount, kCategoryCount,
+                                                           rescale,
+                                                           streamIndex, waitIndex);
             } else {
-                if (tipStates2 != 0) {
-                    kernels->StatesPartialsPruningDynamicScaling(tipStates2, partials1, partials3,
-                                                                 matrices2, matrices1, scalingFactors,
-                                                                 cumulativeScalingBuffer,
-                                                                 startPattern, endPattern,
-                                                                 kPaddedPatternCount, kCategoryCount,
-                                                                 rescale,
-                                                                 streamIndex, waitIndex);
+                kernels->StatesPartialsPruningDynamicScaling(tipStates1, partials2, partials3,
+                                                             matrices1, matrices2, scalingFactors,
+                                                             cumulativeScalingBuffer,
+                                                             startPattern, endPattern,
+                                                             kPaddedPatternCount, kCategoryCount,
+                                                             rescale,
+                                                             streamIndex, waitIndex);
+            }
+        } else {
+            if (tipStates2 != 0) {
+                kernels->StatesPartialsPruningDynamicScaling(tipStates2, partials1, partials3,
+                                                             matrices2, matrices1, scalingFactors,
+                                                             cumulativeScalingBuffer,
+                                                             startPattern, endPattern,
+                                                             kPaddedPatternCount, kCategoryCount,
+                                                             rescale,
+                                                             streamIndex, waitIndex);
+            } else {
+                if (kFlags & BEAGLE_FLAG_SCALING_DYNAMIC) {
+                    kernels->PartialsPartialsPruningDynamicCheckScaling(partials1, partials2, partials3,
+                                                                        matrices1, matrices2, writeScalingIndex, readScalingIndex,
+                                                                        cumulativeScalingIndex, dScalingFactors, dScalingFactorsMaster,
+                                                                        kPaddedPatternCount, kCategoryCount,
+                                                                        rescale, hRescalingTrigger, dRescalingTrigger, sizeof(Real));
                 } else {
-                    if (kFlags & BEAGLE_FLAG_SCALING_DYNAMIC) {
-                        kernels->PartialsPartialsPruningDynamicCheckScaling(partials1, partials2, partials3,
-                                                                       matrices1, matrices2, writeScalingIndex, readScalingIndex,
-                                                                       cumulativeScalingIndex, dScalingFactors, dScalingFactorsMaster,
-                                                                       kPaddedPatternCount, kCategoryCount,
-                                                                       rescale, hRescalingTrigger, dRescalingTrigger, sizeof(Real));
-                    } else {
-                        kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
-                                                                       matrices1, matrices2, scalingFactors,
-                                                                       cumulativeScalingBuffer,
-                                                                       startPattern, endPattern,
-                                                                       kPaddedPatternCount, kCategoryCount,
-                                                                       rescale,
-                                                                       streamIndex, waitIndex);
-                    }
+                    kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
+                                                                   matrices1, matrices2, scalingFactors,
+                                                                   cumulativeScalingBuffer,
+                                                                   startPattern, endPattern,
+                                                                   kPaddedPatternCount, kCategoryCount,
+                                                                   rescale,
+                                                                   streamIndex, waitIndex);
                 }
             }
         }
@@ -921,19 +878,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
                 BeagleGPUImpl<Real>::accumulateScaleFactors(scalingIndices, 1, parScalingIndex);
             }
         }
-
-#ifdef BEAGLE_DEBUG_VALUES
-        if (rescale > -1) {
-            fprintf(stderr,"scalars = ");
-            gpu->PrintfDeviceVector(scalingFactors,kPaddedPatternCount, r);
-        }
-        fprintf(stderr, "parent = \n");
-        int signal = 0;
-        if (writeScalingIndex == -1)
-            gpu->PrintfDeviceVector(partials3, kPartialsSize, r);
-        else
-            gpu->PrintfDeviceVector(partials3, kPartialsSize, 1.0, &signal, r);
-#endif
     } //end for loop over operationCount
 
 
