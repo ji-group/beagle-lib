@@ -185,6 +185,13 @@ public:
     int updatePartials(const int* operations,
                        int operationCount,
                        int cumulativeScalingIndex);
+
+    int calculateRootLogLikelihoods(const int* bufferIndices,
+                                    const int* categoryWeightsIndices,
+                                    const int* stateFrequenciesIndices,
+                                    const int* cumulativeScaleIndices,
+                                    int count,
+                                    double* outSumLogLikelihood);
 protected:
 
     std::vector<SpMatrix<Real>> hInstantaneousMatrices;
@@ -243,7 +250,6 @@ protected:
     std::vector<cusparseDnMatDescr_t> dIntegrationTmpLeft;
     std::vector<cusparseDnMatDescr_t> dIntegrationTmpRight;
     std::vector<cusparseSpMatDescr_t> dAs;
-    std::vector<Real*> dACache;
     std::vector<Real*> dPartialCache;
     std::vector<Real*> dFLeftCache;
     std::vector<Real*> dFRightCache;
@@ -423,7 +429,7 @@ private:
                               int partials2Index,
                               int edgeIndex2);
 
-    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose) const;
+    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose);
 
     int cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose);
 
@@ -431,6 +437,9 @@ private:
                                        int eigenIndex) const;
 
     double getDValue(int p, int eigenIndex) const;
+
+    int PrintfDeviceVector(Real* dPtr, int length, double checkValue, int *signal, Real r);
+    int PrintfDeviceVector(cusparseDnMatDescr_t dPtr, int length, double checkValue, int *signal, Real r);
 
 };
 
