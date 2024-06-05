@@ -716,6 +716,27 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
     return BEAGLE_SUCCESS;
 }
 
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updatePartials(const int* operations,
+                                                      int operationCount,
+                                                      int cumulativeScalingIndex) {
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::updatePartials\n");
+#endif
+
+    bool byPartition = false;
+    int returnCode = upPartials(byPartition,
+                                operations,
+                                operationCount,
+                                cumulativeScalingIndex);
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::updatePartials\n");
+#endif
+
+    return returnCode;
+}
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartials(int bufferIndex,

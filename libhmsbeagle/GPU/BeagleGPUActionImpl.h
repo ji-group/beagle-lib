@@ -177,6 +177,10 @@ public:
     int getPartials(int bufferIndex,
                     int scaleIndex,
                     Real* outPartials);
+
+    int updatePartials(const int* operations,
+                       int operationCount,
+                       int cumulativeScalingIndex);
 protected:
 
     std::vector<SpMatrix<Real>> hInstantaneousMatrices;
