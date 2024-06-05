@@ -40,6 +40,7 @@
 #include <Eigen/Dense>
 #include <cuda_runtime_api.h> // cudaMalloc, cudaMemcpy, etc.
 #include <cusparse.h>         // cusparseSpMV
+#include <cublas_v2.h>
 
 using std::vector;
 using std::tuple;
@@ -82,6 +83,17 @@ double normPInf(const T& matrix) {
         return EXIT_FAILURE;                                                   \
     }                                                                          \
 }
+
+// cublas API error checking
+#define CUBLAS_CHECK(err)                                                                          \
+    do {                                                                                           \
+        cublasStatus_t err_ = (err);                                                               \
+        if (err_ != CUBLAS_STATUS_SUCCESS) {                                                       \
+            std::printf("cublas error %d at %s:%d\n", err_, __FILE__, __LINE__);                   \
+            throw std::runtime_error("cublas error");                                              \
+        }                                                                                          \
+    } while (0)
+
 
 template <typename Real>
 using SpMatrix = Eigen::SparseMatrix<Real>;
@@ -211,12 +223,15 @@ protected:
     Real **dFrequenciesCache, **dWeightsCache;
     std::vector<cusparseDnVecDescr_t> dFrequencies;
     std::vector<cusparseDnVecDescr_t> dWeights;
-    std::vector<int *> dMatrixCsrOffsetsCache;
-    std::vector<int *> dMatrixCsrColumnsCache;
-    std::vector<Real*> dMatrixCsrValuesCache;
+    std::vector<int *> dInstantaneousMatrixCsrOffsetsCache;
+    std::vector<int *> dInstantaneousMatrixCsrColumnsCache;
+    std::vector<Real*> dInstantaneousMatrixCsrValuesCache;
+    std::vector<Real*> dACscValuesCache;
     std::vector<int> currentCacheNNZs;
     Real *dPatternWeightsCache;
     cusparseDnVecDescr_t dPatternWeights;
+
+    cublasHandle_t cublasH;
 
     std::vector<int> hEigenMaps;
     std::vector<Real> hEdgeMultipliers;
@@ -363,13 +378,17 @@ private:
 
     int getPartialIndex(int nodeIndex, int categoryIndex);
 
+    int getPartialCacheIndex(int nodeIndex, int categoryIndex);
+
     void calcPartialsPartials(int destPIndex,
                               int partials1Index,
                               int edgeIndex1,
                               int partials2Index,
                               int edgeIndex2);
 
-    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int edgeMultiplierIndex, bool transpose) const;
+    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, bool transpose) const;
+
+    int cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose) const;
 
     std::tuple<int,int> getStatistics2(double t, int nCol, double edgeMultiplier,
                                        int eigenIndex) const;
