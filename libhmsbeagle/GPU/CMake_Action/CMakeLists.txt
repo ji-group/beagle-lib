@@ -50,7 +50,7 @@ add_library(hmsbeagle-action-cuda SHARED
 
 add_dependencies(hmsbeagle-action-cuda CudaKernels)
 
-target_link_libraries(hmsbeagle-action-cuda cuda ${CUDA_LIBRARIES} ${CUDA_cusparse_LIBRARY} Eigen3::Eigen)
+target_link_libraries(hmsbeagle-action-cuda cuda ${CUDA_LIBRARIES} ${CUDA_cusparse_LIBRARY} ${CUDA_cublas_LIBRARY} Eigen3::Eigen)
 
 install(TARGETS hmsbeagle-action-cuda
         DESTINATION ${BEAGLE_INSTALL_DIR}
