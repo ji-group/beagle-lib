@@ -326,7 +326,7 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kMaxPaddedPartitionBlocks;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kPaddedPartitionIntegrateBlocks;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kMaxPaddedPartitionIntegrateBlocks;
-    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kUsingMultiGrid;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kUsingMultiGrid;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPartitionOffsets;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hCategoryRates;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPatternWeightsCache;

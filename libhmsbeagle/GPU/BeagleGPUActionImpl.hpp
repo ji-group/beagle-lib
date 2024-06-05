@@ -748,30 +748,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
     int lastStreamIndex = 0;
     int gridOpIndex = 0;
 
-    if (kUsingMultiGrid) {
-        gridStartOp  = (int*) malloc(sizeof(int) * (operationCount + 1));
-        gridOpType   = (int*) malloc(sizeof(int) * (operationCount + 1));
-        gridOpBlocks = (int*) malloc(sizeof(int) * (operationCount + 1));
-    }
-
-
     int anyRescale = BEAGLE_OP_NONE;
-    if (kUsingMultiGrid && (kFlags & BEAGLE_FLAG_SCALING_MANUAL)) {
-        for (int op = 0; op < operationCount; op++) {
-            const int writeScalingIndex = operations[op * numOps + 1];
-            const int readScalingIndex  = operations[op * numOps + 2];
-            if (writeScalingIndex >= 0) {
-                anyRescale = 1;
-                break;
-            } else if (readScalingIndex >= 0) {
-                anyRescale = 0;
-            }
-        }
-    }
 
     int streamIndex = -1;
     int waitIndex = -1;
-    if (!kUsingMultiGrid || (anyRescale == 1 && kPartitionsInitialised)) {
+    if (anyRescale == 1 && kPartitionsInitialised) {
         gpu->SynchronizeDevice();
         for (int i = 0; i < kBufferCount * kPartitionCount; i++) {
             hStreamIndices[i] = -1;
@@ -796,7 +777,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
                 cumulativeScalingBuffer = 0;
         }
 
-        if (!kUsingMultiGrid || (anyRescale == 1 && kPartitionsInitialised)) {
+        if (anyRescale == 1 && kPartitionsInitialised) {
             int pOffset = currentPartition * kBufferCount;
             waitIndex = hStreamIndices[child2Index + pOffset];
             if (hStreamIndices[child1Index + pOffset] != -1) {
@@ -870,114 +851,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
         int startPattern = 0;
         int endPattern = 0;
 
-        if (kUsingMultiGrid && (anyRescale != 1)) {
-            int startBlock = 0;
-            int endBlock = kNumPatternBlocks;
-            if (byPartition) {
-                startBlock = hPatternPartitionsStartBlocks[currentPartition];
-                endBlock = hPatternPartitionsStartBlocks[currentPartition+1];
-            }
-            int opBlockCount = endBlock - startBlock;
-
-            int opType = 1;
-            if (tipStates1 != 0 && tipStates2 != 0) {
-                opType = 3;
-            } else if (tipStates1 != 0 || tipStates2 != 0) {
-                opType = 2;
-            }
-            if (rescale == 0) {
-                opType *= -1;
-            }
-
-            bool newLaunch = false;
-
-            if (op == 0) {
-                newLaunch = true;
-            } else if (opType != gridOpType[gridLaunches-1]) {
-                newLaunch = true;
-            } else if (child1Index >= parentMinIndex || child2Index >= parentMinIndex) {
-                for (int i=gridStartOp[gridLaunches-1]; i < op; i++) {
-                    int previousParentIndex = operations[i * numOps];
-                    if (child1Index == previousParentIndex || child2Index == previousParentIndex) {
-                        newLaunch = true;
-                        break;
-                    }
-                }
-            }
-
-            if (newLaunch) {
-                gridStartOp[gridLaunches] = op;
-                gridOpBlocks[gridLaunches] = opBlockCount;
-                gridOpType[gridLaunches] = opType;
-                parentMinIndex = parIndex;
-
-                if (!byPartition) {
-                    hGridOpIndices[gridLaunches*6+0] = child1Index;
-                    hGridOpIndices[gridLaunches*6+1] = child2Index;
-                    hGridOpIndices[gridLaunches*6+2] = parIndex;
-                    hGridOpIndices[gridLaunches*6+3] = child1TransMatIndex;
-                    hGridOpIndices[gridLaunches*6+4] = child2TransMatIndex;
-                    hGridOpIndices[gridLaunches*6+5] = readScalingIndex;
-                }
-
-                gridLaunches++;
-            } else {
-                gridOpBlocks[gridLaunches-1] += opBlockCount;
-            }
-
-            if (parIndex < parentMinIndex)
-                parentMinIndex = parIndex;
-
-            unsigned int c1Off, c2Off;
-            unsigned int c1MOff   = child1TransMatIndex * kIndexOffsetMat;
-            unsigned int c2MOff   = child2TransMatIndex * kIndexOffsetMat;
-            unsigned int paOff    = hPartialsOffsets[parIndex];
-            unsigned int scaleOff = 0;
-            if (rescale == 0) {
-                scaleOff = readScalingIndex * kScaleBufferSize;
-            }
-
-
-            if (abs(opType) == 1) {
-                c1Off  = hPartialsOffsets[child1Index];
-                c2Off  = hPartialsOffsets[child2Index];
-            } else if (abs(opType) == 2) {
-                if (tipStates1 != 0) {
-                    c1Off  = hStatesOffsets[child1Index];
-                    c2Off  = hPartialsOffsets[child2Index];
-                } else {
-                    c1Off  = hStatesOffsets[child2Index];
-                    c2Off  = hPartialsOffsets[child1Index];
-                    unsigned int tmpOff = c1MOff; c1MOff = c2MOff; c2MOff = tmpOff;
-                }
-            } else {
-                c1Off  = hStatesOffsets[child1Index];
-                c2Off  = hStatesOffsets[child2Index];
-            }
-
-
-            for (int i=startBlock; i < endBlock; i++) {
-                hPartialsPtrs[gridOpIndex++] = hPartitionOffsets[i*2];
-                hPartialsPtrs[gridOpIndex++] = hPartitionOffsets[i*2+1];
-                hPartialsPtrs[gridOpIndex++] = c1Off;
-                hPartialsPtrs[gridOpIndex++] = c2Off;
-                hPartialsPtrs[gridOpIndex++] = paOff;
-                hPartialsPtrs[gridOpIndex++] = c1MOff;
-                hPartialsPtrs[gridOpIndex++] = c2MOff;
-                hPartialsPtrs[gridOpIndex++] = scaleOff;
-
-// printf("block %d, hPP = %d %d %d %d %d %d %d %d\n", i,
-//        hPartialsPtrs[gridOpIndex-8],
-//        hPartialsPtrs[gridOpIndex-7],
-//        hPartialsPtrs[gridOpIndex-6],
-//        hPartialsPtrs[gridOpIndex-5],
-//        hPartialsPtrs[gridOpIndex-4],
-//        hPartialsPtrs[gridOpIndex-3],
-//        hPartialsPtrs[gridOpIndex-2],
-//        hPartialsPtrs[gridOpIndex-1]);
-
-            }
-        } else {
+	{
             if (byPartition) {
                 startPattern = hPatternPartitionsStartPatterns[currentPartition];
                 endPattern = hPatternPartitionsStartPatterns[currentPartition+1];
@@ -1063,120 +937,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
     } //end for loop over operationCount
 
 
-    if (kUsingMultiGrid && (anyRescale != 1)) {
-        size_t transferSize = sizeof(unsigned int) * gridOpIndex;
-        #ifdef FW_OPENCL
-        gpu->UnmapMemory(dPartialsPtrs, hPartialsPtrs);
-        #else
-        gpu->MemcpyHostToDevice(dPartialsPtrs, hPartialsPtrs, transferSize);
-        #endif
-        gridStartOp[gridLaunches] = operationCount;
-        int gridStart = 0;
-        for (int i=0; i < gridLaunches; i++) {
-            int gridSize = gridOpBlocks[i];
-            int rescaleMulti = BEAGLE_OP_NONE;
-            GPUPtr scalingFactorsMulti = (GPUPtr)NULL;
-            if (gridOpType[i] < 0) {
-                scalingFactorsMulti = dScalingFactors[0];
-                rescaleMulti = 0;
-                gridOpType[i] *= -1;
-            }
-
-            if (((gridStartOp[i+1] - gridStartOp[i]) == 1) && !byPartition && (kDeviceCode != BEAGLE_OPENCL_DEVICE_AMD_GPU)) {
-                int child1Index         = hGridOpIndices[i*6+0];
-                int child2Index         = hGridOpIndices[i*6+1];
-                int parIndex            = hGridOpIndices[i*6+2];
-                int child1TransMatIndex = hGridOpIndices[i*6+3];
-                int child2TransMatIndex = hGridOpIndices[i*6+4];
-                if (rescaleMulti == 0) {
-                    scalingFactorsMulti = dScalingFactors[hGridOpIndices[i*6+5]];
-                }
-                cumulativeScalingBuffer = 0;
-
-                GPUPtr tipStates1 = dStates[child1Index];
-                GPUPtr tipStates2 = dStates[child2Index];
-                GPUPtr partials1 = dPartials[child1Index];
-                GPUPtr partials2 = dPartials[child2Index];
-                GPUPtr partials3 = dPartials[parIndex];
-                GPUPtr matrices1 = dMatrices[child1TransMatIndex];
-                GPUPtr matrices2 = dMatrices[child2TransMatIndex];
-
-                if (gridOpType[i] == 1) {
-                        kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
-                                                                       matrices1, matrices2, scalingFactorsMulti,
-                                                                       cumulativeScalingBuffer,
-                                                                       0, 0,
-                                                                       kPaddedPatternCount, kCategoryCount,
-                                                                       rescaleMulti,
-                                                                       -1, -1);
-                } else if (gridOpType[i] == 2) {
-                    if (tipStates1 != 0) {
-                        kernels->StatesPartialsPruningDynamicScaling(tipStates1, partials2, partials3,
-                                                                     matrices1, matrices2, scalingFactorsMulti,
-                                                                     cumulativeScalingBuffer,
-                                                                     0, 0,
-                                                                     kPaddedPatternCount, kCategoryCount,
-                                                                     rescaleMulti,
-                                                                     -1, -1);
-                    } else {
-                        kernels->StatesPartialsPruningDynamicScaling(tipStates2, partials1, partials3,
-                                                                     matrices2, matrices1, scalingFactorsMulti,
-                                                                     cumulativeScalingBuffer,
-                                                                     0, 0,
-                                                                     kPaddedPatternCount, kCategoryCount,
-                                                                     rescaleMulti,
-                                                                     -1, -1);
-                    }
-                } else {
-                    kernels->StatesStatesPruningDynamicScaling(tipStates1, tipStates2, partials3,
-                                                               matrices1, matrices2, scalingFactorsMulti,
-                                                               cumulativeScalingBuffer,
-                                                               0, 0,
-                                                               kPaddedPatternCount, kCategoryCount,
-                                                               rescaleMulti,
-                                                               -1, -1);
-                }
-            } else {
-                if (gridOpType[i] == 1) {
-                    kernels->PartialsPartialsPruningMulti(dPartialsOrigin, dMatrices[0],
-                                                          scalingFactorsMulti,
-                                                          dPartialsPtrs,
-                                                          kPaddedPatternCount,
-                                                          gridStart, gridSize,
-                                                          rescaleMulti);
-                } else if (gridOpType[i] == 2) {
-                    kernels->StatesPartialsPruningMulti(dStatesOrigin, dPartialsOrigin, dMatrices[0],
-                                                        scalingFactorsMulti,
-                                                        dPartialsPtrs,
-                                                        kPaddedPatternCount,
-                                                        gridStart, gridSize,
-                                                        rescaleMulti);
-                } else {
-                    kernels->StatesStatesPruningMulti(dStatesOrigin, dPartialsOrigin, dMatrices[0],
-                                                      scalingFactorsMulti,
-                                                      dPartialsPtrs,
-                                                      kPaddedPatternCount,
-                                                      gridStart, gridSize,
-                                                      rescaleMulti);
-                }
-            }
-            gridStart += gridSize;
-        }
-
-        #ifdef FW_OPENCL
-        hPartialsPtrs = (unsigned int*)gpu->MapMemory(dPartialsPtrs, kOpOffsetsSize);
-        #endif
-
-    }
-
-    if (!kUsingMultiGrid || (anyRescale == 1 && kPartitionsInitialised)) {
+    if (anyRescale == 1 && kPartitionsInitialised) {
         gpu->SynchronizeDevice();
-    }
-
-    if (kUsingMultiGrid) {
-        free(gridStartOp);
-        free(gridOpType);
-        free(gridOpBlocks);
     }
 
 #ifdef BEAGLE_DEBUG_SYNCH
