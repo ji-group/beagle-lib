@@ -1052,7 +1052,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
                                                 CUSPARSE_SPMM_ALG_DEFAULT, integrationBuffer[category])) //row-major layout provides higher performance (?)
 
             // P = IntegrationTmp
-            CHECK_CUDA(cudaMemcpy(dPartialCache[partialsIndex], integrationTmp[category], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToDevice))
+            CHECK_CUDA(cudaMemcpy(dPartialCache[partialsIndex], integrationCache[category], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToDevice))
 
             double c2 = normPInf(dPartialCache[partialsIndex], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
 //            F += destP;
