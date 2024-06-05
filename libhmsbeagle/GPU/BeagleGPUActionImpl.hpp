@@ -829,6 +829,20 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 						       rescale,
 						       streamIndex, waitIndex);
 
+/*
+        We are doing this, if rescale == 1:
+
+            gpu->LaunchKernelConcurrent(fPartialsPartialsByPatternBlockCoherent,
+                                        bgPeelingBlock, bgPeelingGrid,
+                                        streamIndex, waitIndex,
+                                        5, 6,
+                                        partials1, partials2, partials3, matrices1, matrices2,
+                                        kPaddedPatternCount);
+
+	    kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
+				     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
+*/
+
         if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
             int parScalingIndex = parIndex - kTipCount;
             int child1ScalingIndex = child1Index - kTipCount;
