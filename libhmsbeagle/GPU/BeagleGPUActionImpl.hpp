@@ -727,7 +727,467 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 							int operationCount,
 							int cumulativeScalingIndex)
 {
-    return BeagleGPUImpl<BEAGLE_GPU_GENERIC>::upPartials(byPartition, operations, operationCount, cumulativeScalingIndex);
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUImpl::upPartials\n");
+#endif
+
+    GPUPtr cumulativeScalingBuffer = 0;
+    if (cumulativeScalingIndex != BEAGLE_OP_NONE)
+        cumulativeScalingBuffer = dScalingFactors[cumulativeScalingIndex];
+
+    int numOps = BEAGLE_OP_COUNT;
+    if (byPartition) {
+        numOps = BEAGLE_PARTITION_OP_COUNT;
+    }
+
+    int gridLaunches = 0;
+    int* gridStartOp;
+    int* gridOpType;
+    int* gridOpBlocks;
+    int parentMinIndex = 0;
+    int lastStreamIndex = 0;
+    int gridOpIndex = 0;
+
+    if (kUsingMultiGrid) {
+        gridStartOp  = (int*) malloc(sizeof(int) * (operationCount + 1));
+        gridOpType   = (int*) malloc(sizeof(int) * (operationCount + 1));
+        gridOpBlocks = (int*) malloc(sizeof(int) * (operationCount + 1));
+    }
+
+
+    int anyRescale = BEAGLE_OP_NONE;
+    if (kUsingMultiGrid && (kFlags & BEAGLE_FLAG_SCALING_MANUAL)) {
+        for (int op = 0; op < operationCount; op++) {
+            const int writeScalingIndex = operations[op * numOps + 1];
+            const int readScalingIndex  = operations[op * numOps + 2];
+            if (writeScalingIndex >= 0) {
+                anyRescale = 1;
+                break;
+            } else if (readScalingIndex >= 0) {
+                anyRescale = 0;
+            }
+        }
+    }
+
+    int streamIndex = -1;
+    int waitIndex = -1;
+    if (!kUsingMultiGrid || (anyRescale == 1 && kPartitionsInitialised)) {
+        gpu->SynchronizeDevice();
+        for (int i = 0; i < kBufferCount * kPartitionCount; i++) {
+            hStreamIndices[i] = -1;
+        }
+    }
+
+    for (int op = 0; op < operationCount; op++) {
+        const int parIndex = operations[op * numOps];
+        const int writeScalingIndex = operations[op * numOps + 1];
+        const int readScalingIndex = operations[op * numOps + 2];
+        const int child1Index = operations[op * numOps + 3];
+        const int child1TransMatIndex = operations[op * numOps + 4];
+        const int child2Index = operations[op * numOps + 5];
+        const int child2TransMatIndex = operations[op * numOps + 6];
+        int currentPartition = 0;
+        if (byPartition) {
+            currentPartition = operations[op * numOps + 7];
+            cumulativeScalingIndex = operations[op * numOps + 8];
+            if (cumulativeScalingIndex != BEAGLE_OP_NONE)
+                cumulativeScalingBuffer = dScalingFactors[cumulativeScalingIndex];
+            else
+                cumulativeScalingBuffer = 0;
+        }
+
+        if (!kUsingMultiGrid || (anyRescale == 1 && kPartitionsInitialised)) {
+            int pOffset = currentPartition * kBufferCount;
+            waitIndex = hStreamIndices[child2Index + pOffset];
+            if (hStreamIndices[child1Index + pOffset] != -1) {
+                hStreamIndices[parIndex + pOffset] = hStreamIndices[child1Index + pOffset];
+            } else if (hStreamIndices[child2Index + pOffset] != -1) {
+                hStreamIndices[parIndex + pOffset] = hStreamIndices[child2Index + pOffset];
+                waitIndex = hStreamIndices[child1Index + pOffset];
+            } else {
+                hStreamIndices[parIndex + pOffset] = lastStreamIndex++;
+            }
+            streamIndex = hStreamIndices[parIndex + pOffset];
+        }
+
+        GPUPtr matrices1 = dMatrices[child1TransMatIndex];
+        GPUPtr matrices2 = dMatrices[child2TransMatIndex];
+
+        GPUPtr partials1 = dPartials[child1Index];
+        GPUPtr partials2 = dPartials[child2Index];
+
+        GPUPtr partials3 = dPartials[parIndex];
+
+        GPUPtr tipStates1 = dStates[child1Index];
+        GPUPtr tipStates2 = dStates[child2Index];
+
+        int rescale = BEAGLE_OP_NONE;
+        GPUPtr scalingFactors = (GPUPtr)NULL;
+
+        if (kFlags & BEAGLE_FLAG_SCALING_AUTO) {
+            int sIndex = parIndex - kTipCount;
+
+            if (tipStates1 == 0 && tipStates2 == 0) {
+                rescale = 2;
+                scalingFactors = dScalingFactors[sIndex];
+            }
+        } else if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
+            rescale = 1;
+            scalingFactors = dScalingFactors[parIndex - kTipCount];
+        } else if ((kFlags & BEAGLE_FLAG_SCALING_MANUAL) && writeScalingIndex >= 0) {
+            rescale = 1;
+            scalingFactors = dScalingFactors[writeScalingIndex];
+        } else if ((kFlags & BEAGLE_FLAG_SCALING_MANUAL) && readScalingIndex >= 0) {
+            rescale = 0;
+            scalingFactors = dScalingFactors[readScalingIndex];
+        }
+// printf("op[%d]: c1 %d (%d), c2 %d (%d), c1m %d, c2m %d, par %d, rescale %d, wsi %d, rsi %d, cp %d\n", op, child1Index, tipStates1, child2Index, tipStates2, child1TransMatIndex, child2TransMatIndex, parIndex, rescale, writeScalingIndex, readScalingIndex, currentPartition);
+// printf("op[%03d]: c1 %03d (%d), c2 %03d (%d), par %03d, c1m %03d, c2m %03d, rescale %d, streamIndex %03d, waitIndex %03d\n", op, child1Index, (tipStates1?1:0), child2Index, (tipStates2?1:0), parIndex, child1TransMatIndex, child2TransMatIndex, rescale, streamIndex, waitIndex);
+
+// printf("%03d %03d %03d %03d %03d\n", parIndex, child1Index, child2Index, streamIndex, waitIndex);
+
+
+#ifdef BEAGLE_DEBUG_VALUES
+        fprintf(stderr, "kPaddedPatternCount = %d\n", kPaddedPatternCount);
+        fprintf(stderr, "kPatternCount = %d\n", kPatternCount);
+        fprintf(stderr, "categoryCount  = %d\n", kCategoryCount);
+        fprintf(stderr, "partialSize = %d\n", kPartialsSize);
+        fprintf(stderr, "writeIndex = %d,  readIndex = %d, rescale = %d\n",writeScalingIndex,readScalingIndex,rescale);
+        fprintf(stderr, "child1 = \n");
+        Real r = 0;
+        if (tipStates1)
+            gpu->PrintfDeviceInt(tipStates1, kPaddedPatternCount);
+        else
+            gpu->PrintfDeviceVector(partials1, kPartialsSize, r);
+        fprintf(stderr, "child2 = \n");
+        if (tipStates2)
+            gpu->PrintfDeviceInt(tipStates2, kPaddedPatternCount);
+        else
+            gpu->PrintfDeviceVector(partials2, kPartialsSize, r);
+        fprintf(stderr, "node index = %d\n", parIndex);
+#endif
+
+        int startPattern = 0;
+        int endPattern = 0;
+
+        if (kUsingMultiGrid && (anyRescale != 1)) {
+            int startBlock = 0;
+            int endBlock = kNumPatternBlocks;
+            if (byPartition) {
+                startBlock = hPatternPartitionsStartBlocks[currentPartition];
+                endBlock = hPatternPartitionsStartBlocks[currentPartition+1];
+            }
+            int opBlockCount = endBlock - startBlock;
+
+            int opType = 1;
+            if (tipStates1 != 0 && tipStates2 != 0) {
+                opType = 3;
+            } else if (tipStates1 != 0 || tipStates2 != 0) {
+                opType = 2;
+            }
+            if (rescale == 0) {
+                opType *= -1;
+            }
+
+            bool newLaunch = false;
+
+            if (op == 0) {
+                newLaunch = true;
+            } else if (opType != gridOpType[gridLaunches-1]) {
+                newLaunch = true;
+            } else if (child1Index >= parentMinIndex || child2Index >= parentMinIndex) {
+                for (int i=gridStartOp[gridLaunches-1]; i < op; i++) {
+                    int previousParentIndex = operations[i * numOps];
+                    if (child1Index == previousParentIndex || child2Index == previousParentIndex) {
+                        newLaunch = true;
+                        break;
+                    }
+                }
+            }
+
+            if (newLaunch) {
+                gridStartOp[gridLaunches] = op;
+                gridOpBlocks[gridLaunches] = opBlockCount;
+                gridOpType[gridLaunches] = opType;
+                parentMinIndex = parIndex;
+
+                if (!byPartition) {
+                    hGridOpIndices[gridLaunches*6+0] = child1Index;
+                    hGridOpIndices[gridLaunches*6+1] = child2Index;
+                    hGridOpIndices[gridLaunches*6+2] = parIndex;
+                    hGridOpIndices[gridLaunches*6+3] = child1TransMatIndex;
+                    hGridOpIndices[gridLaunches*6+4] = child2TransMatIndex;
+                    hGridOpIndices[gridLaunches*6+5] = readScalingIndex;
+                }
+
+                gridLaunches++;
+            } else {
+                gridOpBlocks[gridLaunches-1] += opBlockCount;
+            }
+
+            if (parIndex < parentMinIndex)
+                parentMinIndex = parIndex;
+
+            unsigned int c1Off, c2Off;
+            unsigned int c1MOff   = child1TransMatIndex * kIndexOffsetMat;
+            unsigned int c2MOff   = child2TransMatIndex * kIndexOffsetMat;
+            unsigned int paOff    = hPartialsOffsets[parIndex];
+            unsigned int scaleOff = 0;
+            if (rescale == 0) {
+                scaleOff = readScalingIndex * kScaleBufferSize;
+            }
+
+
+            if (abs(opType) == 1) {
+                c1Off  = hPartialsOffsets[child1Index];
+                c2Off  = hPartialsOffsets[child2Index];
+            } else if (abs(opType) == 2) {
+                if (tipStates1 != 0) {
+                    c1Off  = hStatesOffsets[child1Index];
+                    c2Off  = hPartialsOffsets[child2Index];
+                } else {
+                    c1Off  = hStatesOffsets[child2Index];
+                    c2Off  = hPartialsOffsets[child1Index];
+                    unsigned int tmpOff = c1MOff; c1MOff = c2MOff; c2MOff = tmpOff;
+                }
+            } else {
+                c1Off  = hStatesOffsets[child1Index];
+                c2Off  = hStatesOffsets[child2Index];
+            }
+
+
+            for (int i=startBlock; i < endBlock; i++) {
+                hPartialsPtrs[gridOpIndex++] = hPartitionOffsets[i*2];
+                hPartialsPtrs[gridOpIndex++] = hPartitionOffsets[i*2+1];
+                hPartialsPtrs[gridOpIndex++] = c1Off;
+                hPartialsPtrs[gridOpIndex++] = c2Off;
+                hPartialsPtrs[gridOpIndex++] = paOff;
+                hPartialsPtrs[gridOpIndex++] = c1MOff;
+                hPartialsPtrs[gridOpIndex++] = c2MOff;
+                hPartialsPtrs[gridOpIndex++] = scaleOff;
+
+// printf("block %d, hPP = %d %d %d %d %d %d %d %d\n", i,
+//        hPartialsPtrs[gridOpIndex-8],
+//        hPartialsPtrs[gridOpIndex-7],
+//        hPartialsPtrs[gridOpIndex-6],
+//        hPartialsPtrs[gridOpIndex-5],
+//        hPartialsPtrs[gridOpIndex-4],
+//        hPartialsPtrs[gridOpIndex-3],
+//        hPartialsPtrs[gridOpIndex-2],
+//        hPartialsPtrs[gridOpIndex-1]);
+
+            }
+        } else {
+            if (byPartition) {
+                startPattern = hPatternPartitionsStartPatterns[currentPartition];
+                endPattern = hPatternPartitionsStartPatterns[currentPartition+1];
+            }
+
+
+            if (tipStates1 != 0) {
+                if (tipStates2 != 0 ) {
+                    kernels->StatesStatesPruningDynamicScaling(tipStates1, tipStates2, partials3,
+                                                               matrices1, matrices2, scalingFactors,
+                                                               cumulativeScalingBuffer,
+                                                               startPattern, endPattern,
+                                                               kPaddedPatternCount, kCategoryCount,
+                                                               rescale,
+                                                               streamIndex, waitIndex);
+                } else {
+                    kernels->StatesPartialsPruningDynamicScaling(tipStates1, partials2, partials3,
+                                                                 matrices1, matrices2, scalingFactors,
+                                                                 cumulativeScalingBuffer,
+                                                                 startPattern, endPattern,
+                                                                 kPaddedPatternCount, kCategoryCount,
+                                                                 rescale,
+                                                                 streamIndex, waitIndex);
+                }
+            } else {
+                if (tipStates2 != 0) {
+                    kernels->StatesPartialsPruningDynamicScaling(tipStates2, partials1, partials3,
+                                                                 matrices2, matrices1, scalingFactors,
+                                                                 cumulativeScalingBuffer,
+                                                                 startPattern, endPattern,
+                                                                 kPaddedPatternCount, kCategoryCount,
+                                                                 rescale,
+                                                                 streamIndex, waitIndex);
+                } else {
+                    if (kFlags & BEAGLE_FLAG_SCALING_DYNAMIC) {
+                        kernels->PartialsPartialsPruningDynamicCheckScaling(partials1, partials2, partials3,
+                                                                       matrices1, matrices2, writeScalingIndex, readScalingIndex,
+                                                                       cumulativeScalingIndex, dScalingFactors, dScalingFactorsMaster,
+                                                                       kPaddedPatternCount, kCategoryCount,
+                                                                       rescale, hRescalingTrigger, dRescalingTrigger, sizeof(Real));
+                    } else {
+                        kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
+                                                                       matrices1, matrices2, scalingFactors,
+                                                                       cumulativeScalingBuffer,
+                                                                       startPattern, endPattern,
+                                                                       kPaddedPatternCount, kCategoryCount,
+                                                                       rescale,
+                                                                       streamIndex, waitIndex);
+                    }
+                }
+            }
+        }
+
+
+        if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
+            int parScalingIndex = parIndex - kTipCount;
+            int child1ScalingIndex = child1Index - kTipCount;
+            int child2ScalingIndex = child2Index - kTipCount;
+            if (child1ScalingIndex >= 0 && child2ScalingIndex >= 0) {
+                int scalingIndices[2] = {child1ScalingIndex, child2ScalingIndex};
+                BeagleGPUImpl<Real>::accumulateScaleFactors(scalingIndices, 2, parScalingIndex);
+            } else if (child1ScalingIndex >= 0) {
+                int scalingIndices[1] = {child1ScalingIndex};
+                BeagleGPUImpl<Real>::accumulateScaleFactors(scalingIndices, 1, parScalingIndex);
+            } else if (child2ScalingIndex >= 0) {
+                int scalingIndices[1] = {child2ScalingIndex};
+                BeagleGPUImpl<Real>::accumulateScaleFactors(scalingIndices, 1, parScalingIndex);
+            }
+        }
+
+#ifdef BEAGLE_DEBUG_VALUES
+        if (rescale > -1) {
+            fprintf(stderr,"scalars = ");
+            gpu->PrintfDeviceVector(scalingFactors,kPaddedPatternCount, r);
+        }
+        fprintf(stderr, "parent = \n");
+        int signal = 0;
+        if (writeScalingIndex == -1)
+            gpu->PrintfDeviceVector(partials3, kPartialsSize, r);
+        else
+            gpu->PrintfDeviceVector(partials3, kPartialsSize, 1.0, &signal, r);
+#endif
+    } //end for loop over operationCount
+
+
+    if (kUsingMultiGrid && (anyRescale != 1)) {
+        size_t transferSize = sizeof(unsigned int) * gridOpIndex;
+        #ifdef FW_OPENCL
+        gpu->UnmapMemory(dPartialsPtrs, hPartialsPtrs);
+        #else
+        gpu->MemcpyHostToDevice(dPartialsPtrs, hPartialsPtrs, transferSize);
+        #endif
+        gridStartOp[gridLaunches] = operationCount;
+        int gridStart = 0;
+        for (int i=0; i < gridLaunches; i++) {
+            int gridSize = gridOpBlocks[i];
+            int rescaleMulti = BEAGLE_OP_NONE;
+            GPUPtr scalingFactorsMulti = (GPUPtr)NULL;
+            if (gridOpType[i] < 0) {
+                scalingFactorsMulti = dScalingFactors[0];
+                rescaleMulti = 0;
+                gridOpType[i] *= -1;
+            }
+
+            if (((gridStartOp[i+1] - gridStartOp[i]) == 1) && !byPartition && (kDeviceCode != BEAGLE_OPENCL_DEVICE_AMD_GPU)) {
+                int child1Index         = hGridOpIndices[i*6+0];
+                int child2Index         = hGridOpIndices[i*6+1];
+                int parIndex            = hGridOpIndices[i*6+2];
+                int child1TransMatIndex = hGridOpIndices[i*6+3];
+                int child2TransMatIndex = hGridOpIndices[i*6+4];
+                if (rescaleMulti == 0) {
+                    scalingFactorsMulti = dScalingFactors[hGridOpIndices[i*6+5]];
+                }
+                cumulativeScalingBuffer = 0;
+
+                GPUPtr tipStates1 = dStates[child1Index];
+                GPUPtr tipStates2 = dStates[child2Index];
+                GPUPtr partials1 = dPartials[child1Index];
+                GPUPtr partials2 = dPartials[child2Index];
+                GPUPtr partials3 = dPartials[parIndex];
+                GPUPtr matrices1 = dMatrices[child1TransMatIndex];
+                GPUPtr matrices2 = dMatrices[child2TransMatIndex];
+
+                if (gridOpType[i] == 1) {
+                        kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
+                                                                       matrices1, matrices2, scalingFactorsMulti,
+                                                                       cumulativeScalingBuffer,
+                                                                       0, 0,
+                                                                       kPaddedPatternCount, kCategoryCount,
+                                                                       rescaleMulti,
+                                                                       -1, -1);
+                } else if (gridOpType[i] == 2) {
+                    if (tipStates1 != 0) {
+                        kernels->StatesPartialsPruningDynamicScaling(tipStates1, partials2, partials3,
+                                                                     matrices1, matrices2, scalingFactorsMulti,
+                                                                     cumulativeScalingBuffer,
+                                                                     0, 0,
+                                                                     kPaddedPatternCount, kCategoryCount,
+                                                                     rescaleMulti,
+                                                                     -1, -1);
+                    } else {
+                        kernels->StatesPartialsPruningDynamicScaling(tipStates2, partials1, partials3,
+                                                                     matrices2, matrices1, scalingFactorsMulti,
+                                                                     cumulativeScalingBuffer,
+                                                                     0, 0,
+                                                                     kPaddedPatternCount, kCategoryCount,
+                                                                     rescaleMulti,
+                                                                     -1, -1);
+                    }
+                } else {
+                    kernels->StatesStatesPruningDynamicScaling(tipStates1, tipStates2, partials3,
+                                                               matrices1, matrices2, scalingFactorsMulti,
+                                                               cumulativeScalingBuffer,
+                                                               0, 0,
+                                                               kPaddedPatternCount, kCategoryCount,
+                                                               rescaleMulti,
+                                                               -1, -1);
+                }
+            } else {
+                if (gridOpType[i] == 1) {
+                    kernels->PartialsPartialsPruningMulti(dPartialsOrigin, dMatrices[0],
+                                                          scalingFactorsMulti,
+                                                          dPartialsPtrs,
+                                                          kPaddedPatternCount,
+                                                          gridStart, gridSize,
+                                                          rescaleMulti);
+                } else if (gridOpType[i] == 2) {
+                    kernels->StatesPartialsPruningMulti(dStatesOrigin, dPartialsOrigin, dMatrices[0],
+                                                        scalingFactorsMulti,
+                                                        dPartialsPtrs,
+                                                        kPaddedPatternCount,
+                                                        gridStart, gridSize,
+                                                        rescaleMulti);
+                } else {
+                    kernels->StatesStatesPruningMulti(dStatesOrigin, dPartialsOrigin, dMatrices[0],
+                                                      scalingFactorsMulti,
+                                                      dPartialsPtrs,
+                                                      kPaddedPatternCount,
+                                                      gridStart, gridSize,
+                                                      rescaleMulti);
+                }
+            }
+            gridStart += gridSize;
+        }
+
+        #ifdef FW_OPENCL
+        hPartialsPtrs = (unsigned int*)gpu->MapMemory(dPartialsPtrs, kOpOffsetsSize);
+        #endif
+
+    }
+
+    if (!kUsingMultiGrid || (anyRescale == 1 && kPartitionsInitialised)) {
+        gpu->SynchronizeDevice();
+    }
+
+    if (kUsingMultiGrid) {
+        free(gridStartOp);
+        free(gridOpType);
+        free(gridOpBlocks);
+    }
+
+#ifdef BEAGLE_DEBUG_SYNCH
+    gpu->SynchronizeHost();
+#endif
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUImpl::upPartials\n");
+#endif
+
+    return BEAGLE_SUCCESS;
 }
 
 BEAGLE_GPU_TEMPLATE

@@ -202,7 +202,7 @@ protected:
             {50, 8.5},
             {55, 9.9},
     };
-
+/*
     std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
     std::vector<cusparseDnMatDescr_t> dPartials;
     std::vector<Real*> dPartialCache;
@@ -217,7 +217,7 @@ protected:
 
     std::vector<int> hEigenMaps;
     std::vector<Real> hEdgeMultipliers;
-
+*/
 
 
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kInitialized;
@@ -289,15 +289,16 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kWeightsOffset;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kFrequenciesOffset;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIntegrationTmp;
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPatternWeights;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPatternWeights;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dSumLogLikelihood;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsTmp;
 
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kDerivBuffersInitialised;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kMultipleDerivativesLength;
 
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartials;
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsOrigin;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartials;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsOrigin;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsPtrs;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPartialsOffsets;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kIndexOffsetPat;
 
@@ -333,6 +334,11 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIndexMaxScalingFactors;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dAccumulatedScalingFactors;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kUsingAutoTranspose;
+
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPatternPartitionsStartBlocks;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hGridOpIndices;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPartialsPtrs;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPatternPartitionsStartPatterns;
 
     void  allocateMultiGridBuffers();
 
