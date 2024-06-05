@@ -386,7 +386,7 @@ private:
                               int partials2Index,
                               int edgeIndex2);
 
-    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, bool transpose) const;
+    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool transpose) const;
 
     int cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose) const;
 

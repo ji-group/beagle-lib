@@ -761,29 +761,32 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
 
     for (int category = 0; category < kCategoryCount; category++)
     {
+        const int partial1Index = getPartialIndex(partials1Index, category);
+        const int partial2Index = getPartialIndex(partials2Index, category);
+
+        const int partial1CacheIndex = getPartialCacheIndex(partials1Index, category);
+        const int partial2CacheIndex = getPartialCacheIndex(partials2Index, category);
+
+        const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
+        const int matrixIndex2 = hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category;
+
+        simpleAction2(partial1CacheIndex, partial1Index, edgeIndex1, category, matrixIndex1, false);
+        simpleAction2(partial2CacheIndex, partial2Index, edgeIndex2, category, matrixIndex2, false);
+    }
+    cudaDeviceSynchronize();
+
+    for (int category = 0; category < kCategoryCount; category++)
+    {
         const int destPartialindex = getPartialIndex(destPIndex, category);
-        const int partial1Index = getPartialIndex(partial1Index, category);
-        const int partial2Index = getPartialIndex(partial2Index, category);
 
-        const int partial1CacheIndex = getPartialCacheIndex(partial1Index, category);
-        const int partial2CacheIndex = getPartialCacheIndex(partial2Index, category);
-
-        simpleAction2(partial1CacheIndex, partial1Index, edgeIndex1, category, false);
-        simpleAction2(partial2CacheIndex, partial2Index, edgeIndex2, category, false);
+        const int partial1CacheIndex = getPartialCacheIndex(partials1Index, category);
+        const int partial2CacheIndex = getPartialCacheIndex(partials2Index, category);
 
         CUBLAS_CHECK(cublasSdgmm(cublasH, CUBLAS_SIDE_LEFT, kPaddedStateCount * kPaddedPatternCount, 1, dPartialCache[partial1CacheIndex], kPaddedStateCount * kPaddedPatternCount,
-                    dPartialCache[partial2CacheIndex], 1, dPartialCache[destPartialindex], kPaddedStateCount * kPaddedPatternCount));
-//        auto partials1 = partialsMap(partials1Index, category, startPattern, endPattern);
-//        auto partials1Cache = partialsCacheMap(partials1Index, category, startPattern, endPattern);
-//        simpleAction2(partials1Cache, partials1, edgeIndex1, category, false);
-//
-//        auto partials2 = partialsMap(partials2Index, category, startPattern, endPattern);
-//        auto partials2Cache = partialsCacheMap(partials2Index, category, startPattern, endPattern);
-//        simpleAction2(partials2Cache, partials2, edgeIndex2, category, false);
-//
-//        auto destP = partialsMap(destPIndex, category, startPattern, endPattern);
-//        destP = partials1Cache.cwiseProduct(partials2Cache);
+                                 dPartialCache[partial2CacheIndex], 1, dPartialCache[destPartialindex], kPaddedStateCount * kPaddedPatternCount));
     }
+    cudaDeviceSynchronize();
+
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -891,7 +894,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
 }
 
 BEAGLE_GPU_TEMPLATE
-int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, bool transpose) const {
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool transpose) const {
     const double tol = pow(2.0, -53.0);
     const double t = 1.0;
     const int nCol = kPaddedStateCount * kPaddedPatternCount;
@@ -909,7 +912,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //    destP = partials;
     CHECK_CUSPARSE(cusparseDnMatSetValues(dPartials[destPIndex], dPartialCache[partialsIndex]))
 //    SpMatrix<Real> A = hBs[hEigenMaps[edgeIndex]] * edgeMultiplier;
-    const int matrixIndex = hEigenMaps[edgeIndex] * kCategoryCount * 2 + category;
     cusparseSpMatDescr_t A = dAs[matrixIndex];
 
 
