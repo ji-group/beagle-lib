@@ -473,8 +473,14 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     }
 
 
-    dPartials = std::vector<cusparseDnMatDescr_t>(kPartialsBufferCount * kCategoryCount * 2, nullptr);
-    dPartialCache = std::vector<Real*>(kPartialsBufferCount * kCategoryCount * 2, nullptr);
+    dPartials.resize(kPartialsBufferCount * kCategoryCount * 2);
+    dPartialCache.resize(kPartialsBufferCount * kCategoryCount * 2);
+
+    for (int i = 0; i < kPartialsBufferCount * kCategoryCount * 2; i++) {
+        dPartialCache[i] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
+        CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[i], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[i],
+                                           DataType<Real>, CUSPARSE_ORDER_COL))
+    }
 
     dFLeft = std::vector<cusparseDnMatDescr_t>(kCategoryCount, nullptr);
     dFLeftCache = std::vector<Real*>(kCategoryCount, nullptr);
