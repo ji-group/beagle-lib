@@ -815,53 +815,21 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
         int startPattern = 0;
         int endPattern = 0;
 
-        
-        if (tipStates1 != 0) {
-            if (tipStates2 != 0 ) {
-                kernels->StatesStatesPruningDynamicScaling(tipStates1, tipStates2, partials3,
-                                                           matrices1, matrices2, scalingFactors,
-                                                           cumulativeScalingBuffer,
-                                                           startPattern, endPattern,
-                                                           kPaddedPatternCount, kCategoryCount,
-                                                           rescale,
-                                                           streamIndex, waitIndex);
-            } else {
-                kernels->StatesPartialsPruningDynamicScaling(tipStates1, partials2, partials3,
-                                                             matrices1, matrices2, scalingFactors,
-                                                             cumulativeScalingBuffer,
-                                                             startPattern, endPattern,
-                                                             kPaddedPatternCount, kCategoryCount,
-                                                             rescale,
-                                                             streamIndex, waitIndex);
-            }
-        } else {
-            if (tipStates2 != 0) {
-                kernels->StatesPartialsPruningDynamicScaling(tipStates2, partials1, partials3,
-                                                             matrices2, matrices1, scalingFactors,
-                                                             cumulativeScalingBuffer,
-                                                             startPattern, endPattern,
-                                                             kPaddedPatternCount, kCategoryCount,
-                                                             rescale,
-                                                             streamIndex, waitIndex);
-            } else {
-                if (kFlags & BEAGLE_FLAG_SCALING_DYNAMIC) {
-                    kernels->PartialsPartialsPruningDynamicCheckScaling(partials1, partials2, partials3,
-                                                                        matrices1, matrices2, writeScalingIndex, readScalingIndex,
-                                                                        cumulativeScalingIndex, dScalingFactors, dScalingFactorsMaster,
-                                                                        kPaddedPatternCount, kCategoryCount,
-                                                                        rescale, hRescalingTrigger, dRescalingTrigger, sizeof(Real));
-                } else {
-                    kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
-                                                                   matrices1, matrices2, scalingFactors,
-                                                                   cumulativeScalingBuffer,
-                                                                   startPattern, endPattern,
-                                                                   kPaddedPatternCount, kCategoryCount,
-                                                                   rescale,
-                                                                   streamIndex, waitIndex);
-                }
-            }
-        }
 
+	if (kFlags & BEAGLE_FLAG_SCALING_DYNAMIC)
+	    kernels->PartialsPartialsPruningDynamicCheckScaling(partials1, partials2, partials3,
+								matrices1, matrices2, writeScalingIndex, readScalingIndex,
+								cumulativeScalingIndex, dScalingFactors, dScalingFactorsMaster,
+								kPaddedPatternCount, kCategoryCount,
+								rescale, hRescalingTrigger, dRescalingTrigger, sizeof(Real));
+	else
+	    kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
+							   matrices1, matrices2, scalingFactors,
+							   cumulativeScalingBuffer,
+							   startPattern, endPattern,
+							   kPaddedPatternCount, kCategoryCount,
+							   rescale,
+							   streamIndex, waitIndex);
 
         if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
             int parScalingIndex = parIndex - kTipCount;
