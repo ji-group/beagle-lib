@@ -821,6 +821,23 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 	    std::cerr<<"GPU-Action: upPartials( ): boldly ignoring BEAGLE_FLAG_SCALING_DYNAMIC!";
 	}
 
+	// calcPartialsPartials2 goes here.
+	/*
+	    for (int category = 0; category < kCategoryCount; category++)
+	    {
+		auto partials1 = partialsMap(partials1Index, category, startPattern, endPattern);
+		auto partials1Cache = partialsCacheMap(partials1Index, category, startPattern, endPattern);
+		simpleAction2(partials1Cache, partials1, edgeIndex1, category, false);
+
+		auto partials2 = partialsMap(partials2Index, category, startPattern, endPattern);
+		auto partials2Cache = partialsCacheMap(partials2Index, category, startPattern, endPattern);
+		simpleAction2(partials2Cache, partials2, edgeIndex2, category, false);
+
+		auto destP = partialsMap(destPIndex, category, startPattern, endPattern);
+                destP = partials1Cache.cwiseProduct(partials2Cache);
+            }
+	*/
+
 	kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
 						       matrices1, matrices2, scalingFactors,
 						       cumulativeScalingBuffer,
