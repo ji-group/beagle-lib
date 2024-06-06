@@ -1060,6 +1060,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
         const int edgeMultiplierIndex2 = edgeIndex2 * kCategoryCount + category;
         const Real edgeMultiplier2 = hEdgeMultipliers[edgeMultiplierIndex2];
 
+
+        CHECK_CUDA(cudaMemcpy(dACscValuesCache[matrixIndex1], dInstantaneousMatrixCsrValuesCache[hEigenMaps[edgeIndex1]], sizeof(Real) * currentCacheNNZs[hEigenMaps[edgeIndex1]], cudaMemcpyDeviceToDevice))
+        CHECK_CUDA(cudaMemcpy(dACscValuesCache[matrixIndex2], dInstantaneousMatrixCsrValuesCache[hEigenMaps[edgeIndex2]], sizeof(Real) * currentCacheNNZs[hEigenMaps[edgeIndex2]], cudaMemcpyDeviceToDevice))
         if constexpr (std::is_same<Real, float>::value) {
             CUBLAS_CHECK(cublasSscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex1]], &edgeMultiplier1, dACscValuesCache[matrixIndex1], 1));  //Check if this is asynchronous with the following
             CUBLAS_CHECK(cublasSscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex2]], &edgeMultiplier2, dACscValuesCache[matrixIndex2], 1));  //Check if this is asynchronous with the following
@@ -1195,7 +1198,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
                                         CUSPARSE_SPMM_ALG_DEFAULT, &integrationBufferSize[category]))
 #ifdef BEAGLE_DEBUG_FLOW
 
-            std::cerr<<"AP = \n"<<std::endl;
+            std::cerr<<"AP ="<<std::endl;
             PrintfDeviceVector(integrationCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 #endif
             if(integrationBufferSize[category] > integrationBufferStoredSize[category]) {
@@ -1266,16 +1269,14 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
         dInstantaneousMatrixCsrColumnsCache[matrixIndex] = cudaDeviceNew<int>(currentNNZ);
         dInstantaneousMatrixCsrValuesCache[matrixIndex] = cudaDeviceNew<Real>(currentNNZ);
         for (int category = 0; category < kCategoryCount; category++) {
-            dACscValuesCache[matrixIndex * kCategoryCount + category] = cudaDeviceNew<Real>(currentNNZ);
+            dACscValuesCache[matrixIndex * kCategoryCount * 2 + category] = cudaDeviceNew<Real>(currentNNZ);
+            dACscValuesCache[matrixIndex * kCategoryCount * 2 + kCategoryCount + category] = cudaDeviceNew<Real>(currentNNZ);
         }
     }
 
     MemcpyHostToDevice(dInstantaneousMatrixCsrOffsetsCache[matrixIndex], hInstantaneousMatrices[matrixIndex].outerIndexPtr(), kPaddedStateCount + 1);
     MemcpyHostToDevice(dInstantaneousMatrixCsrColumnsCache[matrixIndex], hInstantaneousMatrices[matrixIndex].innerIndexPtr(), currentNNZ);
     MemcpyHostToDevice(dInstantaneousMatrixCsrValuesCache[matrixIndex], hInstantaneousMatrices[matrixIndex].valuePtr(), currentNNZ);
-    for (int category = 0; category < kCategoryCount; category++) {
-        MemcpyHostToDevice(dACscValuesCache[matrixIndex * kCategoryCount + category], hInstantaneousMatrices[matrixIndex].valuePtr(), currentNNZ);
-    }
 
     CHECK_CUSPARSE(cusparseCreateCsr(&dInstantaneousMatrices[matrixIndex], kPaddedStateCount, kPaddedStateCount, currentNNZ,
                                      dInstantaneousMatrixCsrOffsetsCache[matrixIndex], dInstantaneousMatrixCsrColumnsCache[matrixIndex], dInstantaneousMatrixCsrValuesCache[matrixIndex],
