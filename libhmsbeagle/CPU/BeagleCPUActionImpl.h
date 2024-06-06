@@ -46,7 +46,7 @@
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
 typedef Eigen::Map<MatrixXd> MapType;
-typedef Eigen::SparseMatrix<double> SpMatrix;
+typedef Eigen::SparseMatrix<double, Eigen::StorageOptions::RowMajor> SpMatrix;
 typedef Eigen::Triplet<double> Triplet;
 
 
