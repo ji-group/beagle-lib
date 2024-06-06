@@ -113,7 +113,7 @@ double normPInf(Real* matrix, int nRows, int nCols, cublasHandle_t cublasH) {
 
 
 template <typename Real>
-using SpMatrix = Eigen::SparseMatrix<Real>;
+using SpMatrix = Eigen::SparseMatrix<Real, Eigen::StorageOptions::RowMajor>;
 
 template <typename Real>
 using Triplet = Eigen::Triplet<Real>;
@@ -439,6 +439,7 @@ private:
     double getDValue(int p, int eigenIndex) const;
 
     int PrintfDeviceVector(Real* dPtr, int length, double checkValue, int *signal, Real r);
+    int PrintfDeviceVector(int* dPtr, int length, double checkValue, int *signal, Real r);
     int PrintfDeviceVector(cusparseDnMatDescr_t dPtr, int length, double checkValue, int *signal, Real r);
 
 };
