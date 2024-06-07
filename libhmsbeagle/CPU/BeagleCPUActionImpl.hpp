@@ -62,7 +62,11 @@ tuple<double,int> ArgNormP1(const T& matrix)
 
 template <typename T>
 double normPInf(const T& matrix) {
-    return matrix.template lpNorm<Eigen::Infinity>();
+//#ifdef BEAGLE_DEBUG_FLOW
+//    std::cerr<<"matrix =\n" << matrix<<std::endl;
+//    std::cerr<<"PInf norm = " <<matrix.template lpNorm<Eigen::Infinity>() <<"  or  " << matrix.rowwise().template lpNorm<1>().maxCoeff() << std::endl;
+//#endif
+    return matrix.rowwise().template lpNorm<1>().maxCoeff();
 }
 
 std::independent_bits_engine<std::mt19937_64,1,unsigned short> engine;
@@ -742,55 +746,64 @@ namespace beagle {
 
         BEAGLE_CPU_ACTION_TEMPLATE
         void
-        BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::simpleAction2(MapType& destP, MapType& partials, int edgeIndex,
+        BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::simpleAction2(MapType &destP, MapType &partials, int edgeIndex,
                                                                      int category, bool transpose) const {
 #ifdef BEAGLE_DEBUG_FLOW
-            std::cerr<<"New impl 2\nRate category "<<category<<std::endl;
-	    std::cerr<<"In partial: \n"<<partials<<std::endl;
+            std::cerr << "\n\nNew impl 2\nRate category " << category << std::endl;
+            std::cerr << "In partial: \n" << partials << std::endl;
 #endif
-	    const double tol = pow(2.0, -53.0);
-	    const double t = 1.0;
-	    const int nCol = (int)destP.cols();
+            const double tol = pow(2.0, -53.0);
+            const double t = 1.0;
+            const int nCol = (int) destP.cols();
 
-	    const double edgeMultiplier = gEdgeMultipliers[edgeIndex * kCategoryCount + category];
+            const double edgeMultiplier = gEdgeMultipliers[edgeIndex * kCategoryCount + category];
 
-	    auto [m,s] = getStatistics2(t, nCol, edgeMultiplier, gEigenMaps[edgeIndex]);
+            auto [m, s] = getStatistics2(t, nCol, edgeMultiplier, gEigenMaps[edgeIndex]);
+
+            destP = partials;
+            SpMatrix A = gBs[gEigenMaps[edgeIndex]] * edgeMultiplier;
+            if (transpose) {
+                A = A.transpose();
+            }
+
+            MatrixXd F(kStateCount, nCol);
+            F = destP;
+
+            const double eta = exp(t * gMuBs[gEigenMaps[edgeIndex]] * edgeMultiplier / (double) s);
+
+#ifdef BEAGLE_DEBUG_FLOW
+            std::cerr << "simpleAction2: m = " << m << "  s = " << s << "  eta = " << eta << "  edgeMultiplier = " << edgeMultiplier << std::endl;
+            std::cerr << "edgeMultiplier = " << edgeMultiplier << "\nQ = " << gBs[gEigenMaps[edgeIndex]] <<std::endl;
+#endif
+
+            for (int i = 0; i < s; i++) {
+                double c1 = normPInf(destP);
+                for (int j = 1; j < m + 1; j++) {
+                    destP = A * destP;
+                    destP *= t / ((double) s * j);
+//#ifdef BEAGLE_DEBUG_FLOW
+//                    std::cerr << "i = " << i << "  j = " << j << "  c1 = " << c1  << " alpha = " << t / ((double) s * j) << std::endl;
+//                    std::cerr << "A = " << A << std::endl;
+//                    std::cerr << "destP = alpha * A * destP\n" <<destP<<std::endl;
+//#endif
+                    double c2 = normPInf(destP);
+                    F += destP;
+#ifdef BEAGLE_DEBUG_FLOW
+                    std::cerr << "i = " << i << "  j = " << j << "/" << m << "  c1 = " << c1 << "  c2 = " << c2 << " alpha = " << t / ((double) s * j) << std::endl;
+                    std::cerr << "F = \n" <<F<<std::endl;
+#endif
+                    if (c1 + c2 <= tol * normPInf(F)) {
+                        break;
+                    }
+                    c1 = c2;
+                }
+                F *= eta;
+                destP = F;
+            }
 
 
 #ifdef BEAGLE_DEBUG_FLOW
-	    std::cerr<<"simpleAction2: m = "<<m<<"  s = "<<s <<std::endl;
-#endif
-
-	    destP = partials;
-	    SpMatrix A = gBs[gEigenMaps[edgeIndex]] * edgeMultiplier;
-	    if (transpose) {
-		A = A.transpose();
-	    }
-
-	    MatrixXd F(kStateCount, nCol);
-	    F = destP;
-
-	    const double eta = exp(t * gMuBs[gEigenMaps[edgeIndex]] * edgeMultiplier / (double) s);
-
-	    for (int i = 0; i < s; i++) {
-		double c1 = normPInf(destP);
-		for (int j = 1; j < m + 1; j++) {
-		    destP = A * destP;
-		    destP *= t / ((double) s * j);
-		    double c2 = normPInf(destP);
-		    F += destP;
-		    if (c1 + c2 <= tol * normPInf(F)) {
-			break;
-		    }
-		    c1 = c2;
-		}
-		F *= eta;
-		destP = F;
-	    }
-
-
-#ifdef BEAGLE_DEBUG_FLOW
-	    std::cerr<<"Out partials: \n"<<destP<<std::endl;
+            std::cerr << "Out partials: \n" << destP << std::endl;
 #endif
         }
 
