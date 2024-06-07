@@ -96,13 +96,21 @@ double normPInf(const T& matrix) {
 }
 
 template <typename Real>
-double normPInf(Real* matrix, int nRows, int nCols, cublasHandle_t cublasH) {
+double normPInf(Real* matrix, Real* transposeBuffer, int nRows, int nCols, cublasHandle_t cublasH) {
     std::vector<Real> absoluteRowSums(nRows, 0);
+    const Real one = 1.0;
+    const Real zero = 0.0;
+    if constexpr (std::is_same<Real, float>::value) {
+        CUBLAS_CHECK(cublasSgeam(cublasH, CUBLAS_OP_T, CUBLAS_OP_N, nRows, nCols, &one, matrix, nRows, &zero, matrix, nRows, transposeBuffer, nRows));
+    } else {
+        CUBLAS_CHECK(cublasDgeam(cublasH, CUBLAS_OP_T, CUBLAS_OP_N, nRows, nCols, &one, matrix, nRows, &zero, matrix, nRows, transposeBuffer, nRows));
+    }
+
     for (int i = 0; i < nRows; i++) {
         if constexpr (std::is_same<Real, float>::value) {
-            CUBLAS_CHECK(cublasSasum(cublasH, nCols, matrix + i * nCols, 1, &absoluteRowSums[i]));
+            CUBLAS_CHECK(cublasSasum(cublasH, nCols, transposeBuffer + i * nCols, 1, &absoluteRowSums[i]));
         } else {
-            CUBLAS_CHECK(cublasDasum(cublasH, nCols, matrix + i * nCols, 1, &absoluteRowSums[i]));
+            CUBLAS_CHECK(cublasDasum(cublasH, nCols, transposeBuffer + i * nCols, 1, &absoluteRowSums[i]));
         }
     }
     cudaDeviceSynchronize();
@@ -261,6 +269,7 @@ protected:
     std::vector<size_t> integrationRightBufferSize;
     std::vector<size_t> integrationRightStoredBufferSize;
     std::vector<void*> dIntegrationRightBuffer;
+    Real* dTransposeBufferCache;
 
     Real **dFrequenciesCache, **dWeightsCache;
     std::vector<cusparseDnVecDescr_t> dFrequencies;

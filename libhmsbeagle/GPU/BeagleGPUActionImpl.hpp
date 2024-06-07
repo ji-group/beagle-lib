@@ -497,6 +497,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     integrationRightBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
     integrationRightStoredBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
     dIntegrationRightBuffer = std::vector<void*>(kCategoryCount, nullptr);
+    CHECK_CUDA(cudaMalloc((void**) &dTransposeBufferCache, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount))
     for (int category = 0; category < categoryCount; category++) {
         dFLeftCache[category] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
         dFRightCache[category] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
@@ -965,7 +966,6 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
                                                                    int edgeIndex2) {
 
     cacheAMatrices(edgeIndex1, edgeIndex2, false);
-    cudaDeviceSynchronize();
 
     for (int category = 0; category < kCategoryCount; category++)
     {
@@ -1005,6 +1005,15 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
                                      dPartialCache[partial2CacheIndex], 1, dPartialCache[destPartialindex], kPaddedStateCount * kPaddedPatternCount));
 
         }
+#ifdef BEAGLE_DEBUG_FLOW
+        std::cerr<<"Checking p_parent = p_1 * p_2, parent index = "<<destPartialindex<<" chil1 index = " << partial1CacheIndex<< " child2 index = "<<partial2CacheIndex<<std::endl;
+        std::cerr<<"p1 = "<<std::endl;
+        PrintfDeviceVector(dPartialCache[partial1CacheIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+        std::cerr<<"p2 = "<<std::endl;
+        PrintfDeviceVector(dPartialCache[partial2CacheIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+        std::cerr<<"p_parent = "<<std::endl;
+        PrintfDeviceVector(dPartialCache[destPartialindex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+#endif
     }
     cudaDeviceSynchronize();
 
@@ -1109,7 +1118,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
         }
 
 #ifdef BEAGLE_DEBUG_FLOW
-
+        std::cerr<<"category = "<<category<<std::endl;
         std::cerr<<"matrixIndex1 = "<<matrixIndex1<<std::endl;
         std::cerr<<"edgeIndex1 = "<<edgeIndex1<<std::endl;
         std::cerr<<"edgeMultiplierIndex1 = "<<edgeMultiplierIndex1<<std::endl;
@@ -1138,6 +1147,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
                                              CUSPARSE_INDEX_BASE_ZERO, DataType<Real>))
         }
     }
+    cudaDeviceSynchronize();
     return BEAGLE_SUCCESS;
 }
 
@@ -1155,6 +1165,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 
 #ifdef BEAGLE_DEBUG_FLOW
     std::cerr << "simpleAction2: m = " << m << "  s = " << s << std::endl;
+    std::cerr << "destPIndex = "<<destPIndex<<" partialsIndex = " << partialsIndex << "  edgeIndex = " << edgeIndex << " category = " << category << " matrixIndex = "<<matrixIndex << std::endl;
 #endif
 
 //    SpMatrix<Real> A = hBs[hEigenMaps[edgeIndex]] * edgeMultiplier;
@@ -1187,8 +1198,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 #ifdef BEAGLE_DEBUG_FLOW
     std::cerr<<"Before destP = partials operation, destPCache:\n"<<std::endl;
     PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-    std::cerr<<"\ndestP:\n"<<std::endl;
-    PrintfDeviceVector(dPartials[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//    std::cerr<<"\ndestP:\n"<<std::endl;
+//    PrintfDeviceVector(dPartials[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 #endif
 
 //    destP = partials;
@@ -1210,7 +1221,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
     CHECK_CUDA(cudaMemcpy(FCache[category], dPartialCache[partialsIndex], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToDevice))
 //    CHECK_CUSPARSE(cusparseDnMatSetValues(F[category], dPartialCache[partialsIndex])) // TODO: loop category within this function
 #ifdef BEAGLE_DEBUG_FLOW
-    std::cerr<<"F = partials operation, FCache:\n"<<std::endl;
+    std::cerr<<"F = partials operation, FCache:"<<std::endl;
     PrintfDeviceVector(FCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 #endif
     cudaDeviceSynchronize();
@@ -1223,42 +1234,63 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
     const Real beta = 0;
     const Real one = 1;
     for (int i = 0; i < s; i++) {
-        double c1 = normPInf(dPartialCache[partialsIndex], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+        double c1 = normPInf(dPartialCache[partialsIndex], dTransposeBufferCache, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+
+#ifdef BEAGLE_DEBUG_FLOW
+        std::cerr<<"Transposing:"<<std::endl;
+        PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+        std::cerr<<"Result:"<<std::endl;
+        PrintfDeviceVector(dTransposeBufferCache, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+#endif
+
         for (int j = 1; j < m + 1; j++) {
             const Real alpha = t / ((Real) s * j);
 #ifdef BEAGLE_DEBUG_FLOW
-            std::cerr<<"alpha = "<<alpha<<std::endl;
+            std::cerr<<"j/m = "<<j<<"/"<<m<<", alpha = "<<alpha<<std::endl;
 #endif
 //            destP = alpha * A * destP;
             CHECK_CUSPARSE(cusparseSpMM_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
                                         &alpha, A, dPartials[destPIndex], &beta, integrationTmp[category], DataType<Real>,
                                         CUSPARSE_SPMM_ALG_DEFAULT, &integrationBufferSize[category]))
-#ifdef BEAGLE_DEBUG_FLOW
 
-            std::cerr<<"AP ="<<std::endl;
-            PrintfDeviceVector(integrationCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-#endif
             if(integrationBufferSize[category] > integrationBufferStoredSize[category]) {
                 CHECK_CUDA(cudaMalloc(&integrationBuffer[category], integrationBufferSize[category]))  // TODO: is this necessary? Are there better ways to claim additional buffer?
                 integrationBufferStoredSize[category] = integrationBufferSize[category];
             }
 
-            // integrationTmp = alpha * A * P
+            // integrationTmp = alpha * A * destP
             CHECK_CUSPARSE(cusparseSpMM(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
                                         &alpha, A, dPartials[destPIndex], &beta, integrationTmp[category], DataType<Real>,
                                                 CUSPARSE_SPMM_ALG_DEFAULT, integrationBuffer[category])) //row-major layout provides higher performance (?)
+//#ifdef BEAGLE_DEBUG_FLOW
+//
+//            std::cerr<<"AP * alpha ="<<std::endl;
+//            PrintfDeviceVector(integrationCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//#endif
 
-            // P = IntegrationTmp
-            CHECK_CUDA(cudaMemcpy(dPartialCache[partialsIndex], integrationCache[category], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToDevice))
+            // destP = IntegrationTmp
+            CHECK_CUDA(cudaMemcpy(dPartialCache[destPIndex], integrationCache[category], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToDevice))
 
-            double c2 = normPInf(dPartialCache[partialsIndex], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+//#ifdef BEAGLE_DEBUG_FLOW
+//
+//            std::cerr<<"P = IntegrationTmp ="<<std::endl;
+//            PrintfDeviceVector(dPartialCache[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//#endif
+
+            double c2 = normPInf(dPartialCache[destPIndex], dTransposeBufferCache, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
 //            F += destP;
             if constexpr (std::is_same<Real, float>::value) {
                 CUBLAS_CHECK(cublasSaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &one, integrationCache[category], 1, FCache[category], 1));
             } else {
                 CUBLAS_CHECK(cublasDaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &one, integrationCache[category], 1, FCache[category], 1));
             }
-            if (c1 + c2 <= tol * normPInf(FCache[category], kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
+#ifdef BEAGLE_DEBUG_FLOW
+
+            std::cerr<<"F += destP, c1 = " <<c1 <<"  c2 = " <<c2 <<std::endl;
+            PrintfDeviceVector(FCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+#endif
+
+            if (c1 + c2 <= tol * normPInf(FCache[category], dTransposeBufferCache, kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
                 break;
             }
             c1 = c2;
@@ -1269,8 +1301,18 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
         } else {
             CUBLAS_CHECK(cublasDscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &eta, FCache[category], 1));
         }
+#ifdef BEAGLE_DEBUG_FLOW
+
+        std::cerr<<"F *= eta (eta ="<<eta<<"):"<<std::endl;
+        PrintfDeviceVector(FCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+#endif
 //        destP = F;
-        CHECK_CUDA(cudaMemcpy(dPartialCache[partialsIndex], FCache[category], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToDevice))
+        CHECK_CUDA(cudaMemcpy(dPartialCache[destPIndex], FCache[category], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToDevice))
+#ifdef BEAGLE_DEBUG_FLOW
+
+        std::cerr<<"destP = F:"<<std::endl;
+        PrintfDeviceVector(dPartialCache[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+#endif
     }
 
     return BEAGLE_SUCCESS;
