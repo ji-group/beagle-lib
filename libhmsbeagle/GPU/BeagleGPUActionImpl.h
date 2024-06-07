@@ -113,6 +113,14 @@ double normPInf(Real* matrix, Real* transposeBuffer, int nRows, int nCols, cubla
             CUBLAS_CHECK(cublasDasum(cublasH, nCols, transposeBuffer + i * nCols, 1, &absoluteRowSums[i]));
         }
     }
+//
+//#ifdef BEAGLE_DEBUG_FLOW
+//    std::cerr<<"absoluteRowSums = ";
+//    for (int i = 0; i < nCols; i++) {
+//        std::cerr << absoluteRowSums[i]<<", ";
+//    }
+//#endif
+
     cudaDeviceSynchronize();
     return *std::max_element(absoluteRowSums.begin(), absoluteRowSums.end());
 }
@@ -251,7 +259,7 @@ protected:
             {55, 9.9},
     };
 
-    std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
+//    std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
     std::vector<cusparseDnMatDescr_t> dPartials;
     std::vector<cusparseDnMatDescr_t> dFLeft;
     std::vector<cusparseDnMatDescr_t> dFRight;
@@ -274,9 +282,9 @@ protected:
     Real **dFrequenciesCache, **dWeightsCache;
     std::vector<cusparseDnVecDescr_t> dFrequencies;
     std::vector<cusparseDnVecDescr_t> dWeights;
-    std::vector<int *> dInstantaneousMatrixCsrOffsetsCache;
-    std::vector<int *> dInstantaneousMatrixCsrColumnsCache;
-    std::vector<Real*> dInstantaneousMatrixCsrValuesCache;
+    std::vector<int *> dBsCsrOffsetsCache;
+    std::vector<int *> dBsCsrColumnsCache;
+    std::vector<Real*> dBsCsrValuesCache;
     std::vector<Real*> dACscValuesCache;
     std::vector<int> currentCacheNNZs;
     Real *dPatternWeightsCache;
