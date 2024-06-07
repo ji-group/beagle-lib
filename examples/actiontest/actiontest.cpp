@@ -175,7 +175,7 @@ int main( int argc, const char* argv[] )
     }
     std::cout<<"\n";
 
-    bool scaling = true;
+    bool scaling = false;
 
     bool doJC = true;
 
@@ -559,6 +559,36 @@ int main( int argc, const char* argv[] )
                          operations,     // eigenIndex
                          2,              // operationCount
                          BEAGLE_OP_NONE);          // cumulative scaling index
+
+
+
+    beagleGetPartials(instance, 3, BEAGLE_OP_NONE, seeprePartials);
+
+    l = 0;
+    for(int s = 0; s < rateCategoryCount; s++){
+        std::cout<<"See partial"<< 3 <<" rate category"<< s+1<< ": \n";
+        for(int k = 0; k<nPatterns; k++){
+            for(int j=0; j < stateCount; j++){
+                std::cout<<seeprePartials[l++]<<", ";
+            }
+            std::cout<<std::endl;
+        }
+        std::cout<<std::endl;
+    }
+    beagleGetPartials(instance, 4, BEAGLE_OP_NONE, seeprePartials);
+
+    l = 0;
+    for(int s = 0; s < rateCategoryCount; s++){
+        std::cout<<"See partial"<< 4 <<" rate category"<< s+1<< ": \n";
+        for(int k = 0; k<nPatterns; k++){
+            for(int j=0; j < stateCount; j++){
+                std::cout<<seeprePartials[l++]<<", ";
+            }
+            std::cout<<std::endl;
+        }
+        std::cout<<std::endl;
+    }
+
 
 
     ///XJ: I decided to store the pre-order partials vector in reverse order as those of post-orders
