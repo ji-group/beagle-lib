@@ -496,7 +496,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     integrationRightBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
     integrationRightStoredBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
     dIntegrationRightBuffer = std::vector<void*>(kCategoryCount, nullptr);
-    CHECK_CUDA(cudaMalloc((void**) &dTransposeBufferCache, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount))
+
     for (int category = 0; category < categoryCount; category++) {
         dFLeftCache[category] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
         dFRightCache[category] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
@@ -1231,7 +1231,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
     const Real zero = 0;
     const Real one = 1;
     for (int i = 0; i < s; i++) {
-        double c1 = normPInf(dPartialCache[partialsIndex], dTransposeBufferCache, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+        double c1 = normPInf(dPartialCache[partialsIndex], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //        std::cerr<<"Transposing:"<<std::endl;
@@ -1277,7 +1277,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //            PrintfDeviceVector(dPartialCache[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
-            double c2 = normPInf(integrationCache[category], dTransposeBufferCache, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+            double c2 = normPInf(integrationCache[category], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
 //            F += destP;
             if constexpr (std::is_same<Real, float>::value) {
                 CUBLAS_CHECK(cublasSaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &one, integrationCache[category], 1, FCache[category], 1));
@@ -1290,7 +1290,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //            PrintfDeviceVector(FCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
-            if (c1 + c2 <= tol * normPInf(FCache[category], dTransposeBufferCache, kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
+            if (c1 + c2 <= tol * normPInf(FCache[category],kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
                 break;
             }
             c1 = c2;

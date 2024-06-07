@@ -66,7 +66,7 @@ double normPInf(const T& matrix) {
 //    std::cerr<<"matrix =\n" << matrix<<std::endl;
 //    std::cerr<<"PInf norm = " <<matrix.template lpNorm<Eigen::Infinity>() <<"  or  " << matrix.rowwise().template lpNorm<1>().maxCoeff() << std::endl;
 //#endif
-    return matrix.rowwise().template lpNorm<1>().maxCoeff();
+    return matrix.template lpNorm<Eigen::Infinity>();
 }
 
 std::independent_bits_engine<std::mt19937_64,1,unsigned short> engine;
@@ -773,7 +773,7 @@ namespace beagle {
 
 #ifdef BEAGLE_DEBUG_FLOW
             std::cerr << "simpleAction2: m = " << m << "  s = " << s << "  eta = " << eta << "  edgeMultiplier = " << edgeMultiplier << std::endl;
-            std::cerr << "edgeMultiplier = " << edgeMultiplier << "\nQ = " << gBs[gEigenMaps[edgeIndex]] <<std::endl;
+            std::cerr << "edgeMultiplier = " << edgeMultiplier << "\nB = " << gBs[gEigenMaps[edgeIndex]] <<std::endl;
 #endif
 
             for (int i = 0; i < s; i++) {
@@ -788,10 +788,10 @@ namespace beagle {
 //#endif
                     double c2 = normPInf(destP);
                     F += destP;
-#ifdef BEAGLE_DEBUG_FLOW
-                    std::cerr << "i = " << i << "  j = " << j << "/" << m << "  c1 = " << c1 << "  c2 = " << c2 << " alpha = " << t / ((double) s * j) << std::endl;
-                    std::cerr << "F = \n" <<F<<std::endl;
-#endif
+//#ifdef BEAGLE_DEBUG_FLOW
+//                    std::cerr << "i = " << i << "  j = " << j << "/" << m << "  c1 = " << c1 << "  c2 = " << c2 << " alpha = " << t / ((double) s * j) << std::endl;
+//                    std::cerr << "F = \n" <<F<<std::endl;
+//#endif
                     if (c1 + c2 <= tol * normPInf(F)) {
                         break;
                     }
