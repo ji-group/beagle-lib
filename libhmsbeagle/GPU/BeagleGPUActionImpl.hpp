@@ -1109,14 +1109,13 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
     const Real zero = 0;
     const Real one = 1;
     for (int i = 0; i < s; i++) {
+//#ifdef BEAGLE_DEBUG_FLOW
+//        std::cerr<<"dPartials:"<<std::endl;
+//        PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//#endif
+
         double c1 = normPInf(dPartialCache[partialsIndex], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//        std::cerr<<"Transposing:"<<std::endl;
-//        PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//        std::cerr<<"Result:"<<std::endl;
-//        PrintfDeviceVector(dTransposeBufferCache, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//#endif
 
         for (int j = 1; j < m + 1; j++) {
             const Real alpha = t / ((Real) s * j);
