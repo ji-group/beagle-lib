@@ -472,12 +472,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     }
 
 
-    dPartials.resize(kPartialsBufferCount * kCategoryCount * 2);
+    dPartialsWrapper.resize(kPartialsBufferCount * kCategoryCount * 2);
     dPartialCache.resize(kPartialsBufferCount * kCategoryCount * 2);
 
     for (int i = 0; i < kPartialsBufferCount * kCategoryCount * 2; i++) {
         dPartialCache[i] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
-        CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[i], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[i],
+        CHECK_CUSPARSE(cusparseCreateDnMat(&dPartialsWrapper[i], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[i],
                                            DataType<Real>, CUSPARSE_ORDER_COL))
     }
 
@@ -705,11 +705,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
     if (tipIndex < kTipCount) {
         for (int i = 0; i < kCategoryCount; i++) {
             const int partialIndex = getPartialIndex(tipIndex, i);
-            if (dPartials[partialIndex] == NULL) {
-                CHECK_CUSPARSE(cusparseCreateDnMat(&dPartials[partialIndex], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[partialIndex],
+            if (dPartialsWrapper[partialIndex] == NULL) {
+                CHECK_CUSPARSE(cusparseCreateDnMat(&dPartialsWrapper[partialIndex], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[partialIndex],
                                                    DataType<Real>, CUSPARSE_ORDER_COL))
             } else {
-                CHECK_CUSPARSE(cusparseDnMatSetValues(dPartials[partialIndex], dPartialCache[partialIndex]))
+                CHECK_CUSPARSE(cusparseDnMatSetValues(dPartialsWrapper[partialIndex], dPartialCache[partialIndex]))
             }
         }
     }
@@ -1198,12 +1198,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //    std::cerr<<"Before destP = partials operation, destPCache:\n"<<std::endl;
 //    PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 ////    std::cerr<<"\ndestP:\n"<<std::endl;
-////    PrintfDeviceVector(dPartials[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+////    PrintfDeviceVector(dPartialsWrapper[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
 //    destP = partials;
     CHECK_CUDA(cudaMemcpy(dPartialCache[destPIndex], dPartialCache[partialsIndex], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount, cudaMemcpyDeviceToDevice))
-//    CHECK_CUSPARSE(cusparseDnMatSetValues(dPartials[destPIndex], dPartialCache[partialsIndex]))
+//    CHECK_CUSPARSE(cusparseDnMatSetValues(dPartialsWrapper[destPIndex], dPartialCache[partialsIndex]))
 
 
 //#ifdef BEAGLE_DEBUG_FLOW
@@ -1247,7 +1247,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //#endif
 //            destP = alpha * A * destP;
             CHECK_CUSPARSE(cusparseSpMM_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                   &alpha, A, dPartials[destPIndex], &zero, integrationTmp[category], DataType<Real>,
+                                                   &alpha, A, dPartialsWrapper[destPIndex], &zero, integrationTmp[category], DataType<Real>,
                                                    CUSPARSE_SPMM_ALG_DEFAULT, &integrationBufferSize[category]))
 
             if(integrationBufferSize[category] > integrationBufferStoredSize[category]) {
@@ -1257,7 +1257,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 
             // integrationTmp = alpha * A * destP
             CHECK_CUSPARSE(cusparseSpMM(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                        &alpha, A, dPartials[destPIndex], &zero, integrationTmp[category], DataType<Real>,
+                                        &alpha, A, dPartialsWrapper[destPIndex], &zero, integrationTmp[category], DataType<Real>,
                                         CUSPARSE_SPMM_ALG_DEFAULT, integrationBuffer[category])) //row-major layout provides higher performance (?)
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"edge multiplier = "<< hEdgeMultipliers[edgeIndex * kCategoryCount + category]<<"\nB ="<<std::endl;

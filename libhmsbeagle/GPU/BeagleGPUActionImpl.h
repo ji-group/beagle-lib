@@ -244,7 +244,7 @@ protected:
     };
 
 //    std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
-    std::vector<cusparseDnMatDescr_t> dPartials;
+    std::vector<cusparseDnMatDescr_t> dPartialsWrapper;
     std::vector<cusparseDnMatDescr_t> dFLeft;
     std::vector<cusparseDnMatDescr_t> dFRight;
     std::vector<cusparseDnMatDescr_t> dIntegrationTmpLeft;
@@ -357,7 +357,7 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kDerivBuffersInitialised;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kMultipleDerivativesLength;
 
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartials;
+//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsWrapper;
 //    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsOrigin;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPartialsOffsets;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kIndexOffsetPat;
