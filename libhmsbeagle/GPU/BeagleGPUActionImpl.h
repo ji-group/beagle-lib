@@ -200,7 +200,7 @@ protected:
     std::vector<Real> hMuBs;
     std::vector<Real> hB1Norms;
     const int mMax = 55;
-    std::vector<std::vector<Real>> ds;
+    std::vector<std::vector<Real>> hds;
     std::map<int, double> thetaConstants = {
             //The first 30 values are from table A.3 of  Computing Matrix Functions.
             // For double precision, tol = 2^(-53)
@@ -357,8 +357,8 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kDerivBuffersInitialised;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kMultipleDerivativesLength;
 
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsWrapper;
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsOrigin;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartials;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsOrigin;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPartialsOffsets;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kIndexOffsetPat;
 
