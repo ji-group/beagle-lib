@@ -307,7 +307,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 #endif
 
     int status = BeagleGPUImpl<Real>::createInstance(tipCount,
-						     partialsBufferCount,
+						     2 * partialsBufferCount,
 						     compactBufferCount,
 						     stateCount,
 						     patternCount,
@@ -319,6 +319,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 						     pluginResourceNumber,
 						     preferenceFlags,
 						     requirementFlags);
+
+    kPartialsCacheOffset = partialsBufferCount + compactBufferCount;
 
     if (status != BEAGLE_SUCCESS) return status;
 /*
@@ -464,6 +466,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     for (int i = 0; i < kEigenDecompCount; i++) {
         hInstantaneousMatrices[i] = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     }
+
 /*
     hBs.resize(kEigenDecompCount);
     hMuBs.resize(kEigenDecompCount);
@@ -488,8 +491,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     }
 
     hEigenMaps.resize(kPartialsBufferCount);
+*/
     hEdgeMultipliers.resize(kPartialsBufferCount * kCategoryCount);
-
+/*
     hCategoryRates = (double**) calloc(sizeof(double*),kEigenDecompCount); // Keep in double-precision
     hCategoryRates[0] = (double*) gpu->MallocHost(sizeof(double) * kCategoryCount);
     checkHostMemory(hCategoryRates[0]);
@@ -786,7 +790,10 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
         GPUPtr partials1 = dPartials[child1Index];
         GPUPtr partials2 = dPartials[child2Index];
 
-        GPUPtr partials3 = dPartials[parIndex];
+	GPUPtr partials1Cache = dPartials[child1Index + kPartialsCacheOffset];
+	GPUPtr partials2Cache = dPartials[child2Index + kPartialsCacheOffset];
+
+	GPUPtr partials3 = dPartials[parIndex];
 
         GPUPtr tipStates1 = dStates[child1Index];
         GPUPtr tipStates2 = dStates[child2Index];
@@ -821,22 +828,24 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 	    std::cerr<<"GPU-Action: upPartials( ): boldly ignoring BEAGLE_FLAG_SCALING_DYNAMIC!";
 	}
 
-	// calcPartialsPartials2 goes here.
-	/*
-	    for (int category = 0; category < kCategoryCount; category++)
-	    {
-		auto partials1 = partialsMap(partials1Index, category, startPattern, endPattern);
-		auto partials1Cache = partialsCacheMap(partials1Index, category, startPattern, endPattern);
-		simpleAction2(partials1Cache, partials1, edgeIndex1, category, false);
 
-		auto partials2 = partialsMap(partials2Index, category, startPattern, endPattern);
-		auto partials2Cache = partialsCacheMap(partials2Index, category, startPattern, endPattern);
-		simpleAction2(partials2Cache, partials2, edgeIndex2, category, false);
 
-		auto destP = partialsMap(destPIndex, category, startPattern, endPattern);
-                destP = partials1Cache.cwiseProduct(partials2Cache);
-            }
-	*/
+	for (int category = 0; category < kCategoryCount; category++)
+	{
+	    auto catPartials1 = ((Real*)partials1) + category*kStateCount*kPaddedPatternCount;
+	    auto catPartials1Cache = ((Real*)partials1Cache) + category*kStateCount*kPaddedPatternCount;
+	    simpleAction2(partials1Cache, partials1, child1TransMatIndex, category, false);
+
+//	    auto partials2 = partialsMap(partials2Index, category, startPattern, endPattern);
+//	    auto partials2Cache = partialsCacheMap(partials2Index, category, startPattern, endPattern);
+//	    simpleAction2(partials2Cache, partials2, edgeIndex2, category, false);
+
+//	    auto destP = partialsMap(destPIndex, category, startPattern, endPattern);
+//	    destP = partials1Cache.cwiseProduct(partials2Cache);
+	}
+
+
+	calcPartialsPartialsAction(partials1, partials2, partials3, matrices1, matrices2, scalingFactors, kPaddedPatternCount, kCategoryCount, streamIndex, waitIndex);
 
 	kernels->PartialsPartialsPruningDynamicScaling(partials1, partials2, partials3,
 						       matrices1, matrices2, scalingFactors,
@@ -894,6 +903,38 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 }
 
 BEAGLE_GPU_TEMPLATE
+void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(Real* partials1Cache,
+							    const Real* partials1,
+							    int edgeIndex,
+							    int category,
+							    bool transpose)
+{
+#ifdef BEAGLE_DEBUG_FLOW
+            std::cerr<<"Start: New impl 2\nRate category "<<category<<std::endl;
+	    std::cerr<<"In partials: \n"<<partials1<<std::endl;
+#endif
+	    const double tol = pow(2.0, -53.0);
+	    const double t = 1.0;
+
+	    const int nCol = kPaddedPatternCount;
+
+	    const double edgeMultiplier = hEdgeMultipliers[edgeIndex * kCategoryCount + category];
+
+//	    auto [m,s] = getStatistics2(t, nCol, edgeMultiplier, gEigenMaps[edgeIndex]);
+
+#ifdef BEAGLE_DEBUG_FLOW
+	    std::cerr<<"simpleAction2: m = "<<m<<"  s = "<<s <<std::endl;
+#endif
+
+
+#ifdef BEAGLE_DEBUG_FLOW
+            std::cerr<<"End: New impl 2\nRate category "<<category<<std::endl;
+	    std::cerr<<"Out partials: \n"<<partials1Cache<<std::endl;
+#endif
+}
+
+
+							   BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPrePartials(bool byPartition,
 							   const int *operations,
 							   int operationCount,
@@ -1027,24 +1068,24 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenI
 								      const Real* edgeLengths,
 								      int count)
 {
-    return BeagleGPUImpl<Real>::updateTransitionMatrices(eigenIndex,
-							 probabilityIndices,
-							 firstDerivativeIndices,
-							 secondDerivativeIndices,
-							 edgeLengths,
-							 count);
-/*
+    // TODO: check if need to copy it from host to device afterwards
     for (int i = 0; i < count; i++) {
         const int nodeIndex = probabilityIndices[i];
-        hEigenMaps[nodeIndex] = eigenIndex;
+//        hEigenMaps[nodeIndex] = eigenIndex;
 
         for (int category = 0; category < kCategoryCount; category++) {
             const double categoryRate = hCategoryRates[0][category]; // XJ: because rate categories are only set for first eigen index
             hEdgeMultipliers[nodeIndex * kCategoryCount + category] = edgeLengths[i] * categoryRate;
         }
     }
-    // TODO: check if need to copy it from host to device afterwards
-*/
+
+    return BeagleGPUImpl<Real>::updateTransitionMatrices(eigenIndex,
+							 probabilityIndices,
+							 firstDerivativeIndices,
+							 secondDerivativeIndices,
+							 edgeLengths,
+							 count);
+
     return BEAGLE_ERROR_NO_IMPLEMENTATION;
 }
 

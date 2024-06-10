@@ -202,6 +202,8 @@ protected:
             {50, 8.5},
             {55, 9.9},
     };
+
+    int kPartialsCacheOffset = 0;
 /*
     std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
     std::vector<cusparseDnMatDescr_t> dPartials;
@@ -216,8 +218,9 @@ protected:
     cusparseDnVecDescr_t dPatternWeights;
 
     std::vector<int> hEigenMaps;
-    std::vector<Real> hEdgeMultipliers;
 */
+    std::vector<Real> hEdgeMultipliers;
+
 
 
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kInitialized;
@@ -352,6 +355,14 @@ protected:
 		      const int *operations,
 		      int operationCount,
 		      int cumulativeScalingIndex);
+/*
+    void calcPartialsPartialsAction(const Real* partials1, const Real* partials2, Real* partials3,
+				    const Real* matrices1, const Real* matrices2,
+				    int patternCount, int categoryCount,
+				    int streamIndex, int waitIndex);
+*/
+
+    void simpleAction2(Real* partials1Cache, const Real* partials1, int edgeIndex, int category, bool transpose);
 
 private:
     char* getInstanceName();
