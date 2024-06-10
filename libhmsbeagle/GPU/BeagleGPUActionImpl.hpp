@@ -347,9 +347,14 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 
     dPartialsWrapper.resize(kPartialsBufferCount * kCategoryCount * 2);
     dPartialCache.resize(kPartialsBufferCount * kCategoryCount * 2);
+    for (int i = 0; i < kPartialsBufferCount * 2; i++) {
+        for (int category = 0; category < kCategoryCount; category++) {
+            dPartialCache[i * kCategoryCount + category] = (Real *) gpu->CreateSubPointer(dPartialsOrigin, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * (kCategoryCount * i + category), sizeof(Real) * kPaddedStateCount * kPaddedPatternCount);
+        }
+    }
 
     for (int i = 0; i < kPartialsBufferCount * kCategoryCount * 2; i++) {
-        dPartialCache[i] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
+//        dPartialCache[i] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
         CHECK_CUSPARSE(cusparseCreateDnMat(&dPartialsWrapper[i], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[i],
                                            DataType<Real>, CUSPARSE_ORDER_COL))
     }
@@ -562,9 +567,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
         inPartialsOffset += kStateCount;
     }
     for (int i = 0; i < kCategoryCount; i++) {
-        if (dPartialCache[getPartialIndex(tipIndex, i)] == NULL) {
-            dPartialCache[getPartialIndex(tipIndex, i)] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
-        }
+//        if (dPartialCache[getPartialIndex(tipIndex, i)] == NULL) {
+//            dPartialCache[getPartialIndex(tipIndex, i)] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
+//        }
         MemcpyHostToDevice(dPartialCache[getPartialIndex(tipIndex, i)], hPartialsCache, kPaddedStateCount * kPaddedPatternCount);
     }
 
@@ -684,12 +689,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartials(int bufferIndex,
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialIndex(int nodeIndex, int categoryIndex) {
-    return kPartialsBufferCount * categoryIndex + nodeIndex;
+    return nodeIndex * kCategoryCount + categoryIndex;
 }
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialCacheIndex(int nodeIndex, int categoryIndex) {
-    return kPartialsBufferCount * kCategoryCount + kPartialsBufferCount * categoryIndex + nodeIndex;
+    return kPartialsBufferCount + getPartialIndex(nodeIndex, categoryIndex);
 }
 
 BEAGLE_GPU_TEMPLATE
