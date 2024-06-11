@@ -168,11 +168,11 @@ public:
                         const Real* values,
                         int numNonZeros);
 
-    int setStateFrequencies(int stateFrequenciesIndex,
-                            const Real* inStateFrequencies);
+//    int setStateFrequencies(int stateFrequenciesIndex,
+//                            const Real* inStateFrequencies);
 
-    int setCategoryWeights(int categoryWeightsIndex,
-                           const Real* inCategoryWeights);
+//    int setCategoryWeights(int categoryWeightsIndex,
+//                           const Real* inCategoryWeights);
 
     int updatePartials(const int* operations,
                        int operationCount,
@@ -254,9 +254,9 @@ protected:
     std::vector<size_t> integrationRightStoredBufferSize;
     std::vector<void*> dIntegrationRightBuffer;
 
-    Real **dFrequenciesCache, **dWeightsCache;
-    std::vector<cusparseDnVecDescr_t> dFrequenciesWrapper;
-    std::vector<cusparseDnVecDescr_t> dWeightsWrapper;
+//    Real **dFrequenciesCache, **dWeightsCache;
+//    std::vector<cusparseDnVecDescr_t> dFrequenciesWrapper;
+//    std::vector<cusparseDnVecDescr_t> dWeightsWrapper;
     std::vector<int *> dBsCsrOffsetsCache;
     std::vector<int *> dBsCsrColumnsCache;
     std::vector<Real*> dBsCsrValuesCache;
