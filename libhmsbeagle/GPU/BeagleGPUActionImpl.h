@@ -162,25 +162,17 @@ public:
 
     int setTipStates(int tipIndex, const int* inStates);
 
-    int setTipPartials(int tipIndex, const Real* inPartials);
-
     int setSparseMatrix(int matrixIndex,
                         const int* rowIndices,
                         const int* colIndices,
                         const Real* values,
                         int numNonZeros);
 
-//    int setPatternWeights(const Real* inPatternWeights);
-
     int setStateFrequencies(int stateFrequenciesIndex,
                             const Real* inStateFrequencies);
 
     int setCategoryWeights(int categoryWeightsIndex,
                            const Real* inCategoryWeights);
-
-    int getPartials(int bufferIndex,
-                    int scaleIndex,
-                    Real* outPartials);
 
     int updatePartials(const int* operations,
                        int operationCount,
