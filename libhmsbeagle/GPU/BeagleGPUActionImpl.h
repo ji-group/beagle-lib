@@ -264,7 +264,7 @@ protected:
 
     Real **dFrequenciesCache, **dWeightsCache;
     std::vector<cusparseDnVecDescr_t> dFrequenciesWrapper;
-    std::vector<cusparseDnVecDescr_t> dWeights;
+    std::vector<cusparseDnVecDescr_t> dWeightsWrapper;
     std::vector<int *> dBsCsrOffsetsCache;
     std::vector<int *> dBsCsrColumnsCache;
     std::vector<Real*> dBsCsrValuesCache;
@@ -335,7 +335,7 @@ protected:
 //    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dEvec;
 //    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIevc;
 //    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dEigenValues;
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dWeights;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dWeights;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dFrequencies;
 
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dMatrices;

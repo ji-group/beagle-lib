@@ -397,11 +397,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 
     dFrequenciesCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);
     dWeightsCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);;
-    dWeights = std::vector<cusparseDnVecDescr_t>(kEigenDecompCount, nullptr);
+    dWeightsWrapper = std::vector<cusparseDnVecDescr_t>(kEigenDecompCount, nullptr);
     dFrequenciesWrapper = std::vector<cusparseDnVecDescr_t>(kEigenDecompCount, nullptr);
     for (int i = 0; i < kEigenDecompCount; i++) {
-        dFrequenciesCache[i] = dFrequencies[i];
-        dWeightsCache[i] = NULL;
+        dFrequenciesCache[i] = (Real*) dFrequencies[i];
+        dWeightsCache[i] = (Real*) dWeights[i];
     }
 
     hEigenMaps.resize(kPartialsBufferCount);
@@ -506,20 +506,14 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setCategoryWeights(int categoryWeig
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::setCategoryWeights\n");
 #endif
 
-    if (categoryWeightsIndex < 0 || categoryWeightsIndex >= kEigenDecompCount)
-        return BEAGLE_ERROR_OUT_OF_RANGE;
-
     beagleMemCpy(hWeightsCache, inCategoryWeights, kCategoryCount);
 
-    if (dWeightsCache[categoryWeightsIndex] == NULL) {
-        dWeightsCache[categoryWeightsIndex] = cudaDeviceNew<Real>(kCategoryCount);
-    }
     MemcpyHostToDevice(dWeightsCache[categoryWeightsIndex], hWeightsCache, kCategoryCount);
 
-    if (dWeights[categoryWeightsIndex] == NULL) {
-        CHECK_CUSPARSE(cusparseCreateDnVec(&dWeights[categoryWeightsIndex], kCategoryCount, dWeightsCache[categoryWeightsIndex], DataType<Real>))
+    if (dWeightsWrapper[categoryWeightsIndex] == NULL) {
+        CHECK_CUSPARSE(cusparseCreateDnVec(&dWeightsWrapper[categoryWeightsIndex], kCategoryCount, dWeightsCache[categoryWeightsIndex], DataType<Real>))
     } else {
-        CHECK_CUSPARSE(cusparseDnVecSetValues(dWeights[categoryWeightsIndex], dWeightsCache[categoryWeightsIndex]))
+        CHECK_CUSPARSE(cusparseDnVecSetValues(dWeightsWrapper[categoryWeightsIndex], dWeightsCache[categoryWeightsIndex]))
     }
 
 #ifdef BEAGLE_DEBUG_FLOW
