@@ -538,6 +538,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 							int operationCount,
 							int cumulativeScalingIndex)
 {
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::upPartials\n");
+#endif
+
     GPUPtr cumulativeScalingBuffer = 0;
     if (cumulativeScalingIndex != BEAGLE_OP_NONE)
         cumulativeScalingBuffer = dScalingFactors[cumulativeScalingIndex];
@@ -603,6 +608,15 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
             }
         }
     }
+
+#ifdef BEAGLE_DEBUG_SYNCH
+    gpu->SynchronizeHost();
+#endif
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::upPartials\n");
+#endif
+
     return BEAGLE_SUCCESS;
 }
 
