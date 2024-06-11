@@ -489,9 +489,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
         dFrequenciesCache[i] = NULL;
         dWeightsCache[i] = NULL;
     }
-
-    hEigenMaps.resize(kPartialsBufferCount);
 */
+    hEigenMaps.resize(kPartialsBufferCount);
+
     hEdgeMultipliers.resize(kPartialsBufferCount * kCategoryCount);
 /*
     hCategoryRates = (double**) calloc(sizeof(double*),kEigenDecompCount); // Keep in double-precision
@@ -903,6 +903,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 }
 
 BEAGLE_GPU_TEMPLATE
+std::tuple<int,int> BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getStatistics2(double t, int nCol, double edgeMultiplier, int eigenIndex) const
+{
+    return {1,1};
+}
+
+BEAGLE_GPU_TEMPLATE
 void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(Real* partials1Cache,
 							    const Real* partials1,
 							    int edgeIndex,
@@ -920,7 +926,7 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(Real* partials1Cache
 
 	    const double edgeMultiplier = hEdgeMultipliers[edgeIndex * kCategoryCount + category];
 
-//	    auto [m,s] = getStatistics2(t, nCol, edgeMultiplier, gEigenMaps[edgeIndex]);
+	    auto [m,s] = getStatistics2(t, nCol, edgeMultiplier, hEigenMaps[edgeIndex]);
 
 #ifdef BEAGLE_DEBUG_FLOW
 	    std::cerr<<"simpleAction2: m = "<<m<<"  s = "<<s <<std::endl;
@@ -1071,7 +1077,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenI
     // TODO: check if need to copy it from host to device afterwards
     for (int i = 0; i < count; i++) {
         const int nodeIndex = probabilityIndices[i];
-//        hEigenMaps[nodeIndex] = eigenIndex;
+        hEigenMaps[nodeIndex] = eigenIndex;
 
         for (int category = 0; category < kCategoryCount; category++) {
             const double categoryRate = hCategoryRates[0][category]; // XJ: because rate categories are only set for first eigen index

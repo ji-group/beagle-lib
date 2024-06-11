@@ -216,9 +216,9 @@ protected:
     int currentCacheNNZ;
     Real *dPatternWeightsCache;
     cusparseDnVecDescr_t dPatternWeights;
-
-    std::vector<int> hEigenMaps;
 */
+    std::vector<int> hEigenMaps;
+
     std::vector<Real> hEdgeMultipliers;
 
 
@@ -357,10 +357,13 @@ protected:
 		      int cumulativeScalingIndex);
 /*
     void calcPartialsPartialsAction(const Real* partials1, const Real* partials2, Real* partials3,
-				    const Real* matrices1, const Real* matrices2,
-				    int patternCount, int categoryCount,
-				    int streamIndex, int waitIndex);
+                                    const Real* matrices1, const Real* matrices2,
+                                    int patternCount, int categoryCount,
+                                    int streamIndex, int waitIndex);
 */
+
+    // Return (m,s)
+    std::tuple<int,int> getStatistics2(double t, int nCol, double edgeMultiplier, int eigenIndex) const;
 
     void simpleAction2(Real* partials1Cache, const Real* partials1, int edgeIndex, int category, bool transpose);
 
