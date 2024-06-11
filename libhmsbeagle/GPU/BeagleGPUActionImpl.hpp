@@ -459,19 +459,23 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     int hMatrixCacheSize = kMatrixSize * kCategoryCount * BEAGLE_CACHED_MATRICES_COUNT;  //TODO: use Eigen csr representation?
     hLogLikelihoodsCache = (Real*) gpu->MallocHost(kPatternCount * sizeof(Real));
     hMatrixCache = (Real*) gpu->CallocHost(hMatrixCacheSize, sizeof(Real));
+*/
     hIdentity = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     hIdentity.setIdentity();
-*/
+
     hInstantaneousMatrices.resize(kEigenDecompCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         hInstantaneousMatrices[i] = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     }
 
-/*
+
     hBs.resize(kEigenDecompCount);
     hMuBs.resize(kEigenDecompCount);
     hB1Norms.resize(kEigenDecompCount);
+
     ds.resize(kEigenDecompCount);
+
+/*
     dInstantaneousMatrices = std::vector<cusparseSpMatDescr_t>(kEigenDecompCount, nullptr);
 
     dMatrixCsrOffsetsCache = cudaDeviceNew<int>(kPaddedStateCount + 1);
@@ -905,7 +909,61 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 BEAGLE_GPU_TEMPLATE
 std::tuple<int,int> BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getStatistics2(double t, int nCol, double edgeMultiplier, int eigenIndex) const
 {
-    return {1,1};
+    assert( t >= 0 );
+    assert( nCol >= 0);
+    assert( edgeMultiplier >= 0 );
+    assert( eigenIndex >= 0);
+
+    if (t * hB1Norms[eigenIndex] == 0.0)
+        return {0, 1};
+
+    int bestM = INT_MAX;
+    double bestS = INT_MAX;  // Not all the values of s can fit in a 32-bit int.
+
+    const double theta = thetaConstants.at(mMax);
+    const double pMax = getPMax();
+    // pMax is the largest positive integer such that p*(p-1) <= mMax + 1
+
+    const bool conditionFragment313 = hB1Norms[eigenIndex] * edgeMultiplier <= 2.0 * theta / ((double) nCol * mMax) * pMax * (pMax + 3);
+    // using l = 1 as in equation 3.13
+    if (conditionFragment313) {
+        for (auto& [thisM, thetaM]: thetaConstants) {
+            const double thisS = ceil(hB1Norms[eigenIndex] * edgeMultiplier / thetaM);
+            if (bestM == INT_MAX || ((double) thisM) * thisS < bestM * bestS) {
+                bestS = thisS;
+                bestM = thisM;
+            }
+        }
+    } else {
+        for (int p = 2; p < pMax; p++) {
+            for (int thisM = p * (p - 1) - 1; thisM < mMax + 1; thisM++) {
+                auto it = thetaConstants.find(thisM);
+                if (it != thetaConstants.end()) {
+                    // equation 3.7 in Al-Mohy and Higham
+                    const double dValueP = getDValue(p, eigenIndex);
+                    const double dValuePPlusOne = getDValue(p + 1, eigenIndex);
+                    const double alpha = std::max(dValueP, dValuePPlusOne) * edgeMultiplier;
+                    // part of equation 3.10
+                    const double thisS = ceil(alpha / thetaConstants.at(thisM));
+                    if (bestM == INT_MAX || ((double) thisM) * thisS < bestM * bestS) {
+                        bestS = thisS;
+                        bestM = thisM;
+                    }
+                }
+            }
+        }
+    }
+    bestS = std::max(std::min<double>(bestS, INT_MAX), 1.0);
+    assert( bestS >= 1 );
+    assert( bestS <= INT_MAX );
+
+    int m = bestM;
+    int s = (int) bestS;
+
+    assert(m >= 0);
+    assert(s >= 1);
+
+    return {m,s};
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -1025,6 +1083,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
                                      dMatrixCsrOffsetsCache, dMatrixCsrColumnsCache, dMatrixCsrValuesCache,
                                      IndexType<int>, IndexType<int>,
                                      CUSPARSE_INDEX_BASE_ZERO, DataType<Real>))
+*/
     //TODO: use cusparse function for diagonal sum?
     Real mu_B = 0.0;
     for (int i = 0; i < kStateCount; i++) {
@@ -1053,7 +1112,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
 //    <<std::endl<<"Setting device matrix: " << matrixIndex << std::endl << dInstantaneousMatrices[matrixIndex]<<std::endl;
 //#endif
 
-*/
+
 #ifdef BEAGLE_DEBUG_FLOW
     std::cerr<<"\tLeaving BeagleGPUActionImpl::setSparseMatrix\n";
 #endif

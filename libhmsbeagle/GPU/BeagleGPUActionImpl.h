@@ -367,6 +367,8 @@ protected:
 
     void simpleAction2(Real* partials1Cache, const Real* partials1, int edgeIndex, int category, bool transpose);
 
+    double getDValue(int p, int eigenIndex) const;
+
 private:
     char* getInstanceName();
 
