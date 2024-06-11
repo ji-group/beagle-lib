@@ -168,22 +168,10 @@ public:
                         const Real* values,
                         int numNonZeros);
 
-//    int setStateFrequencies(int stateFrequenciesIndex,
-//                            const Real* inStateFrequencies);
-
-//    int setCategoryWeights(int categoryWeightsIndex,
-//                           const Real* inCategoryWeights);
-
     int updatePartials(const int* operations,
                        int operationCount,
                        int cumulativeScalingIndex);
 
-//    int calculateRootLogLikelihoods(const int* bufferIndices,
-//                                    const int* categoryWeightsIndices,
-//                                    const int* stateFrequenciesIndices,
-//                                    const int* cumulativeScaleIndices,
-//                                    int count,
-//                                    double* outSumLogLikelihood);
 protected:
 
     std::vector<SpMatrix<Real>> hInstantaneousMatrices;
@@ -254,16 +242,11 @@ protected:
     std::vector<size_t> integrationRightStoredBufferSize;
     std::vector<void*> dIntegrationRightBuffer;
 
-//    Real **dFrequenciesCache, **dWeightsCache;
-//    std::vector<cusparseDnVecDescr_t> dFrequenciesWrapper;
-//    std::vector<cusparseDnVecDescr_t> dWeightsWrapper;
     std::vector<int *> dBsCsrOffsetsCache;
     std::vector<int *> dBsCsrColumnsCache;
     std::vector<Real*> dBsCsrValuesCache;
     std::vector<Real*> dACscValuesCache;
     std::vector<int> currentCacheNNZs;
-    Real *dPatternWeightsCache;
-    cusparseDnVecDescr_t dPatternWeights;
 
     cublasHandle_t cublasHandle;
     cusparseHandle_t cusparseHandle;
@@ -324,9 +307,6 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hStatesCache;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hLogLikelihoodsCache;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hMatrixCache;
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dEvec;
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIevc;
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dEigenValues;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dWeights;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dFrequencies;
 
@@ -342,7 +322,7 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kWeightsOffset;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kFrequenciesOffset;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIntegrationTmp;
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPatternWeights;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPatternWeights;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dSumLogLikelihood;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsTmp;
 
@@ -387,7 +367,6 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dAccumulatedScalingFactors;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kUsingAutoTranspose;
 
-    void  allocateMultiGridBuffers();
 
 
     int upPartials(bool byPartition,

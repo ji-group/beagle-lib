@@ -393,27 +393,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
         CHECK_CUDA(cudaMalloc(&dIntegrationRightBuffer[category], integrationRightBufferSize[category]))
     }
 
-
-
-//    dFrequenciesCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);
-//    dWeightsCache = (Real**) gpu->MallocHost(sizeof(Real*) * kEigenDecompCount);;
-//    dWeightsWrapper = std::vector<cusparseDnVecDescr_t>(kEigenDecompCount, nullptr);
-////    dFrequenciesWrapper = std::vector<cusparseDnVecDescr_t>(kEigenDecompCount, nullptr);
-//    for (int i = 0; i < kEigenDecompCount; i++) {
-////        dFrequenciesCache[i] = (Real*) dFrequencies[i];
-//        dWeightsCache[i] = (Real*) dWeights[i];
-//    }
-
     hEigenMaps.resize(kPartialsBufferCount);
     hEdgeMultipliers.resize(kPartialsBufferCount * kCategoryCount);
-
-    hCategoryRates = (double**) calloc(sizeof(double*),kEigenDecompCount); // Keep in double-precision
-    hCategoryRates[0] = (double*) gpu->MallocHost(sizeof(double) * kCategoryCount);
-    checkHostMemory(hCategoryRates[0]);
-
-//    dMatrices = (GPUPtr*) malloc(sizeof(GPUPtr) * kMatrixCount);
-    dPatternWeightsCache = cudaDeviceNew<Real>(kPatternCount);
-    dPatternWeights = NULL;
 
     return BEAGLE_SUCCESS;
 }
@@ -447,52 +428,6 @@ char* BeagleGPUActionImpl<float>::getInstanceName() {
 }
 #endif
 
-//BEAGLE_GPU_TEMPLATE
-//int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setStateFrequencies(int stateFrequenciesIndex,
-//								 const Real* inStateFrequencies) {
-//#ifdef BEAGLE_DEBUG_FLOW
-//    fprintf(stderr, "\tEntering BeagleGPUActionImpl::setStateFrequencies\n");
-//#endif
-//
-//    beagleMemCpy(hFrequenciesCache, inStateFrequencies, kStateCount);
-//
-//    MemcpyHostToDevice(dFrequenciesCache[stateFrequenciesIndex], hFrequenciesCache, kStateCount);
-//    if (dFrequenciesWrapper[stateFrequenciesIndex] == NULL) {
-//        CHECK_CUSPARSE(cusparseCreateDnVec(&dFrequenciesWrapper[stateFrequenciesIndex], kPaddedStateCount, dFrequenciesCache[stateFrequenciesIndex], DataType<Real>))
-//    } else {
-//        CHECK_CUSPARSE(cusparseDnVecSetValues(dFrequenciesWrapper[stateFrequenciesIndex], dFrequenciesCache[stateFrequenciesIndex]))
-//    }
-//
-//#ifdef BEAGLE_DEBUG_FLOW
-//    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setStateFrequencies\n");
-//#endif
-//
-//    return BEAGLE_SUCCESS;
-//}
-
-//BEAGLE_GPU_TEMPLATE
-//int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setCategoryWeights(int categoryWeightsIndex,
-//                                                          const Real* inCategoryWeights) {
-//#ifdef BEAGLE_DEBUG_FLOW
-//    fprintf(stderr, "\tEntering BeagleGPUActionImpl::setCategoryWeights\n");
-//#endif
-//
-//    beagleMemCpy(hWeightsCache, inCategoryWeights, kCategoryCount);
-//
-//    MemcpyHostToDevice(dWeightsCache[categoryWeightsIndex], hWeightsCache, kCategoryCount);
-//
-//    if (dWeightsWrapper[categoryWeightsIndex] == NULL) {
-//        CHECK_CUSPARSE(cusparseCreateDnVec(&dWeightsWrapper[categoryWeightsIndex], kCategoryCount, dWeightsCache[categoryWeightsIndex], DataType<Real>))
-//    } else {
-//        CHECK_CUSPARSE(cusparseDnVecSetValues(dWeightsWrapper[categoryWeightsIndex], dWeightsCache[categoryWeightsIndex]))
-//    }
-//
-//#ifdef BEAGLE_DEBUG_FLOW
-//    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setCategoryWeights\n");
-//#endif
-//
-//    return BEAGLE_SUCCESS;
-//}
 
 
 BEAGLE_GPU_TEMPLATE
