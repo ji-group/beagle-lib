@@ -170,7 +170,7 @@ public:
                         const Real* values,
                         int numNonZeros);
 
-    int setPatternWeights(const Real* inPatternWeights);
+//    int setPatternWeights(const Real* inPatternWeights);
 
     int setStateFrequencies(int stateFrequenciesIndex,
                             const Real* inStateFrequencies);
@@ -186,12 +186,12 @@ public:
                        int operationCount,
                        int cumulativeScalingIndex);
 
-    int calculateRootLogLikelihoods(const int* bufferIndices,
-                                    const int* categoryWeightsIndices,
-                                    const int* stateFrequenciesIndices,
-                                    const int* cumulativeScaleIndices,
-                                    int count,
-                                    double* outSumLogLikelihood);
+//    int calculateRootLogLikelihoods(const int* bufferIndices,
+//                                    const int* categoryWeightsIndices,
+//                                    const int* stateFrequenciesIndices,
+//                                    const int* cumulativeScaleIndices,
+//                                    int count,
+//                                    double* outSumLogLikelihood);
 protected:
 
     std::vector<SpMatrix<Real>> hInstantaneousMatrices;
@@ -263,7 +263,7 @@ protected:
     std::vector<void*> dIntegrationRightBuffer;
 
     Real **dFrequenciesCache, **dWeightsCache;
-    std::vector<cusparseDnVecDescr_t> dFrequencies;
+    std::vector<cusparseDnVecDescr_t> dFrequenciesWrapper;
     std::vector<cusparseDnVecDescr_t> dWeights;
     std::vector<int *> dBsCsrOffsetsCache;
     std::vector<int *> dBsCsrColumnsCache;
@@ -336,7 +336,7 @@ protected:
 //    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIevc;
 //    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dEigenValues;
 //    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dWeights;
-//    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dFrequencies;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dFrequencies;
 
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dMatrices;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kIndexOffsetMat;
