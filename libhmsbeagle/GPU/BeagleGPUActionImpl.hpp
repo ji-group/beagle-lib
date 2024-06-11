@@ -538,7 +538,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 							int operationCount,
 							int cumulativeScalingIndex)
 {
-    //TODO: implement/re-use scaling code
+    GPUPtr cumulativeScalingBuffer = 0;
+    if (cumulativeScalingIndex != BEAGLE_OP_NONE)
+        cumulativeScalingBuffer = dScalingFactors[cumulativeScalingIndex];
+
+    int streamIndex = -1;
+    int waitIndex = -1;
 
     for (int op = 0; op < operationCount; op++) {
         const int numOps = BEAGLE_OP_COUNT;
@@ -551,9 +556,52 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
         const int secondChildPartialIndex = operations[op * numOps + 5];
         const int secondChildSubstitutionMatrixIndex = operations[op * numOps + 6];
 
+        int rescale = BEAGLE_OP_NONE;
+        GPUPtr scalingFactors = (GPUPtr)NULL;
+
+        if (kFlags & BEAGLE_FLAG_SCALING_AUTO) {
+            int sIndex = destinationPartialIndex - kTipCount;
+
+	    rescale = 2;
+	    scalingFactors = dScalingFactors[sIndex];
+        } else if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
+            rescale = 1;
+            scalingFactors = dScalingFactors[destinationPartialIndex - kTipCount];
+        } else if ((kFlags & BEAGLE_FLAG_SCALING_MANUAL) && writeScalingIndex >= 0) {
+            rescale = 1;
+            scalingFactors = dScalingFactors[writeScalingIndex];
+        } else if ((kFlags & BEAGLE_FLAG_SCALING_MANUAL) && readScalingIndex >= 0) {
+            rescale = 0;
+            scalingFactors = dScalingFactors[readScalingIndex];
+        }
+
         calcPartialsPartials(destinationPartialIndex, firstChildPartialIndex, firstChildSubstitutionMatrixIndex,
                              secondChildPartialIndex, secondChildSubstitutionMatrixIndex);
 
+
+	if (rescale == 1)
+	{
+	    GPUPtr partials3 = dPartials[destinationPartialIndex];
+
+	    kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
+				     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
+	}
+
+        if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
+            int parScalingIndex = destinationPartialIndex - kTipCount;
+            int child1ScalingIndex = firstChildPartialIndex - kTipCount;
+            int child2ScalingIndex = secondChildPartialIndex - kTipCount;
+            if (child1ScalingIndex >= 0 && child2ScalingIndex >= 0) {
+                int scalingIndices[2] = {child1ScalingIndex, child2ScalingIndex};
+                BeagleGPUImpl<Real>::accumulateScaleFactors(scalingIndices, 2, parScalingIndex);
+            } else if (child1ScalingIndex >= 0) {
+                int scalingIndices[1] = {child1ScalingIndex};
+                BeagleGPUImpl<Real>::accumulateScaleFactors(scalingIndices, 1, parScalingIndex);
+            } else if (child2ScalingIndex >= 0) {
+                int scalingIndices[1] = {child2ScalingIndex};
+                BeagleGPUImpl<Real>::accumulateScaleFactors(scalingIndices, 1, parScalingIndex);
+            }
+        }
     }
     return BEAGLE_SUCCESS;
 }
