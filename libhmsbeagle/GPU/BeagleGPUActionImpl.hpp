@@ -444,6 +444,25 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipStates(int tipIndex, const in
     std::abort();
 }
 
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const Real* inPartials) {
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::setTipPartials\n");
+#endif
+
+    BeagleGPUImpl<Real>::setTipPartials(tipIndex, inPartials);
+    for (int category = 0; category < kCategoryCount; category++) {
+        dPartialCache[getPartialIndex(tipIndex, category)] = (Real*) dPartials[tipIndex] + kPaddedStateCount * kPaddedPatternCount * category;
+    }
+
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setTipPartials\n");
+#endif
+
+    return BEAGLE_SUCCESS;
+}
+
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updatePartials(const int* operations,
@@ -891,8 +910,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"Before destP = partials operation, destPCache:\n"<<std::endl;
 //    PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-////    std::cerr<<"\ndestP:\n"<<std::endl;
-////    PrintfDeviceVector(dPartialsWrapper[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
 //    destP = partials;
@@ -930,7 +947,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //        PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
-        double c1 = normPInf(dPartialCache[partialsIndex], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+        Real c1 = normPInf(dPartialCache[partialsIndex], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
 
 
         for (int j = 1; j < m + 1; j++) {

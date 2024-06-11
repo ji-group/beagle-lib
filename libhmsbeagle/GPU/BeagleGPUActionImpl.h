@@ -162,6 +162,9 @@ public:
 
     int setTipStates(int tipIndex, const int* inStates);
 
+    int setTipPartials(int tipIndex,
+                       const Real* inPartials);
+
     int setSparseMatrix(int matrixIndex,
                         const int* rowIndices,
                         const int* colIndices,
