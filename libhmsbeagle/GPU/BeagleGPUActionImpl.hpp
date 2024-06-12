@@ -310,7 +310,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                         preferenceFlags, requirementFlags);
 
 
-    int hMatrixCacheSize = kMatrixSize * kCategoryCount * BEAGLE_CACHED_MATRICES_COUNT;  //TODO: use Eigen csr representation?
     hIdentity = SpMatrix<Real>(kPaddedStateCount, kPaddedStateCount);
     hIdentity.setIdentity();
     hInstantaneousMatrices.resize(kEigenDecompCount);
@@ -359,17 +358,17 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 
     dFLeft = std::vector<cusparseDnMatDescr_t>(kCategoryCount, nullptr);
     dFLeftCache = std::vector<Real*>(kCategoryCount, nullptr);
-    dFLeftCache[0] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
+    Real* dLeftCachePtr = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
     dFRight = std::vector<cusparseDnMatDescr_t>(kCategoryCount, nullptr);
     dFRightCache = std::vector<Real*>(kCategoryCount, nullptr);
-    dFRightCache[0] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
+    Real* dRightCachePtr = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
 
     dIntegrationTmpLeft = std::vector<cusparseDnMatDescr_t>(kCategoryCount, nullptr);
     dIntegrationTmpLeftCache = std::vector<Real*>(kCategoryCount, nullptr);
-    dIntegrationTmpLeftCache[0] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
+    Real* dIntegrationTmpLeftCachePtr = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
     dIntegrationTmpRight = std::vector<cusparseDnMatDescr_t>(kCategoryCount, nullptr);
     dIntegrationTmpRightCache = std::vector<Real*>(kCategoryCount, nullptr);
-    dIntegrationTmpRightCache[0] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
+    Real* dIntegrationTmpRightCachePtr = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
     integrationLeftBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
     integrationLeftStoredBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
     dIntegrationLeftBuffer = std::vector<void*>(kCategoryCount, nullptr);
@@ -377,11 +376,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     integrationRightStoredBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
     dIntegrationRightBuffer = std::vector<void*>(kCategoryCount, nullptr);
 
-    for (int category = 1; category < kCategoryCount; category++) {
-        dFLeftCache[category] = dFLeftCache[0] + kPaddedStateCount * kPaddedPatternCount * sizeof(Real);
-        dFRightCache[category] = dFRightCache[0] + kPaddedStateCount * kPaddedPatternCount * sizeof(Real);
-        dIntegrationTmpLeftCache[category] = dIntegrationTmpLeftCache[0] + kPaddedStateCount * kPaddedPatternCount * sizeof(Real);
-        dIntegrationTmpRightCache[category] = dIntegrationTmpRightCache[0] + kPaddedStateCount * kPaddedPatternCount * sizeof(Real);
+    for (int category = 0; category < kCategoryCount; category++) {
+        dFLeftCache[category] = dLeftCachePtr + kPaddedStateCount * kPaddedPatternCount * category;
+        dFRightCache[category] = dRightCachePtr + kPaddedStateCount * kPaddedPatternCount * category;
+        dIntegrationTmpLeftCache[category] = dIntegrationTmpLeftCachePtr + kPaddedStateCount * kPaddedPatternCount * category;
+        dIntegrationTmpRightCache[category] = dIntegrationTmpRightCachePtr + kPaddedStateCount * kPaddedPatternCount * category;
     }
 
     for (int category = 0; category < kCategoryCount; category++) {
