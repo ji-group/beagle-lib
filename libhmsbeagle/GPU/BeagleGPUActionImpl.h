@@ -257,6 +257,13 @@ protected:
     std::vector<int> hEigenMaps;
     std::vector<Real> hEdgeMultipliers;
 
+    std::vector<tuple<int, int>> msCache;
+    std::vector<Real> etaCache;
+    std::vector<Real> c1Cache;
+    std::vector<Real> c2Cache;
+    std::vector<Real> alphaCache;
+    std::vector<Real> integrationMultipliers;
+
 
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kTipCount;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kPartialsBufferCount;
