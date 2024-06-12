@@ -205,7 +205,8 @@ void KernelLauncher::SetupKernelBlocksAndGrids() {
                 if (kPatternCount % 4 != 0) {
                     bgScaleGrid.x += 1; // 
                     fprintf(stderr,"PATTERNS SHOULD BE PADDED! Inform Marc, please.\n");
-                    exit(-1);
+                    fprintf(stderr,"Going ahead anyway..\n");
+                    // exit(-1);
                 }                
             } else { 
                 bgScaleBlock = Dim3Int(kPaddedStateCount, kMatrixBlockSize);
