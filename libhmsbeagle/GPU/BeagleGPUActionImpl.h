@@ -296,6 +296,8 @@ protected:
 		      int operationCount,
 		      int cumulativeScalingIndex);
 
+    ~BeagleGPUActionImpl();
+
 private:
     char* getInstanceName();
 
