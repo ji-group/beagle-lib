@@ -1207,6 +1207,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int destPIndex1, int 
             }
 
             for (int category = 0; category < kCategoryCount; category++) {
+//                spMM<Real>(cusparseHandle, dIntegrationTmpLeft[category], alphaCache[category], ALeft, dPartialsWrapper[destPIndex1], 0, dIntegrationLeftBuffer[category], integrationLeftBufferSize[category]);
+//                spMM<Real>(cusparseHandle, dIntegrationTmpRight[category], alphaCache[kCategoryCount + category], ARight, dPartialsWrapper[destPIndex2], 0, dIntegrationRightBuffer[category], integrationRightBufferSize[category]);
+
                 CHECK_CUSPARSE(cusparseSpMM_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
                                                        CUSPARSE_OPERATION_NON_TRANSPOSE,
                                                        &alphaCache[category], ALeft, dPartialsWrapper[destPIndex1], &zero,
