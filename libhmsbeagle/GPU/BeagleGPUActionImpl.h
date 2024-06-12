@@ -177,6 +177,7 @@ public:
 
 protected:
 
+    int kPartialsCacheOffset;
     std::vector<SpMatrix<Real>> hInstantaneousMatrices;
     std::vector<SpMatrix<Real>> hBs;
     SpMatrix<Real> hIdentity;
@@ -318,9 +319,8 @@ private:
 
     int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose);
 
-    int simpleAction3(int destPIndex1, int partialsIndex1, int edgeIndex1, int matrixIndex1,
-                      int destPIndex2, int partialsIndex2, int edgeIndex2, int matrixIndex2,
-                      bool transpose);
+    int simpleAction3(int partialsIndex1, int edgeIndex1,
+                      int partialsIndex2, int edgeIndex2);
 
     int cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose);
 
