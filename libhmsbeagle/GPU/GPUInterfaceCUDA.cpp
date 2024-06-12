@@ -251,7 +251,7 @@ void GPUInterface::InitializeKernelResource(int paddedStateCount,
         case  128: LOAD_KERNEL_INTO_RESOURCE(128, SP, 128); break;
         case  192: LOAD_KERNEL_INTO_RESOURCE(192, SP, 192); break;
         case  256: LOAD_KERNEL_INTO_RESOURCE(256, SP, 256); break;
-        default: fprintf(stderr,"ACTION CUDA: Stupidly loading 4-state kernel since we can't find the right one");
+        default: fprintf(stderr,"ACTION CUDA: Stupidly loading 4-state kernel since we can't find the right one\n");
 	    LOAD_KERNEL_INTO_RESOURCE(  4, DP,   4); 
     }
 }
