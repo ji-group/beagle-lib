@@ -1140,41 +1140,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
         if (s_max < s2) s_max = s2;
     }
 
-//        const int partial1Index = getPartialIndex(partials1Index, category);
-//        const int partial2Index = getPartialIndex(partials2Index, category);
-//
-//        const int partial1CacheIndex = getPartialCacheIndex(partials1Index, category);
-//        const int partial2CacheIndex = getPartialCacheIndex(partials2Index, category);
-//
-//        const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
-//        const int matrixIndex2 = hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category;
-
-//    cusparseSpMatDescr_t ALeft = dAs[matrixIndex1];
-//    cusparseSpMatDescr_t ARight = dAs[matrixIndex2];
-//    vector<cusparseDnMatDescr_t> Fleft, FLeft;
-//    vector<cusparseDnMatDescr_t> integrationTmp1, integrationTmp2;
-//    std::vector<Real*> FCache;
-//    std::vector<Real*> integrationCache;
-//    std::vector<void*> integrationBuffer;
-//    std::vector<size_t> integrationBufferSize;
-//    std::vector<size_t> integrationBufferStoredSize;
-//    if (left) {
-//        F = dFLeft;
-//        integrationTmp = dIntegrationTmpLeft;
-//        FCache = dFLeftCache;
-//        integrationCache = dIntegrationTmpLeftCache;
-//        integrationBuffer = dIntegrationLeftBuffer;
-//        integrationBufferSize = integrationLeftBufferSize;
-//        integrationBufferStoredSize = integrationLeftStoredBufferSize;
-//    } else {
-//        F = dFRight;
-//        integrationTmp = dIntegrationTmpRight;
-//        FCache = dFRightCache;
-//        integrationCache = dIntegrationTmpRightCache;
-//        integrationBuffer = dIntegrationRightBuffer;
-//        integrationBufferSize = integrationRightBufferSize;
-//        integrationBufferStoredSize = integrationRightStoredBufferSize;
-//    }
 
     //    destP = partials;
     CHECK_CUDA(cudaMemcpyAsync(dPartialCache[getPartialCacheIndex(partialsIndex1, 0)], dPartialCache[getPartialIndex(partialsIndex1, 0)], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
@@ -1210,7 +1175,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
             c1Cache[kCategoryCount + category] = c1Right;
 
             etaCache[category] = (i < std::get<1>(msCache[category])) * (etaCache[category] - 1) + 1;
-            etaCache[kCategoryCount + category] = i < std::get<1>(msCache[kCategoryCount + category]) ? etaCache[kCategoryCount + category] : 1;
+            etaCache[kCategoryCount + category] = (i < std::get<1>(msCache[kCategoryCount + category])) * (etaCache[kCategoryCount + category] - 1) + 1;
         }
         std::fill(integrationMultipliers.begin(), integrationMultipliers.end(), 1.0);
 
