@@ -944,6 +944,28 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
     return BEAGLE_SUCCESS;
 }
 
+template <typename Real>
+int spMM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSpMatDescr_t A, cusparseDnMatDescr_t B, Real beta, void*& buffer, size_t& buffersize)
+{
+    size_t new_buffersize;
+    CHECK_CUSPARSE(cusparseSpMM_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                           &alpha, A, B, &beta, C, DataType<Real>,
+                                           CUSPARSE_SPMM_ALG_DEFAULT, &new_buffersize));
+
+    if(new_buffersize > buffersize)
+    {
+        CHECK_CUDA(cudaFree(buffer));
+        CHECK_CUDA(cudaMalloc(&buffer, buffersize));
+        buffersize = new_buffersize;
+    }
+
+    // integrationTmp = alpha * A * destP
+    CHECK_CUSPARSE(cusparseSpMM(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                &alpha, A, B, &beta, C, DataType<Real>,
+                                CUSPARSE_SPMM_ALG_DEFAULT, buffer)); //row-major layout provides higher performance (?)
+    return 0;
+}
+
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose) {
     const double tol = pow(2.0, -53.0);
@@ -969,7 +991,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
     std::vector<Real*> integrationCache;
     std::vector<void*> integrationBuffer;
     std::vector<size_t> integrationBufferSize;
-    std::vector<size_t> integrationBufferStoredSize;
     if (left) {
         F = dFLeft;
         integrationTmp = dIntegrationTmpLeft;
@@ -977,7 +998,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
         integrationCache = dIntegrationTmpLeftCache;
         integrationBuffer = dIntegrationLeftBuffer;
         integrationBufferSize = integrationLeftBufferSize;
-        integrationBufferStoredSize = integrationLeftStoredBufferSize;
     } else {
         F = dFRight;
         integrationTmp = dIntegrationTmpRight;
@@ -985,7 +1005,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
         integrationCache = dIntegrationTmpRightCache;
         integrationBuffer = dIntegrationRightBuffer;
         integrationBufferSize = integrationRightBufferSize;
-        integrationBufferStoredSize = integrationRightStoredBufferSize;
     }
 
 //#ifdef BEAGLE_DEBUG_FLOW
@@ -1030,26 +1049,13 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 
         Real c1 = normPInf(dPartialCache[partialsIndex], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
 
-
         for (int j = 1; j < m + 1; j++) {
-            const Real alpha = t / ((Real) s * j);
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"j/m = "<<j<<"/"<<m<<", alpha = "<<alpha<<std::endl;
 //#endif
-//            destP = alpha * A * destP;
-            CHECK_CUSPARSE(cusparseSpMM_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                   &alpha, A, dPartialsWrapper[destPIndex], &zero, integrationTmp[category], DataType<Real>,
-                                                   CUSPARSE_SPMM_ALG_DEFAULT, &integrationBufferSize[category]))
+//            destP = t / (s * j) * A * destP;
+            spMM<Real>(cusparseHandle, integrationTmp[category], t / ((Real) s * j), A, dPartialsWrapper[destPIndex], 0, integrationBuffer[category], integrationBufferSize[category]);
 
-            if(integrationBufferSize[category] > integrationBufferStoredSize[category]) {
-                CHECK_CUDA(cudaMalloc(&integrationBuffer[category], integrationBufferSize[category]))  // TODO: is this necessary? Are there better ways to claim additional buffer?
-                integrationBufferStoredSize[category] = integrationBufferSize[category];
-            }
-
-            // integrationTmp = alpha * A * destP
-            CHECK_CUSPARSE(cusparseSpMM(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                        &alpha, A, dPartialsWrapper[destPIndex], &zero, integrationTmp[category], DataType<Real>,
-                                        CUSPARSE_SPMM_ALG_DEFAULT, integrationBuffer[category])); //row-major layout provides higher performance (?)
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"edge multiplier = "<< hEdgeMultipliers[edgeIndex * kCategoryCount + category]<<"\nB ="<<std::endl;
 //            PrintfDeviceVector(dBsCsrValuesCache[hEigenMaps[edgeIndex]], currentCacheNNZs[hEigenMaps[edgeIndex]], -1, 0, 0);
