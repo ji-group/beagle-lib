@@ -420,7 +420,36 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 BEAGLE_GPU_TEMPLATE
 BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::~BeagleGPUActionImpl()
 {
+//    BeagleGPUImpl<Real>::~BeagleGPUImpl<>();
+
+    for (int i = 0; i < dPartialsWrapper.size(); i++) {
+        cusparseDestroyDnMat(dPartialsWrapper[i]);
+        cudaFree(dPartialCache[i]);
+    }
+    for (int i = 0; i < kCategoryCount; i++) {
+        cusparseDestroyDnMat(dFLeft[i]);
+        cusparseDestroyDnMat(dFRight[i]);
+        cusparseDestroyDnMat(dIntegrationTmpLeft[i]);
+        cusparseDestroyDnMat(dIntegrationTmpRight[i]);
+        cudaFree(dFLeftCache[i]);
+        cudaFree(dFRightCache[i]);
+        cudaFree(dIntegrationTmpLeftCache[i]);
+        cudaFree(dIntegrationTmpRightCache[i]);
+        cudaFree(dIntegrationLeftBuffer[i]);
+        cudaFree(dIntegrationRightBuffer[i]);
+    }
+
+    for (int i = 0; i < kEigenDecompCount; i++) {
+        cudaFree(dBsCsrOffsetsCache[i]);
+        cudaFree(dBsCsrColumnsCache[i]);
+        cudaFree(dBsCsrValuesCache[i]);
+        for (int j = 0; j < kCategoryCount * 2; j++) {
+            cudaFree(dACscValuesCache[i * kCategoryCount * 2 + j]);
+//            cusparseDestroySpMat(dAs[i * kCategoryCount * 2 + i]);
+        }
+    }
     cublasDestroy(cublasHandle);
+    cusparseDestroy(cusparseHandle);
 }
 
 BEAGLE_GPU_TEMPLATE
