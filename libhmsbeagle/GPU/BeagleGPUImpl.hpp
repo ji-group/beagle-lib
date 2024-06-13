@@ -343,7 +343,7 @@ int BeagleGPUImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     } else if (kStateCount <= 256) {
         kPaddedStateCount = 256;
     } else {
-        kPaddedStateCount = kStateCount + kStateCount % 16;
+        kPaddedStateCount = kStateCount % 16 == 0 ? kStateCount : kStateCount + 16 - kStateCount % 16;
     }
 
     gpu = new GPUInterface();
@@ -572,9 +572,15 @@ int BeagleGPUImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     hLogLikelihoodsCache = (Real*) gpu->MallocHost(kPatternCount * sizeof(Real));
     hMatrixCache = (Real*) gpu->CallocHost(hMatrixCacheSize, sizeof(Real));
 
-    dEvec = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
-    dIevc = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
-    dEigenValues = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
+    if (preferenceFlags & BEAGLE_FLAG_COMPUTATION_ACTION) {
+        dEvec = nullptr;
+        dIevc = nullptr;
+        dEigenValues = nullptr;
+    } else {
+        dEvec = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
+        dIevc = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
+        dEigenValues = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
+    }
     dWeights = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
     dFrequencies = (GPUPtr*) calloc(sizeof(GPUPtr),kEigenDecompCount);
 
@@ -620,21 +626,25 @@ int BeagleGPUImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
         }
     }
 
-    ptrIncrement = gpu->AlignMemOffset(kMatrixSize * sizeof(Real));
-    kEvecOffset  = ptrIncrement/sizeof(Real);
-    GPUPtr dEvecOrigin = gpu->AllocateMemory(kEigenDecompCount * ptrIncrement);
-    GPUPtr dIevcOrigin = gpu->AllocateMemory(kEigenDecompCount * ptrIncrement);
-    for(int i=0; i<kEigenDecompCount; i++) {
-        dEvec[i] = gpu->CreateSubPointer(dEvecOrigin, ptrIncrement*i, ptrIncrement);
-        dIevc[i] = gpu->CreateSubPointer(dIevcOrigin, ptrIncrement*i, ptrIncrement);
+    if(!preferenceFlags & BEAGLE_FLAG_COMPUTATION_ACTION) {
+        ptrIncrement = gpu->AlignMemOffset(kMatrixSize * sizeof(Real));
+        kEvecOffset  = ptrIncrement/sizeof(Real);
+        GPUPtr dEvecOrigin = gpu->AllocateMemory(kEigenDecompCount * ptrIncrement);
+        GPUPtr dIevcOrigin = gpu->AllocateMemory(kEigenDecompCount * ptrIncrement);
+        for(int i=0; i<kEigenDecompCount; i++) {
+            dEvec[i] = gpu->CreateSubPointer(dEvecOrigin, ptrIncrement*i, ptrIncrement);
+            dIevc[i] = gpu->CreateSubPointer(dIevcOrigin, ptrIncrement*i, ptrIncrement);
+        }
+
+        ptrIncrement = gpu->AlignMemOffset(kEigenValuesSize * sizeof(Real));
+        kEvalOffset  = ptrIncrement/sizeof(Real);
+        GPUPtr dEigenValuesOrigin = gpu->AllocateMemory(kEigenDecompCount * ptrIncrement);
+        for(int i=0; i<kEigenDecompCount; i++) {
+            dEigenValues[i] = gpu->CreateSubPointer(dEigenValuesOrigin, ptrIncrement*i, ptrIncrement);
+        }
+
     }
 
-    ptrIncrement = gpu->AlignMemOffset(kEigenValuesSize * sizeof(Real));
-    kEvalOffset  = ptrIncrement/sizeof(Real);
-    GPUPtr dEigenValuesOrigin = gpu->AllocateMemory(kEigenDecompCount * ptrIncrement);
-    for(int i=0; i<kEigenDecompCount; i++) {
-        dEigenValues[i] = gpu->CreateSubPointer(dEigenValuesOrigin, ptrIncrement*i, ptrIncrement);
-    }
 
     ptrIncrement = gpu->AlignMemOffset(kCategoryCount * sizeof(Real));
     kWeightsOffset = ptrIncrement/sizeof(Real);
