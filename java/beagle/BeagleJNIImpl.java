@@ -141,6 +141,14 @@ public class BeagleJNIImpl implements Beagle {
         }
     }
 
+    @Override
+    public void setSparseMatrix(int matrixIndex, int[] inRowIndices, int[] inColIndices, double[] inValues, int numNonZeros) {
+        int errCode = BeagleJNIWrapper.INSTANCE.setSparseMatrix(instance, matrixIndex, inRowIndices, inColIndices, inValues, numNonZeros);
+        if (errCode != 0) {
+            throw new BeagleException("setSparseMatrix", errCode);
+        }
+    }
+
     public void setStateFrequencies(int stateFrequenciesIndex,
                                     final double[] stateFrequencies) {
         int errCode = BeagleJNIWrapper.INSTANCE.setStateFrequencies(instance,

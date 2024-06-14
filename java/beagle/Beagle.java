@@ -288,6 +288,24 @@ public interface Beagle extends Serializable {
             final double[] inEigenValues);
 
     /**
+     * Set a sparse matrix
+     *
+     * This function copies a sparse matrix into a instance buffer.
+     *
+     * @param maatrixIndex              Index of sparse matrix buffer (input)
+     * @param inRowIndices              Row indices of non-zero entries (input)
+     * @param inColIndices              Column indices of non-zero entries (input)
+     * @param inValues                  Vector of non-zero values (input)
+     * @param numNonZeros               Number of non-zero entries (input)
+     */
+    void setSparseMatrix(
+            int maatrixIndex,
+            final int[] inRowIndices,
+            final int[] inColIndices,
+            final double[] inValues,
+            int numNonZeros);
+
+    /**
      * Set a set of state frequences. These will probably correspond to an
      * eigen-system.
      *
