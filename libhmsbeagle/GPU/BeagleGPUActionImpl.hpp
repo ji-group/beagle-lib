@@ -1470,7 +1470,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenI
         }
     }
     // TODO: check if need to copy it from host to device afterwards
-    return BEAGLE_ERROR_NO_IMPLEMENTATION;
+    return BEAGLE_SUCCESS;
 }
 
 ///-------------------------------- Factory -------------------------------------///	
