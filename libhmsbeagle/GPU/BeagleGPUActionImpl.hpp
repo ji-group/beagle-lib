@@ -420,11 +420,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 BEAGLE_GPU_TEMPLATE
 BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::~BeagleGPUActionImpl()
 {
-//    BeagleGPUImpl<Real>::~BeagleGPUImpl<>();
 
     for (int i = 0; i < dPartialsWrapper.size(); i++) {
         cusparseDestroyDnMat(dPartialsWrapper[i]);
-        cudaFree(dPartialCache[i]);
     }
     for (int i = 0; i < kCategoryCount; i++) {
         cusparseDestroyDnMat(dFLeft[i]);
@@ -1239,43 +1237,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
 
             for (int category = 0; category < kCategoryCount; category++) {
 
-//                spMM<Real>(cusparseHandle, dIntegrationTmpLeft[category], alphaCache[category], ALeft, dPartialsWrapper[destPIndex1], 0, dIntegrationLeftBuffer[category], integrationLeftBufferSize[category]);
-//                spMM<Real>(cusparseHandle, dIntegrationTmpRight[category], alphaCache[kCategoryCount + category], ARight, dPartialsWrapper[destPIndex2], 0, dIntegrationRightBuffer[category], integrationRightBufferSize[category]);
-
-                CHECK_CUSPARSE(cusparseSpMM_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       &alphaCache[category], dAs[hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex1, category)], &zero,
-                                                       dIntegrationTmpLeft[category], DataType<Real>,
-                                                       CUSPARSE_SPMM_ALG_DEFAULT, &integrationLeftBufferSize[category]))
-
-                CHECK_CUSPARSE(cusparseSpMM_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       &alphaCache[kCategoryCount + category], dAs[hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex2, category)], &zero,
-                                                       dIntegrationTmpRight[category], DataType<Real>,
-                                                       CUSPARSE_SPMM_ALG_DEFAULT, &integrationRightBufferSize[kCategoryCount + category]))
-                if (integrationLeftBufferSize[category] > integrationLeftStoredBufferSize[category] && integrationMultipliers[category]) {
-                    CHECK_CUDA(cudaMalloc(&dIntegrationLeftBuffer[category],
-                                          integrationLeftBufferSize[category]))  // TODO: is this necessary? Are there better ways to claim additional buffer?
-                    integrationLeftStoredBufferSize[category] = integrationLeftBufferSize[category];
-                }
-                if (integrationRightBufferSize[category] > integrationRightStoredBufferSize[category] && integrationMultipliers[kCategoryCount + category]) {
-                    CHECK_CUDA(cudaMalloc(&dIntegrationRightBuffer[category],
-                                          integrationRightBufferSize[category]))  // TODO: is this necessary? Are there better ways to claim additional buffer?
-                    integrationRightStoredBufferSize[category] = integrationRightBufferSize[category];
-
-                }
-
-                // integrationTmp = alpha * A * destP
-                CHECK_CUSPARSE(cusparseSpMM(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                            CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                            &alphaCache[category], dAs[hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex1, category)], &zero,
-                                            dIntegrationTmpLeft[category], DataType<Real>,
-                                            CUSPARSE_SPMM_ALG_DEFAULT, dIntegrationLeftBuffer[category]))
-                CHECK_CUSPARSE(cusparseSpMM(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                            CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                            &alphaCache[kCategoryCount + category], dAs[hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex2, category)], &zero,
-                                            dIntegrationTmpRight[category], DataType<Real>,
-                                            CUSPARSE_SPMM_ALG_DEFAULT, dIntegrationRightBuffer[category]))
+                spMM<Real>(cusparseHandle, dIntegrationTmpLeft[category], alphaCache[category], dAs[hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex1, category)], 0, dIntegrationLeftBuffer[category], integrationLeftBufferSize[category]);
+                spMM<Real>(cusparseHandle, dIntegrationTmpRight[category], alphaCache[kCategoryCount + category], dAs[hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex2, category)], 0, dIntegrationRightBuffer[category], integrationRightBufferSize[category]);
 
             }
             cudaDeviceSynchronize();
