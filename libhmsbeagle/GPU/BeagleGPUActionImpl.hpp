@@ -286,6 +286,36 @@ void MemcpyHostToDevice(T* dptr, const T* hptr, int n)
 	throw std::runtime_error("cudaMemcpy(Host->Device): failed!");
 }
 
+template <typename T>
+void MemcpyDeviceToDevice(T* dptr, const T* hptr, int n)
+{
+    auto status = cudaMemcpy(dptr, hptr, n*sizeof(T), cudaMemcpyDeviceToDevice);
+    if (status != cudaSuccess)
+	throw std::runtime_error("cudaMemcpy(Host->Device): failed!");
+}
+
+template <typename Real>
+int spMM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSpMatDescr_t A, cusparseDnMatDescr_t B, Real beta, void*& buffer, size_t& buffersize)
+{
+    size_t new_buffersize;
+    CHECK_CUSPARSE(cusparseSpMM_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                           &alpha, A, B, &beta, C, DataType<Real>,
+                                           CUSPARSE_SPMM_ALG_DEFAULT, &new_buffersize));
+
+    if(new_buffersize > buffersize)
+    {
+        CHECK_CUDA(cudaFree(buffer));
+        CHECK_CUDA(cudaMalloc(&buffer, buffersize));
+        buffersize = new_buffersize;
+    }
+
+    // integrationTmp = alpha * A * destP
+    CHECK_CUSPARSE(cusparseSpMM(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                &alpha, A, B, &beta, C, DataType<Real>,
+                                CUSPARSE_SPMM_ALG_DEFAULT, buffer)); //row-major layout provides higher performance (?)
+    return 0;
+}
+
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                   int partialsBufferCount,
