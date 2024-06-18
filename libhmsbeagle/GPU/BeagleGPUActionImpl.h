@@ -124,6 +124,68 @@ using DnMatrix = Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>;
 template <typename Real>
 using DnVector = Eigen::Matrix<Real, Eigen::Dynamic, 1>;
 
+template <typename T> cusparseIndexType_t IndexType;
+template <> cusparseIndexType_t IndexType<int32_t> = CUSPARSE_INDEX_32I;
+template <> cusparseIndexType_t IndexType<int64_t> = CUSPARSE_INDEX_64I;
+
+template <typename T> cudaDataType DataType;
+template <> cudaDataType DataType<float> = CUDA_R_32F;
+template <> cudaDataType DataType<double> = CUDA_R_64F;
+
+template <typename Real>
+struct DnMatrixDevice
+{
+    cusparseDnMatDescr_t descr = nullptr;
+    Real* ptr = nullptr;
+    size_t size1 = 0;
+    size_t size2 = 0;
+    cusparseOrder_t order = CUSPARSE_ORDER_COL;
+    size_t size() const {return size1*size2;}
+    size_t byte_size() const {return size()*sizeof(Real);}
+
+    // Disallow copying -- only one object can "own" the descriptor.
+    DnMatrixDevice<Real>& operator=(const DnMatrixDevice<Real>&) = delete;
+    // Allow moving.
+    DnMatrixDevice<Real>& operator=(DnMatrixDevice<Real>&& D) noexcept
+    {
+	std::swap(descr, D.descr);
+	std::swap(ptr, D.ptr);
+	std::swap(size1, D.size1);
+	std::swap(size2, D.size2);
+	std::swap(order, D.order);
+	return *this;
+    }
+
+    // Disallow copying.
+    DnMatrixDevice(const DnMatrixDevice<Real>&) = delete;
+    // Allow moving.
+    DnMatrixDevice(DnMatrixDevice<Real>&& D) noexcept
+    {
+	operator=(std::move(D));
+    }
+
+    DnMatrixDevice(Real* p, size_t s1, size_t s2, cusparseOrder_t o = CUSPARSE_ORDER_COL)
+	:ptr(p), size1(s1), size2(s2), order(o)
+    {
+	auto status = (order == CUSPARSE_ORDER_COL)
+	    ? cusparseCreateDnMat(&descr, size1, size2, size1, ptr, DataType<Real>, CUSPARSE_ORDER_COL)
+	    : cusparseCreateDnMat(&descr, size1, size2, size2, ptr, DataType<Real>, CUSPARSE_ORDER_ROW);
+
+	if (status != CUSPARSE_STATUS_SUCCESS)
+	{
+	    std::cerr<<"cusparseCreateDnMat( ) failed!";
+	    std::exit(1);
+	}
+    }
+
+    ~DnMatrixDevice()
+     {
+	 // This class does not own the memory, so does not call cudaFree.
+	 if (descr) cusparseDestroyDnMat(descr);
+     }
+};
+
+
 //template <typename Real>
 //using MapType = DnMatrix<Real>;
 
@@ -229,14 +291,12 @@ protected:
 
 //    std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
     std::vector<cusparseDnMatDescr_t> dPartialsWrapper;
-    std::vector<cusparseDnMatDescr_t> dFLeft;
-    std::vector<cusparseDnMatDescr_t> dFRight;
+    std::vector<DnMatrixDevice<Real>> dFLeft;
+    std::vector<DnMatrixDevice<Real>> dFRight;
     std::vector<cusparseDnMatDescr_t> dIntegrationTmpLeft;
     std::vector<cusparseDnMatDescr_t> dIntegrationTmpRight;
     std::vector<cusparseSpMatDescr_t> dAs;
     std::vector<Real*> dPartialCache;
-    std::vector<Real*> dFLeftCache;
-    std::vector<Real*> dFRightCache;
     std::vector<Real*> dIntegrationTmpLeftCache;
     std::vector<Real*> dIntegrationTmpRightCache;
     std::vector<size_t> integrationLeftBufferSize;
