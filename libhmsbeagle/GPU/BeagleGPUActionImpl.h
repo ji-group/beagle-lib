@@ -197,7 +197,11 @@ struct DnMatrixDevice
     ~DnMatrixDevice()
      {
 	 // This class does not own the memory, so does not call cudaFree.
-	 if (descr) cusparseDestroyDnMat(descr);
+	 if (descr)
+	 {
+	     cusparseDestroyDnMat(descr);
+	     descr = nullptr;
+	 }
      }
 };
 
