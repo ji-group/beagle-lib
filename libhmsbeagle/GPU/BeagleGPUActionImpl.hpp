@@ -780,25 +780,25 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
 
     cacheAMatrices(edgeIndex1, edgeIndex2, false);
 
-//    for (int category = 0; category < kCategoryCount; category++)
-//    {
-//        const int partial1Index = getPartialIndex(partials1Index, category);
-//        const int partial2Index = getPartialIndex(partials2Index, category);
-//
-//        const int partial1CacheIndex = getPartialCacheIndex(partials1Index, category);
-//        const int partial2CacheIndex = getPartialCacheIndex(partials2Index, category);
-//
-//        const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
-//        const int matrixIndex2 = hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category;
-//
-//        simpleAction2(getPartialCacheIndex(partials1Index, category), getPartialIndex(partials1Index, category),
-//                      edgeIndex1, category, hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category, true, false);
-//
-//        simpleAction2(getPartialCacheIndex(partials2Index, category), getPartialIndex(partials2Index, category),
-//                      edgeIndex2, category, hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category, false, false);
-//    }
+    for (int category = 0; category < kCategoryCount; category++)
+    {
+        const int partial1Index = getPartialIndex(partials1Index, category);
+        const int partial2Index = getPartialIndex(partials2Index, category);
 
-    simpleAction3(partials1Index, edgeIndex1, partials2Index, edgeIndex2);
+        const int partial1CacheIndex = getPartialCacheIndex(partials1Index, category);
+        const int partial2CacheIndex = getPartialCacheIndex(partials2Index, category);
+
+        const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
+        const int matrixIndex2 = hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category;
+
+        simpleAction2(getPartialCacheIndex(partials1Index, category), getPartialIndex(partials1Index, category),
+                      edgeIndex1, category, hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category, true, false);
+
+        simpleAction2(getPartialCacheIndex(partials2Index, category), getPartialIndex(partials2Index, category),
+                      edgeIndex2, category, hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category, false, false);
+    }
+
+//    simpleAction3(partials1Index, edgeIndex1, partials2Index, edgeIndex2);
     cudaDeviceSynchronize();
 
     for (int category = 0; category < kCategoryCount; category++)
