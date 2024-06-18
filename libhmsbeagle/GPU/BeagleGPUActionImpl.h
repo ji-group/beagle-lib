@@ -249,6 +249,9 @@ public:
     int setTipPartials(int tipIndex,
                        const Real* inPartials);
 
+    int setPartials(int bufferIndex,
+                    const Real* inPartials);
+
     int setSparseMatrix(int matrixIndex,
                         const int* rowIndices,
                         const int* colIndices,
