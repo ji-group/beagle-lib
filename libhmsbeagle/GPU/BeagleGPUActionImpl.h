@@ -293,12 +293,10 @@ protected:
     std::vector<cusparseDnMatDescr_t> dPartialsWrapper;
     std::vector<DnMatrixDevice<Real>> dFLeft;
     std::vector<DnMatrixDevice<Real>> dFRight;
-    std::vector<cusparseDnMatDescr_t> dIntegrationTmpLeft;
-    std::vector<cusparseDnMatDescr_t> dIntegrationTmpRight;
+    std::vector<DnMatrixDevice<Real>> dIntegrationTmpLeft;
+    std::vector<DnMatrixDevice<Real>> dIntegrationTmpRight;
     std::vector<cusparseSpMatDescr_t> dAs;
     std::vector<Real*> dPartialCache;
-    std::vector<Real*> dIntegrationTmpLeftCache;
-    std::vector<Real*> dIntegrationTmpRightCache;
     std::vector<size_t> integrationLeftBufferSize;
     std::vector<size_t> integrationLeftStoredBufferSize;
     std::vector<void*> dIntegrationLeftBuffer;
