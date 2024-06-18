@@ -135,6 +135,8 @@ template <> cudaDataType DataType<double> = CUDA_R_64F;
 template <typename Real>
 struct DnMatrixDevice
 {
+    cublasHandle_t cublas = nullptr;
+    // Lets assume any cusparseHandle_t comes from a sparse matrix.
     cusparseDnMatDescr_t descr = nullptr;
     Real* ptr = nullptr;
     size_t size1 = 0;
@@ -165,8 +167,8 @@ struct DnMatrixDevice
     }
 
     DnMatrixDevice() = default;
-    DnMatrixDevice(Real* p, size_t s1, size_t s2, cusparseOrder_t o = CUSPARSE_ORDER_COL)
-	:ptr(p), size1(s1), size2(s2), order(o)
+    DnMatrixDevice(cublasHandle_t cb, Real* p, size_t s1, size_t s2, cusparseOrder_t o = CUSPARSE_ORDER_COL)
+	:cublas(cb), ptr(p), size1(s1), size2(s2), order(o)
     {
 	auto status = (order == CUSPARSE_ORDER_COL)
 	    ? cusparseCreateDnMat(&descr, size1, size2, size1, ptr, DataType<Real>, CUSPARSE_ORDER_COL)

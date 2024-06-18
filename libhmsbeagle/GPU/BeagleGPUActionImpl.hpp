@@ -353,7 +353,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     for (int i = 0; i < kPartialsBufferCount; i++) {
         for (int category = 0; category < kCategoryCount; category++) {
 	    auto ptr = (Real *) gpu->CreateSubPointer(dPartialsOrigin, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * (kCategoryCount * i + category), sizeof(Real) * kPaddedStateCount * kPaddedPatternCount);
-	    auto mat = DnMatrixDevice<Real>(ptr, kPaddedStateCount, kPaddedPatternCount);
+	    auto mat = DnMatrixDevice<Real>(cublasHandle, ptr, kPaddedStateCount, kPaddedPatternCount);
             dPartialsWrapper[i * kCategoryCount + category] = std::move(mat);
         }
     }
@@ -383,11 +383,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     {
 	size_t offset = kPaddedStateCount * kPaddedPatternCount * category;
 
-        dFLeft.emplace_back(dLeftCachePtr + offset, kPaddedStateCount, kPaddedPatternCount);
-        dFRight.emplace_back(dRightCachePtr + offset, kPaddedStateCount, kPaddedPatternCount);
+        dFLeft.emplace_back(cublasHandle, dLeftCachePtr + offset, kPaddedStateCount, kPaddedPatternCount);
+        dFRight.emplace_back(cublasHandle, dRightCachePtr + offset, kPaddedStateCount, kPaddedPatternCount);
 
-	dIntegrationTmpLeft.emplace_back(dIntegrationTmpLeftCachePtr + offset,  kPaddedStateCount, kPaddedPatternCount);
-	dIntegrationTmpRight.emplace_back(dIntegrationTmpRightCachePtr + offset,  kPaddedStateCount, kPaddedPatternCount);
+	dIntegrationTmpLeft.emplace_back(cublasHandle, dIntegrationTmpLeftCachePtr + offset,  kPaddedStateCount, kPaddedPatternCount);
+	dIntegrationTmpRight.emplace_back(cublasHandle, dIntegrationTmpRightCachePtr + offset,  kPaddedStateCount, kPaddedPatternCount);
     }
 
     for (int category = 0; category < kCategoryCount; category++) {
