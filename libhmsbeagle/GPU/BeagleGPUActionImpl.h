@@ -159,6 +159,21 @@ struct DnMatrixDevice
 	return *this;
     }
 
+    DnMatrixDevice<Real>& operator+=(const DnMatrixDevice<Real>& D)
+    {
+	assert(D.size1 == size1);
+	assert(D.size2 == size2);
+	assert(D.cublasHandle == cublasHandle);
+	Real one = 1;
+	if constexpr (std::is_same<Real, float>::value) {
+	    cublasSaxpy(cublasHandle, size(), &one, D.ptr, 1, ptr, 1);
+	} else {
+	    cublasDaxpy(cublasHandle, size(), &one, D.ptr, 1, ptr, 1);
+	}
+
+	return *this;
+    }
+
     // Disallow copying.
     DnMatrixDevice(const DnMatrixDevice<Real>&) = delete;
     // Allow moving.
