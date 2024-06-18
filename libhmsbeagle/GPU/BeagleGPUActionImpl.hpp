@@ -510,7 +510,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPartials(int tipIndex, const Rea
 
     BeagleGPUImpl<Real>::setPartials(tipIndex, inPartials);
     for (int category = 0; category < kCategoryCount; category++) {
-        dPartialCache[getPartialIndex(tipIndex, category)] = (Real*) dPartials[tipIndex] + kPaddedStateCount * kPaddedPatternCount * category;
+        dPartialsWrapper[getPartialIndex(tipIndex, category)].ptr = (Real*) dPartials[tipIndex] + kPaddedStateCount * kPaddedPatternCount * category;
     }
 
 
