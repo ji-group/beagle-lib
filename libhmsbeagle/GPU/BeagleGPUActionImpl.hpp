@@ -1099,11 +1099,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //            F += destP;
 
 	    F[category] += integrationTmp[category];
-//            if constexpr (std::is_same<Real, float>::value) {
-//                CUBLAS_CHECK(cublasSaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &one, integrationTmp[category].ptr, 1, F[category].ptr, 1));
-//            } else {
-//                CUBLAS_CHECK(cublasDaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &one, integrationTmp[category].ptr, 1, F[category].ptr, 1));
-//            }
 //#ifdef BEAGLE_DEBUG_FLOW
 //
 //            std::cerr<<"F += destP, c1 = " <<c1 <<"  c2 = " <<c2 <<std::endl;
