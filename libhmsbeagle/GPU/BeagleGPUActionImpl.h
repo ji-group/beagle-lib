@@ -205,6 +205,80 @@ struct DnMatrixDevice
      }
 };
 
+enum class sparseFormat { none, csr, csc };
+
+template <typename Real>
+struct SpMatrixDevice
+{
+    cusparseHandle_t cusparseHandle = nullptr;
+    cusparseSpMatDescr_t descr = nullptr;
+    int size1 = 0;
+    int size2 = 0;
+    int num_non_zeros = 0;
+    Real* values = nullptr;
+    int* columns = nullptr;
+    int* offsets = nullptr;
+    sparseFormat format = sparseFormat::none;
+
+    // Disallow copying -- only one object can "own" the descriptor.
+    SpMatrixDevice<Real>& operator=(const SpMatrixDevice<Real>&) = delete;
+    // Allow moving.
+    SpMatrixDevice<Real>& operator=(SpMatrixDevice<Real>&& D) noexcept
+    {
+	std::swap(cusparseHandle, D.cusparseHandle);
+	std::swap(descr, D.descr);
+	std::swap(size1, D.size1);
+	std::swap(size2, D.size2);
+	std::swap(num_non_zeros, D.num_non_zeros);
+	std::swap(values, D.values);
+	std::swap(columns, D.columns);
+	std::swap(offsets, D.offsets);
+	std::swap(format, D.format);
+	return *this;
+    }
+
+    // Disallow copying.
+    SpMatrixDevice(const SpMatrixDevice<Real>&) = delete;
+    // Allow moving.
+    SpMatrixDevice(SpMatrixDevice<Real>&& D) noexcept
+    {
+	operator=(std::move(D));
+    }
+
+    SpMatrixDevice() = default;
+    SpMatrixDevice(cusparseHandle_t h, int s1, int s2, int n, Real* v, int* c, int* o, sparseFormat f)
+	:cusparseHandle(h), size1(s1), size2(s2), num_non_zeros(n), values(v), columns(c), offsets(o), format(f)
+    {
+	cusparseStatus_t status;
+	if (format == sparseFormat::csc)
+	{
+	    status = cusparseCreateCsc(&descr, s1, s2, num_non_zeros, offsets, columns, values,
+				       IndexType<int>, IndexType<int>, CUSPARSE_INDEX_BASE_ZERO, DataType<Real>);
+	}
+	else
+	{
+	    status = cusparseCreateCsr(&descr, s1, s2, num_non_zeros, offsets, columns, values,
+				       IndexType<int>, IndexType<int>, CUSPARSE_INDEX_BASE_ZERO, DataType<Real>);
+	}
+
+	if (status != CUSPARSE_STATUS_SUCCESS)
+	{
+	    std::cerr<<"cusparseCreateSpMat( ) failed!";
+	    std::exit(1);
+	}
+    }
+
+    ~SpMatrixDevice()
+    {
+	if (descr)
+	{
+	    cusparseDestroySpMat(descr);
+	    descr = nullptr;
+	}
+    }
+};
+
+
 template <typename Real>
 auto normPInf(const DnMatrixDevice<Real>& M)
 {
@@ -324,7 +398,7 @@ protected:
     std::vector<DnMatrixDevice<Real>> dFRight;
     std::vector<DnMatrixDevice<Real>> dIntegrationTmpLeft;
     std::vector<DnMatrixDevice<Real>> dIntegrationTmpRight;
-    std::vector<cusparseSpMatDescr_t> dAs;
+    std::vector<SpMatrixDevice<Real>> dAs;
     std::vector<size_t> integrationLeftBufferSize;
     std::vector<size_t> integrationLeftStoredBufferSize;
     std::vector<void*> dIntegrationLeftBuffer;
