@@ -164,6 +164,7 @@ struct DnMatrixDevice
 	operator=(std::move(D));
     }
 
+    DnMatrixDevice() = default;
     DnMatrixDevice(Real* p, size_t s1, size_t s2, cusparseOrder_t o = CUSPARSE_ORDER_COL)
 	:ptr(p), size1(s1), size2(s2), order(o)
     {
