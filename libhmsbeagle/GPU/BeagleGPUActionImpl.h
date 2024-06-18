@@ -91,7 +91,7 @@ tuple<double,int> ArgNormP1(const T& matrix)
 }
 
 template <typename T>
-double normPInf(const T& matrix) {
+auto normPInf(const T& matrix) {
     return matrix.template lpNorm<Eigen::Infinity>();
 }
 
@@ -108,9 +108,6 @@ Real normPInf(Real* matrix, int nRows, int nCols, cublasHandle_t cublasH) {
     CHECK_CUDA(cudaMemcpy(&result, matrix + index - 1, sizeof(Real), cudaMemcpyDeviceToHost))
     return std::abs(result);
 }
-
-
-
 
 template <typename Real>
 using SpMatrix = Eigen::SparseMatrix<Real, Eigen::StorageOptions::RowMajor>;
@@ -203,6 +200,12 @@ struct DnMatrixDevice
 	 if (descr) cusparseDestroyDnMat(descr);
      }
 };
+
+template <typename Real>
+auto normPInf(const DnMatrixDevice<Real>& M)
+{
+    return normPInf(M.ptr, M.size1, M.size2, M.cublasHandle);
+}
 
 
 //template <typename Real>

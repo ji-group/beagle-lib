@@ -1068,7 +1068,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //        PrintfDeviceVector(dPartialsWrapper[partialsIndex].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
-        Real c1 = normPInf(dPartialsWrapper[partialsIndex].ptr, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+        Real c1 = normPInf(dPartialsWrapper[partialsIndex]);
 
         for (int j = 1; j < m + 1; j++) {
 //#ifdef BEAGLE_DEBUG_FLOW
@@ -1095,7 +1095,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //            PrintfDeviceVector(dPartialsWrapper[destPIndex].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
-            double c2 = normPInf(integrationTmp[category].ptr, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+            Real c2 = normPInf(integrationTmp[category]);
 //            F += destP;
 
 	    F[category] += integrationTmp[category];
@@ -1105,7 +1105,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //            PrintfDeviceVector(F[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
-            if (c1 + c2 <= tol * normPInf(F[category].ptr,kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
+            if (c1 + c2 <= tol * normPInf(F[category])) {
                 break;
             }
             c1 = c2;
@@ -1189,9 +1189,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
     for (int i = 0; i < s_max; i++) {
 
         for (int category = 0; category < kCategoryCount; category++) {
-            const Real c1Left = normPInf(dPartialsWrapper[getPartialIndex(partialsIndex1, category)].ptr, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+            const Real c1Left = normPInf(dPartialsWrapper[getPartialIndex(partialsIndex1, category)]);
             c1Cache[category] = c1Left;
-            const Real c1Right = normPInf(dPartialsWrapper[getPartialIndex(partialsIndex2, category)].ptr, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+            const Real c1Right = normPInf(dPartialsWrapper[getPartialIndex(partialsIndex2, category)]);
             c1Cache[kCategoryCount + category] = c1Right;
 
             etaCache[category] = (i < std::get<1>(msCache[category])) * (etaCache[category] - 1) + 1;
@@ -1252,12 +1252,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
             cudaDeviceSynchronize();
 
             for (int category = 0; category < kCategoryCount; category++) {
-                c2Cache[category] = normPInf(dIntegrationTmpLeft[category].ptr, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
-                c2Cache[kCategoryCount + category] = normPInf(dIntegrationTmpRight[category].ptr, kPaddedStateCount, kPaddedPatternCount, cublasHandle);
-                if (c1Cache[category] + c2Cache[category] < tol * normPInf(dFLeft[category].ptr, kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
+                c2Cache[category] = normPInf(dIntegrationTmpLeft[category]);
+                c2Cache[kCategoryCount + category] = normPInf(dIntegrationTmpRight[category]);
+                if (c1Cache[category] + c2Cache[category] < tol * normPInf(dFLeft[category])) {
                     integrationMultipliers[category] = 0;
                 }
-                if (c1Cache[kCategoryCount + category] + c2Cache[kCategoryCount + category] < tol * normPInf(dFRight[category].ptr, kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
+                if (c1Cache[kCategoryCount + category] + c2Cache[kCategoryCount + category] < tol * normPInf(dFRight[category])) {
                     integrationMultipliers[kCategoryCount + category] = 0;
                 }
 
