@@ -1253,7 +1253,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
 #ifdef BEAGLE_DEBUG_FLOW
             std::cerr<<"integrationTmp = alpha * A * destP = " <<std::endl;
             PrintfDeviceVector(dIntegrationTmpLeft[0].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
-            PrintfDeviceVector(dIntegrationTmpRight0].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
+            PrintfDeviceVector(dIntegrationTmpRight[0].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
 #endif
 
             // destP = IntegrationTmp
