@@ -292,19 +292,28 @@ void MemcpyDeviceToHost(T* hptr, const T* dptr, int n)
 	throw std::runtime_error("cudaMemcpy(Device->Host): failed!");
 }
 
+template <typename T>
+std::vector<T> MemcpyDeviceToHostVector(const T* dptr, int n)
+{
+    std::vector<T> host_vec(n);
+    auto status = cudaMemcpy(host_vec.data(), dptr, n*sizeof(T), cudaMemcpyDeviceToHost);
+    if (status != cudaSuccess)
+	throw std::runtime_error("cudaMemcpy(Device->Host): failed!");
+    return host_vec;
+}
+
 // Create an io-manipulator so that we can write std::cerr<<byRow(D)<<"\n";
 template <typename Real>
-class byRow
+class byRowDense
 {
     const DnMatrixDevice<Real>& D;
 public:
 
-    friend std::ostream& operator<<(std::ostream& o, const byRow<Real>& pr)
+    friend std::ostream& operator<<(std::ostream& o, const byRowDense<Real>& pr)
     {
         auto& D = pr.D;
-        Real* hPtr = new Real[D.size()];
 
-        MemcpyDeviceToHost(hPtr, D.ptr, D.size());
+        auto hPtr = MemcpyDeviceToHostVector(D.ptr, D.size());
 
         o<<"Rows[ ";
         for(int row=0;row<D.size1;row++)
@@ -326,29 +335,25 @@ public:
 	else
 	    o<<" (row-major)";
 
-        delete hPtr;
-
         return o;
     }
 
     // Initialize the forwarding struct from the matrix that we want to print.
-    byRow(const DnMatrixDevice<Real>& d):D(d) {}
+    byRowDense(const DnMatrixDevice<Real>& d):D(d) {}
 };
 
 // Create an io-manipulator so that we can write std::cerr<<byCol(D)<<"\n";
 template <typename Real>
-class byCol
+class byColDense
 {
     const DnMatrixDevice<Real>& D;
 public:
 
-    friend std::ostream& operator<<(std::ostream& o, const byCol<Real>& pr)
+    friend std::ostream& operator<<(std::ostream& o, const byColDense<Real>& pr)
     {
 	auto& D = pr.D;
 
-        Real* hPtr = new Real[D.size()];
-
-        MemcpyDeviceToHost(hPtr, D.ptr, D.size());
+        auto hPtr = MemcpyDeviceToHostVector(D.ptr, D.size());
 
         o<<"Cols[ ";
         for(int col=0;col<D.size2;col++)
@@ -370,17 +375,97 @@ public:
 	else
 	    o<<" (row-major)";
 
-        delete hPtr;
+        return o;
+    }
+
+    // Initialize the forwarding struct from the matrix that we want to print.
+    byColDense(const DnMatrixDevice<Real>& d):D(d) {}
+};
+
+std::ostream& operator<<(std::ostream& o, sparseFormat f)
+{
+    if (f == sparseFormat::csr)
+	o<<"csr";
+    else if (f == sparseFormat::csc)
+	o<<"csc";
+    else
+	o<<"sparseFormat=unknown";
+    return o;
+}
+	
+// Create an io-manipulator so that we can write std::cerr<<byRow(D)<<"\n";
+template <typename Real>
+class byRowSparse
+{
+    const SpMatrixDevice<Real>& S;
+public:
+
+    friend std::ostream& operator<<(std::ostream& o, const byRowSparse<Real>& pr)
+    {
+        auto& S = pr.S;
+	auto values = MemcpyDeviceToHostVector(S.values, S.num_non_zeros);
+	auto inner = MemcpyDeviceToHostVector(S.inner, S.num_non_zeros);
+	auto offsets = MemcpyDeviceToHostVector(S.offsets, S.outer_dim_size() + 1);
+	
+	std::vector< std::vector<Real> > D(S.size1, std::vector<Real>(S.size2, 0));
+        for(int o=0; o< S.outer_dim_size();o++)
+        {
+            for(int index=offsets[o];index<offsets[o+1];index++)
+            {
+                if (S.format == sparseFormat::csr)
+		    D[o][inner[index]] = values[index];
+		else
+		    D[inner[index]][o] = values[index];
+            }
+        }
+
+        o<<"Row[ ";
+	for(int row=0;row<D.size();row++)
+	{
+            o<<"[ ";
+	    for(int col=0;col<D[row].size();col++)
+	    {
+		o<<D[row][col]<<" ";
+            }
+            o<<"] ";
+        }
+        o<<"]";
+
+	o<<" ("<<S.format<<")";
 
         return o;
     }
 
     // Initialize the forwarding struct from the matrix that we want to print.
-    byCol(const DnMatrixDevice<Real>& d):D(d) {}
+    byRowSparse(const SpMatrixDevice<Real>& s):S(s) {}
 };
 
 template <typename Real>
+byRowDense<Real> byRow(const DnMatrixDevice<Real>& D)
+{
+    return byRowDense<Real>(D);
+}
+
+template <typename Real>
+byRowSparse<Real> byRow(const SpMatrixDevice<Real>& D)
+{
+    return byRowSparse<Real>(D);
+}
+
+template <typename Real>
+byColDense<Real> byCol(const DnMatrixDevice<Real>& D)
+{
+    return byColDense<Real>(D);
+}
+
+template <typename Real>
 std::ostream& operator<<(std::ostream& o, const DnMatrixDevice<Real>& D)
+{
+    return o<<byRow(D);
+}
+
+template <typename Real>
+std::ostream& operator<<(std::ostream& o, const SpMatrixDevice<Real>& D)
 {
     return o<<byRow(D);
 }
@@ -1181,6 +1266,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //            std::cerr<<"j/m = "<<j<<"/"<<m<<", alpha = "<<alpha<<std::endl;
 //#endif
 //            destP = t / (s * j) * A * destP;
+	    std::cerr<<"\ncategory = "<<category<<"  i = "<<i<<"  j = "<<j<<"  A = "<<byRow(A)<<"\n";
             spMM<Real>(integrationTmp[category], t / ((Real) s * j), A, dPartialsWrapper[destPIndex], 0, integrationBuffer[category], integrationBufferSize[category]);
 
 //#ifdef BEAGLE_DEBUG_FLOW

@@ -212,13 +212,25 @@ struct SpMatrixDevice
 {
     cusparseHandle_t cusparseHandle = nullptr;
     cusparseSpMatDescr_t descr = nullptr;
-    int size1 = 0;
-    int size2 = 0;
+    int size1 = 0; // rows
+    int size2 = 0; // columns
     int num_non_zeros = 0;
     Real* values = nullptr;
-    int* columns = nullptr;
+    int* inner = nullptr;
     int* offsets = nullptr;
     sparseFormat format = sparseFormat::none;
+
+    int outer_dim_size() const
+    {
+	// With CSR, we return the number of row.
+	if (format == sparseFormat::csr)
+	    return size1;
+	// With CSC, we return the number of columns;
+	else if (format == sparseFormat::csc)
+	    return size2;
+	else
+	    std::abort();
+    }
 
     // Disallow copying -- only one object can "own" the descriptor.
     SpMatrixDevice<Real>& operator=(const SpMatrixDevice<Real>&) = delete;
@@ -231,7 +243,7 @@ struct SpMatrixDevice
 	std::swap(size2, D.size2);
 	std::swap(num_non_zeros, D.num_non_zeros);
 	std::swap(values, D.values);
-	std::swap(columns, D.columns);
+	std::swap(inner, D.inner);
 	std::swap(offsets, D.offsets);
 	std::swap(format, D.format);
 	return *this;
@@ -247,17 +259,17 @@ struct SpMatrixDevice
 
     SpMatrixDevice() = default;
     SpMatrixDevice(cusparseHandle_t h, int s1, int s2, int n, Real* v, int* c, int* o, sparseFormat f)
-	:cusparseHandle(h), size1(s1), size2(s2), num_non_zeros(n), values(v), columns(c), offsets(o), format(f)
+	:cusparseHandle(h), size1(s1), size2(s2), num_non_zeros(n), values(v), inner(c), offsets(o), format(f)
     {
 	cusparseStatus_t status;
 	if (format == sparseFormat::csc)
 	{
-	    status = cusparseCreateCsc(&descr, s1, s2, num_non_zeros, offsets, columns, values,
+	    status = cusparseCreateCsc(&descr, s1, s2, num_non_zeros, offsets, inner, values,
 				       IndexType<int>, IndexType<int>, CUSPARSE_INDEX_BASE_ZERO, DataType<Real>);
 	}
 	else
 	{
-	    status = cusparseCreateCsr(&descr, s1, s2, num_non_zeros, offsets, columns, values,
+	    status = cusparseCreateCsr(&descr, s1, s2, num_non_zeros, offsets, inner, values,
 				       IndexType<int>, IndexType<int>, CUSPARSE_INDEX_BASE_ZERO, DataType<Real>);
 	}
 
