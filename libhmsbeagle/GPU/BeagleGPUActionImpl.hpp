@@ -291,6 +291,98 @@ void MemcpyDeviceToHost(T* hptr, const T* dptr, int n)
     if (status != cudaSuccess)
 	throw std::runtime_error("cudaMemcpy(Device->Host): failed!");
 }
+
+// Create an io-manipulator so that we can write std::cerr<<byRow(D)<<"\n";
+template <typename Real>
+class byRow
+{
+    const DnMatrixDevice<Real>& D;
+public:
+
+    friend std::ostream& operator<<(std::ostream& o, const byRow<Real>& pr)
+    {
+        auto& D = pr.D;
+        Real* hPtr = new Real[D.size()];
+
+        MemcpyDeviceToHost(hPtr, D.ptr, D.size());
+
+        o<<"Rows[ ";
+        for(int row=0;row<D.size1;row++)
+        {
+            o<<"[ ";
+            for(int col=0;col<D.size2;col++)
+            {
+                if (D.order == CUSPARSE_ORDER_COL)
+                    o<<hPtr[col*D.size1 + row]<<" ";
+                else
+                    o<<hPtr[row*D.size2 + col]<<" ";
+            }
+            o<<"] ";
+        }
+        o<<"]";
+
+	if (D.order == CUSPARSE_ORDER_COL)
+	    o<<" (column-major)";
+	else
+	    o<<" (row-major)";
+
+        delete hPtr;
+
+        return o;
+    }
+
+    // Initialize the forwarding struct from the matrix that we want to print.
+    byRow(const DnMatrixDevice<Real>& d):D(d) {}
+};
+
+// Create an io-manipulator so that we can write std::cerr<<byCol(D)<<"\n";
+template <typename Real>
+class byCol
+{
+    const DnMatrixDevice<Real>& D;
+public:
+
+    friend std::ostream& operator<<(std::ostream& o, const byCol<Real>& pr)
+    {
+	auto& D = pr.D;
+
+        Real* hPtr = new Real[D.size()];
+
+        MemcpyDeviceToHost(hPtr, D.ptr, D.size());
+
+        o<<"Cols[ ";
+        for(int col=0;col<D.size2;col++)
+        {
+            o<<"[ ";
+            for(int row=0;row<D.size1;row++)
+            {
+                if (D.order == CUSPARSE_ORDER_COL)
+                    o<<hPtr[col*D.size1 + row]<<" ";
+                else
+                    o<<hPtr[row*D.size2 + col]<<" ";
+            }
+            o<<"] ";
+        }
+        o<<"]";
+
+	if (D.order == CUSPARSE_ORDER_COL)
+	    o<<" (column-major)";
+	else
+	    o<<" (row-major)";
+
+        delete hPtr;
+
+        return o;
+    }
+
+    // Initialize the forwarding struct from the matrix that we want to print.
+    byCol(const DnMatrixDevice<Real>& d):D(d) {}
+};
+
+template <typename Real>
+std::ostream& operator<<(std::ostream& o, const DnMatrixDevice<Real>& D)
+{
+    return o<<byRow(D);
 }
 
 BEAGLE_GPU_TEMPLATE
