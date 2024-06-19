@@ -208,6 +208,17 @@ struct DnMatrixDevice
 	return *this;
     }
 
+    DnMatrixDevice<Real>& operator*=(Real d)
+    {
+        if constexpr (std::is_same<Real, float>::value) {
+            cublasSscal(cublasHandle, size(), &d, ptr, 1);
+        } else {
+            cublasDscal(cublasHandle, size(), &d, ptr, 1);
+        }
+
+	return *this;
+    }
+
     DnMatrixDevice<Real>& operator+=(const DnMatrixDevice<Real>& D)
     {
 	assert(D.size1 == size1);
