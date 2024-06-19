@@ -284,10 +284,10 @@ public:
                 else
                     o<<hPtr[row*D.size2 + col]<<", ";
             }
-	    if (multiline)
-		o<<"\n";
-	    else
+	    if (not multiline)
 		o<<"] ";
+	    else if (row+1 != D.size1)
+		o<<"\n";
         }
         if (not multiline) o<<"]";
 
@@ -296,6 +296,7 @@ public:
 	else
 	    o<<" (row-major)";
 
+	if (multiline) o<<"\n";
         return o;
     }
 
