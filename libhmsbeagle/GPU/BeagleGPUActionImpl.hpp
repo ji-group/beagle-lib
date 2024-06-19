@@ -307,28 +307,33 @@ template <typename Real>
 class byRowDense
 {
     const DnMatrixDevice<Real>& D;
+    bool multiline = false;
 public:
 
     friend std::ostream& operator<<(std::ostream& o, const byRowDense<Real>& pr)
     {
         auto& D = pr.D;
+	bool multiline = pr.multiline;
 
         auto hPtr = MemcpyDeviceToHostVector(D.ptr, D.size());
 
-        o<<"Rows[ ";
+        if (not multiline) o<<"Rows[ ";
         for(int row=0;row<D.size1;row++)
         {
-            o<<"[ ";
+            if (not multiline) o<<"[ ";
             for(int col=0;col<D.size2;col++)
             {
                 if (D.order == CUSPARSE_ORDER_COL)
-                    o<<hPtr[col*D.size1 + row]<<" ";
+                    o<<hPtr[col*D.size1 + row]<<", ";
                 else
-                    o<<hPtr[row*D.size2 + col]<<" ";
+                    o<<hPtr[row*D.size2 + col]<<", ";
             }
-            o<<"] ";
+	    if (multiline)
+		o<<"\n";
+	    else
+		o<<"] ";
         }
-        o<<"]";
+        if (not multiline) o<<"]";
 
 	if (D.order == CUSPARSE_ORDER_COL)
 	    o<<" (column-major)";
@@ -339,7 +344,7 @@ public:
     }
 
     // Initialize the forwarding struct from the matrix that we want to print.
-    byRowDense(const DnMatrixDevice<Real>& d):D(d) {}
+    byRowDense(const DnMatrixDevice<Real>& d, bool m=false):D(d),multiline(m) {}
 };
 
 // Create an io-manipulator so that we can write std::cerr<<byCol(D)<<"\n";
@@ -362,9 +367,9 @@ public:
             for(int row=0;row<D.size1;row++)
             {
                 if (D.order == CUSPARSE_ORDER_COL)
-                    o<<hPtr[col*D.size1 + row]<<" ";
+                    o<<hPtr[col*D.size1 + row]<<", ";
                 else
-                    o<<hPtr[row*D.size2 + col]<<" ";
+                    o<<hPtr[row*D.size2 + col]<<", ";
             }
             o<<"] ";
         }
@@ -425,7 +430,7 @@ public:
             o<<"[ ";
 	    for(int col=0;col<D[row].size();col++)
 	    {
-		o<<D[row][col]<<" ";
+		o<<D[row][col]<<", ";
             }
             o<<"] ";
         }
@@ -441,9 +446,9 @@ public:
 };
 
 template <typename Real>
-byRowDense<Real> byRow(const DnMatrixDevice<Real>& D)
+byRowDense<Real> byRow(const DnMatrixDevice<Real>& D, bool m)
 {
-    return byRowDense<Real>(D);
+    return byRowDense<Real>(D, m);
 }
 
 template <typename Real>
@@ -461,7 +466,7 @@ byColDense<Real> byCol(const DnMatrixDevice<Real>& D)
 template <typename Real>
 std::ostream& operator<<(std::ostream& o, const DnMatrixDevice<Real>& D)
 {
-    return o<<byRow(D);
+    return o<<byRow(D, true);
 }
 
 template <typename Real>
