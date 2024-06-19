@@ -871,7 +871,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::PrintfDeviceVector(int* dPtr,
         for(int i=0; i<length; i++) {
             sum += hPtr[i];
             if( (hPtr[i] > checkValue) && (hPtr[i]-checkValue > 1.0E-4)) {
-                fprintf(stderr,"Check value exception!  (%d) %2.5e > %2.5e (diff = %2.5e)\n",
+                fprintf(stderr,"Check value exception!  (%d) %2.5d > %2.5e (diff = %2.5e)\n",
                         i,hPtr[i],checkValue, (hPtr[i]-checkValue));
                 if( signal != 0 )
                     *signal = 1;
@@ -889,6 +889,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::PrintfDeviceVector(int* dPtr,
         }
     }
     free(hPtr);
+    return 0;
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -926,6 +927,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::PrintfDeviceVector(Real* dPtr,
         }
     }
     free(hPtr);
+    return 0;
 }
 
 BEAGLE_GPU_TEMPLATE
