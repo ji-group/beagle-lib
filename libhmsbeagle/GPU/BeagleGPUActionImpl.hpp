@@ -258,14 +258,6 @@ long long BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getFlags()
     return flags;
 }
 
-template <typename T> cusparseIndexType_t IndexType;
-template <> cusparseIndexType_t IndexType<int32_t> = CUSPARSE_INDEX_32I;
-template <> cusparseIndexType_t IndexType<int64_t> = CUSPARSE_INDEX_64I;
-
-template <typename T> cudaDataType DataType;
-template <> cudaDataType DataType<float> = CUDA_R_32F;
-template <> cudaDataType DataType<double> = CUDA_R_64F;
-
 template <typename T>
 T* cudaDeviceNew(int n)
 {
