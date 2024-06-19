@@ -1263,12 +1263,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
             }
             c1 = c2;
         }
-//        F *= eta;
-        if constexpr (std::is_same<Real, float>::value) {
-            CUBLAS_CHECK(cublasSscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &eta, F[category].ptr, 1));
-        } else {
-            CUBLAS_CHECK(cublasDscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &eta, F[category].ptr, 1));
-        }
+
+	F[category] *= eta;
 //#ifdef BEAGLE_DEBUG_FLOW
 //
 //        std::cerr<<"F *= eta (eta ="<<eta<<"):"<<std::endl;
