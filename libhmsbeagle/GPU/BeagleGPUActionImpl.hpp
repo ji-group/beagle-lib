@@ -1185,25 +1185,22 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"Before destP = partials operation, destPCache:\n"<<std::endl;
-//    PrintfDeviceVector(dPartialsWrapper[partialsIndex].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//    std::cerr<<byCol(dPartialsWrapper[partialsIndex])<<"\n";
 //#endif
 
 //    destP = partials;
     dPartialsWrapper[destPIndex].copyFrom(  dPartialsWrapper[partialsIndex] );
 
-
 //#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"destP = partials, copying: \n"<<std::endl;
-//    PrintfDeviceVector(dPartialsWrapper[partialsIndex].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//    std::cerr<<"\nto:\n"<<std::endl;
-//    PrintfDeviceVector(dPartialsWrapper[destPIndex].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//    std::cerr<<"destP = partials:\n";
+//    std::cerr<<"   from: "<<byCol(dPartialsWrapper[partialsIndex])<<"\n";
+//    std::cerr<<"   to:   "<<byCol(dPartialsWrapper[destPIndex])<<"\n";
 //#endif
 
 //    MatrixXd F(kStateCount, nCol);
 //    F = destP;
     F[category].copyFrom( dPartialsWrapper[partialsIndex] );
 
-//    CHECK_CUSPARSE(cusparseDnMatSetValues(F[category], dPartialsWrapper[partialsIndex].ptr)) // TODO: loop category within this function
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"F = partials operation, FCache:"<<std::endl;
 //    PrintfDeviceVector(F[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
@@ -1280,9 +1277,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //        destP = F;
         MemcpyDeviceToDevice(dPartialsWrapper[destPIndex].ptr, F[category].ptr, kPaddedStateCount * kPaddedPatternCount);
 #ifdef BEAGLE_DEBUG_FLOW
-
-        std::cerr<<"destP = F:"<<std::endl;
-        PrintfDeviceVector(dPartialsWrapper[destPIndex].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+        std::cerr<<"destP = F:\n";
+	std::cerr<<"  "<<byCol(dPartialsWrapper[destPIndex])<<"\n";
 #endif
     }
 
