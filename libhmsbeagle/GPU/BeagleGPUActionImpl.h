@@ -400,10 +400,8 @@ protected:
     std::vector<DnMatrixDevice<Real>> dIntegrationTmpRight;
     std::vector<SpMatrixDevice<Real>> dAs;
     std::vector<size_t> integrationLeftBufferSize;
-    std::vector<size_t> integrationLeftStoredBufferSize;
     std::vector<void*> dIntegrationLeftBuffer;
     std::vector<size_t> integrationRightBufferSize;
-    std::vector<size_t> integrationRightStoredBufferSize;
     std::vector<void*> dIntegrationRightBuffer;
 
     std::vector<int *> dBsCsrOffsetsCache;
