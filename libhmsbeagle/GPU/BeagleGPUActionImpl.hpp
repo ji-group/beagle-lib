@@ -1188,8 +1188,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //#endif
 
 //    destP = partials;
-    MemcpyDeviceToDevice(dPartialsWrapper[destPIndex].ptr, dPartialsWrapper[partialsIndex].ptr, kPaddedStateCount * kPaddedPatternCount);
-//    CHECK_CUSPARSE(cusparseDnMatSetValues(dPartialsWrapper[destPIndex], dPartialsWrapper[partialsIndex].ptr))
+    dPartialsWrapper[destPIndex].copyFrom(  dPartialsWrapper[partialsIndex] );
 
 
 //#ifdef BEAGLE_DEBUG_FLOW
@@ -1201,7 +1200,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 
 //    MatrixXd F(kStateCount, nCol);
 //    F = destP;
-    MemcpyDeviceToDevice(F[category].ptr, dPartialsWrapper[partialsIndex].ptr, kPaddedStateCount * kPaddedPatternCount);
+    F[category].copyFrom( dPartialsWrapper[partialsIndex] );
+
 //    CHECK_CUSPARSE(cusparseDnMatSetValues(F[category], dPartialsWrapper[partialsIndex].ptr)) // TODO: loop category within this function
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"F = partials operation, FCache:"<<std::endl;
