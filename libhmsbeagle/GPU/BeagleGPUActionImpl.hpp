@@ -1268,7 +1268,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //            std::cerr<<"j/m = "<<j<<"/"<<m<<", alpha = "<<alpha<<std::endl;
 //#endif
 //            destP = t / (s * j) * A * destP;
-	    std::cerr<<"\ncategory = "<<category<<"  i = "<<i<<"  j = "<<j<<"  A = "<<byRow(A)<<"\n";
+//	    std::cerr<<"\ncategory = "<<category<<"  i = "<<i<<"  j = "<<j<<"  A = "<<byRow(A)<<"\n";
             spMM<Real>(integrationTmp[category], t / ((Real) s * j), A, dPartialsWrapper[destPIndex], 0, integrationBuffer[category], integrationBufferSize[category]);
 
 //#ifdef BEAGLE_DEBUG_FLOW
