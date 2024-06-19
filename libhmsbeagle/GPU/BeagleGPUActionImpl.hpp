@@ -1245,14 +1245,14 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
 //            std::cerr<<"j/m = "<<j<<"/"<<m<<", alpha = "<<alpha<<std::endl;
 //#endif
 
-//            destP = t / (s * j) * A * destP;
+//            integrationTmp = t / (s * j) * A * destP;
             spMM<Real>(integrationTmp, t / ((Real) s * j), A, destP, 0, integrationBuffer[category], integrationBufferSize[category]);
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"edge multiplier = "<< hEdgeMultipliers[edgeIndex * kCategoryCount + category]<<"\nB ="<<std::endl;
 //            PrintfDeviceVector(dBsCsrValuesCache[hEigenMaps[edgeIndex]], currentCacheNNZs[hEigenMaps[edgeIndex]], -1, 0, 0);
 //            std::cerr<<"A =\n"<<A<<"\n";
-//            std::cerr<<"AP * alpha = "<<byCol(integrationTmp[category])<<"\n";
+//            std::cerr<<"AP * alpha = "<<byCol(integrationTmp)<<"\n";
 //#endif
 
             // destP = IntegrationTmp
