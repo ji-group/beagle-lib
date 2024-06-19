@@ -284,6 +284,15 @@ void MemcpyDeviceToDevice(T* dptr, const T* hptr, int n)
 	throw std::runtime_error("cudaMemcpy(Host->Device): failed!");
 }
 
+template <typename T>
+void MemcpyDeviceToHost(T* hptr, const T* dptr, int n)
+{
+    auto status = cudaMemcpy(hptr, dptr, n*sizeof(T), cudaMemcpyDeviceToHost);
+    if (status != cudaSuccess)
+	throw std::runtime_error("cudaMemcpy(Device->Host): failed!");
+}
+}
+
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                   int partialsBufferCount,
