@@ -1233,17 +1233,15 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"j/m = "<<j<<"/"<<m<<", alpha = "<<alpha<<std::endl;
 //#endif
+
 //            destP = t / (s * j) * A * destP;
-//	    std::cerr<<"\ncategory = "<<category<<"  i = "<<i<<"  j = "<<j<<"  A = "<<byRow(A)<<"\n";
             spMM<Real>(integrationTmp[category], t / ((Real) s * j), A, dPartialsWrapper[destPIndex], 0, integrationBuffer[category], integrationBufferSize[category]);
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"edge multiplier = "<< hEdgeMultipliers[edgeIndex * kCategoryCount + category]<<"\nB ="<<std::endl;
 //            PrintfDeviceVector(dBsCsrValuesCache[hEigenMaps[edgeIndex]], currentCacheNNZs[hEigenMaps[edgeIndex]], -1, 0, 0);
-//            std::cerr<<"A ="<<std::endl;
-//            PrintfDeviceVector(dACscValuesCache[matrixIndex], currentCacheNNZs[hEigenMaps[edgeIndex]], -1, 0, 0);
-//            std::cerr<<"AP * alpha ="<<std::endl;
-//            PrintfDeviceVector(integrationCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//            std::cerr<<"A =\n"<<A<<"\n";
+//            std::cerr<<"AP * alpha = "<<byCol(integrationTmp[category])<<"\n";
 //#endif
 
             // destP = IntegrationTmp
@@ -1254,13 +1252,13 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //            PrintfDeviceVector(dPartialsWrapper[destPIndex].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
-            Real c2 = normPInf(integrationTmp[category]);
 
 //            F += destP;
 	    F[category] += integrationTmp[category];
+
+            Real c2 = normPInf(integrationTmp[category]);
 //#ifdef BEAGLE_DEBUG_FLOW
-//            std::cerr<<"F += destP, c1 = " <<c1 <<"  c2 = " <<c2 <<std::endl;
-//            PrintfDeviceVector(F[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//            std::cerr<<"F += destP, c1 = " <<c1 <<"  c2 = " <<c2 <<byCol(F[category])<<std::endl;
 //#endif
 
             if (c1 + c2 <= tol * normPInf(F[category])) {
