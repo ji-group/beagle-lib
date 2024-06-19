@@ -546,6 +546,10 @@ private:
 
     int getPartialCacheIndex(int nodeIndex, int categoryIndex);
 
+    DnMatrixDevice<Real>& getPartialsWrapper(int nodeIndex, int categoryIndex);
+
+    DnMatrixDevice<Real>& getPartialsCacheWrapper(int nodeIndex, int categoryIndex);
+
     void calcPartialsPartials(int destPIndex,
                               int partials1Index,
                               int edgeIndex1,

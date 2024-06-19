@@ -736,6 +736,16 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialCacheIndex(int nodeIndex,
 }
 
 BEAGLE_GPU_TEMPLATE
+DnMatrixDevice<Real>& BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialsWrapper(int nodeIndex, int categoryIndex) {
+    return dPartialsWrapper[getPartialIndex(nodeIndex, categoryIndex)];
+}
+
+BEAGLE_GPU_TEMPLATE
+DnMatrixDevice<Real>& BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialsCacheWrapper(int nodeIndex, int categoryIndex) {
+    return dPartialsWrapper[getPartialCacheIndex(nodeIndex, categoryIndex)];
+}
+
+BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 							const int *operations,
 							int operationCount,
@@ -957,11 +967,11 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
         const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
         const int matrixIndex2 = hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category;
 
-        simpleAction2(dPartialsWrapper[getPartialCacheIndex(partials1Index, category)], dPartialsWrapper[getPartialIndex(partials1Index, category)],
-                      edgeIndex1, category, hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category, true, false);
+        simpleAction2(getPartialsCacheWrapper(partials1Index, category), getPartialsWrapper(partials1Index, category),
+                      edgeIndex1, category, matrixIndex1, true, false);
 
-        simpleAction2(dPartialsWrapper[getPartialCacheIndex(partials2Index, category)], dPartialsWrapper[getPartialIndex(partials2Index, category)],
-                      edgeIndex2, category, hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category, false, false);
+        simpleAction2(getPartialsCacheWrapper(partials2Index, category), getPartialsWrapper(partials2Index, category),
+                      edgeIndex2, category, matrixIndex2, false, false);
     }
 
 //    simpleAction3(partials1Index, edgeIndex1, partials2Index, edgeIndex2);
@@ -974,6 +984,7 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
         const int partial1CacheIndex = getPartialCacheIndex(partials1Index, category);
         const int partial2CacheIndex = getPartialCacheIndex(partials2Index, category);
 
+	// element-wise multiply
         if constexpr (std::is_same<Real, float>::value) {
             CUBLAS_CHECK(cublasSdgmm(cublasHandle, CUBLAS_SIDE_LEFT, kPaddedStateCount * kPaddedPatternCount, 1, dPartialsWrapper[partial1CacheIndex].ptr, kPaddedStateCount * kPaddedPatternCount,
                                      dPartialsWrapper[partial2CacheIndex].ptr, 1, dPartialsWrapper[destPartialIndex].ptr, kPaddedStateCount * kPaddedPatternCount));
