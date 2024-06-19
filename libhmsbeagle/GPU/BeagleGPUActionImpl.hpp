@@ -1240,7 +1240,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //#endif
 
             // destP = IntegrationTmp
-            MemcpyDeviceToDevice(dPartialsWrapper[destPIndex].ptr, integrationTmp[category].ptr, kPaddedStateCount * kPaddedPatternCount);
+            dPartialsWrapper[destPIndex].copyFrom( integrationTmp[category] );
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //
@@ -1275,7 +1275,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //        PrintfDeviceVector(F[category].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 //        destP = F;
-        MemcpyDeviceToDevice(dPartialsWrapper[destPIndex].ptr, F[category].ptr, kPaddedStateCount * kPaddedPatternCount);
+        dPartialsWrapper[destPIndex].copyFrom ( F[category] );
 #ifdef BEAGLE_DEBUG_FLOW
         std::cerr<<"destP = F:\n";
 	std::cerr<<"  "<<byCol(dPartialsWrapper[destPIndex])<<"\n";
