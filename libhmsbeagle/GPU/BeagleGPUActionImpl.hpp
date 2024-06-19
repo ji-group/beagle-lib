@@ -360,11 +360,14 @@ template <typename Real>
 class byRowSparse
 {
     const SpMatrixDevice<Real>& S;
+    bool multiline = false;
 public:
 
     friend std::ostream& operator<<(std::ostream& o, const byRowSparse<Real>& pr)
     {
         auto& S = pr.S;
+	bool multiline = pr.multiline;
+
 	auto values = MemcpyDeviceToHostVector(S.values, S.num_non_zeros);
 	auto inner = MemcpyDeviceToHostVector(S.inner, S.num_non_zeros);
 	auto offsets = MemcpyDeviceToHostVector(S.offsets, S.outer_dim_size() + 1);
@@ -381,37 +384,41 @@ public:
             }
         }
 
-        o<<"Row[ ";
+        if (not multiline) o<<"Row[ ";
 	for(int row=0;row<D.size();row++)
 	{
-            o<<"[ ";
+            if (not multiline) o<<"[ ";
 	    for(int col=0;col<D[row].size();col++)
 	    {
 		o<<D[row][col]<<", ";
             }
-            o<<"] ";
+            if (not multiline)
+		o<<"] ";
+	    else if (row+1 != D.size())
+		o<<"\n";
         }
-        o<<"]";
+        if (not multiline) o<<"]";
 
 	o<<" ("<<S.format<<")";
+	if (multiline) o<<"\n";
 
         return o;
     }
 
     // Initialize the forwarding struct from the matrix that we want to print.
-    byRowSparse(const SpMatrixDevice<Real>& s):S(s) {}
+    byRowSparse(const SpMatrixDevice<Real>& s, bool m = false):S(s),multiline(m) {}
 };
 
 template <typename Real>
-byRowDense<Real> byRow(const DnMatrixDevice<Real>& D, bool m)
+byRowDense<Real> byRow(const DnMatrixDevice<Real>& D, bool m = false)
 {
     return byRowDense<Real>(D, m);
 }
 
 template <typename Real>
-byRowSparse<Real> byRow(const SpMatrixDevice<Real>& D)
+byRowSparse<Real> byRow(const SpMatrixDevice<Real>& D, bool m = false)
 {
-    return byRowSparse<Real>(D);
+    return byRowSparse<Real>(D, m);
 }
 
 template <typename Real>
@@ -429,7 +436,7 @@ std::ostream& operator<<(std::ostream& o, const DnMatrixDevice<Real>& D)
 template <typename Real>
 std::ostream& operator<<(std::ostream& o, const SpMatrixDevice<Real>& D)
 {
-    return o<<byRow(D);
+    return o<<byRow(D, true);
 }
 
 BEAGLE_GPU_TEMPLATE
