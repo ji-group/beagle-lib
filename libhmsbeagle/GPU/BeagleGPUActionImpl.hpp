@@ -957,10 +957,10 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
         const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
         const int matrixIndex2 = hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category;
 
-        simpleAction2(getPartialCacheIndex(partials1Index, category), getPartialIndex(partials1Index, category),
+        simpleAction2(dPartialsWrapper[getPartialCacheIndex(partials1Index, category)], dPartialsWrapper[getPartialIndex(partials1Index, category)],
                       edgeIndex1, category, hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category, true, false);
 
-        simpleAction2(getPartialCacheIndex(partials2Index, category), getPartialIndex(partials2Index, category),
+        simpleAction2(dPartialsWrapper[getPartialCacheIndex(partials2Index, category)], dPartialsWrapper[getPartialIndex(partials2Index, category)],
                       edgeIndex2, category, hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category, false, false);
     }
 
@@ -1154,7 +1154,7 @@ int spMM(DnMatrixDevice<Real>& C, Real alpha, const SpMatrixDevice<Real>& A, con
 }
 
 BEAGLE_GPU_TEMPLATE
-int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose) {
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>& destP, const DnMatrixDevice<Real>& inPartials, int edgeIndex, int category, int matrixIndex, bool left, bool transpose) {
     const double tol = pow(2.0, -53.0);
     const double t = 1.0;
     const int nCol = kPaddedStateCount * kPaddedPatternCount;
@@ -1167,7 +1167,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 
 #ifdef BEAGLE_DEBUG_FLOW
     std::cerr << "\n\nsimpleAction2: m = " << m << "  s = " << s << " t = " << t << " nCol = " << nCol << " edgeMultiplier = " << edgeMultiplier << std::endl;
-    std::cerr << "destPIndex = "<<destPIndex<<" partialsIndex = " << partialsIndex << "  edgeIndex = " << edgeIndex << " category = " << category << " matrixIndex = "<<matrixIndex << std::endl;
+    std::cerr << "  edgeIndex = " << edgeIndex << " category = " << category << " matrixIndex = "<<matrixIndex << std::endl;
 #endif
 
 //    SpMatrix<Real> A = hBs[hEigenMaps[edgeIndex]] * edgeMultiplier;
@@ -1187,30 +1187,30 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
         integrationBuffer = dIntegrationRightBuffer;
         integrationBufferSize = integrationRightBufferSize;
     }
-    auto& F = *FF;
-    auto& integrationTmp = *integrationTmpPtr;
+    auto& F = (*FF)[category];
+    auto& integrationTmp = (*integrationTmpPtr)[category];
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"Before destP = partials operation, destPCache:\n"<<std::endl;
-//    std::cerr<<byCol(dPartialsWrapper[partialsIndex])<<"\n";
+//    std::cerr<<byCol(inPartials)<<"\n";
 //#endif
 
 //    destP = partials;
-    dPartialsWrapper[destPIndex].copyFrom(  dPartialsWrapper[partialsIndex] );
+    destP.copyFrom( inPartials );
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"destP = partials:\n";
-//    std::cerr<<"   from: "<<byCol(dPartialsWrapper[partialsIndex])<<"\n";
-//    std::cerr<<"   to:   "<<byCol(dPartialsWrapper[destPIndex])<<"\n";
+//    std::cerr<<"   from: "<<byCol(inPartials)<<"\n";
+//    std::cerr<<"   to:   "<<byCol(destP)<<"\n";
 //#endif
 
 //    MatrixXd F(kStateCount, nCol);
 //    F = destP;
-    F[category].copyFrom( dPartialsWrapper[partialsIndex] );
+    F.copyFrom( inPartials );
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"F = partials operation, FCache:"<<std::endl;
-//    PrintfDeviceVector(F[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//    PrintfDeviceVector(F, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
     cudaDeviceSynchronize();
 
@@ -1224,10 +1224,10 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
     for (int i = 0; i < s; i++) {
 //#ifdef BEAGLE_DEBUG_FLOW
 //        std::cerr<<"dPartials:"<<std::endl;
-//        PrintfDeviceVector(dPartialsWrapper[partialsIndex].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//        PrintfDeviceVector(inPartials.ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
-        Real c1 = normPInf(dPartialsWrapper[partialsIndex]);
+        Real c1 = normPInf(inPartials);
 
         for (int j = 1; j < m + 1; j++) {
 //#ifdef BEAGLE_DEBUG_FLOW
@@ -1235,7 +1235,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //#endif
 
 //            destP = t / (s * j) * A * destP;
-            spMM<Real>(integrationTmp[category], t / ((Real) s * j), A, dPartialsWrapper[destPIndex], 0, integrationBuffer[category], integrationBufferSize[category]);
+            spMM<Real>(integrationTmp, t / ((Real) s * j), A, destP, 0, integrationBuffer[category], integrationBufferSize[category]);
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"edge multiplier = "<< hEdgeMultipliers[edgeIndex * kCategoryCount + category]<<"\nB ="<<std::endl;
@@ -1245,39 +1245,39 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 //#endif
 
             // destP = IntegrationTmp
-            dPartialsWrapper[destPIndex].copyFrom( integrationTmp[category] );
+            destP.copyFrom( integrationTmp );
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"P = IntegrationTmp ="<<std::endl;
-//            PrintfDeviceVector(dPartialsWrapper[destPIndex].ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//            PrintfDeviceVector(destP.ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
 
 
 //            F += destP;
-	    F[category] += integrationTmp[category];
+	    F += integrationTmp;
 
-            Real c2 = normPInf(integrationTmp[category]);
+            Real c2 = normPInf(integrationTmp);
 //#ifdef BEAGLE_DEBUG_FLOW
-//            std::cerr<<"F += destP, c1 = " <<c1 <<"  c2 = " <<c2 <<byCol(F[category])<<std::endl;
+//            std::cerr<<"F += destP, c1 = " <<c1 <<"  c2 = " <<c2 <<byCol(F)<<std::endl;
 //#endif
 
-            if (c1 + c2 <= tol * normPInf(F[category])) {
+            if (c1 + c2 <= tol * normPInf(F)) {
                 break;
             }
             c1 = c2;
         }
 
-	F[category] *= eta;
+	F *= eta;
 
 //#ifdef BEAGLE_DEBUG_FLOW
-//        std::cerr<<"F *= eta (eta ="<<eta<<"): "<<F[category]<<"\n";
+//        std::cerr<<"F *= eta (eta ="<<eta<<"): "<<F<<"\n";
 //#endif
 
 //        destP = F;
-        dPartialsWrapper[destPIndex].copyFrom ( F[category] );
+        destP.copyFrom ( F );
 
 #ifdef BEAGLE_DEBUG_FLOW
-        std::cerr<<"i = "<<i<<" destP = F:\n"<<"  "<<byCol(dPartialsWrapper[destPIndex])<<"\n";
+        std::cerr<<"i = "<<i<<" destP = F:\n"<<"  "<<byCol(destP)<<"\n";
 #endif
     }
 

@@ -552,7 +552,7 @@ private:
                               int partials2Index,
                               int edgeIndex2);
 
-    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose);
+    int simpleAction2(DnMatrixDevice<Real>& destP, const DnMatrixDevice<Real>& inPartials, int edgeIndex, int category, int matrixIndex, bool left, bool transpose);
 
     int simpleAction3(int partialsIndex1, int edgeIndex1,
                       int partialsIndex2, int edgeIndex2);
