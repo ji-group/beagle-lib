@@ -732,7 +732,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialIndex(int nodeIndex, int 
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialCacheIndex(int nodeIndex, int categoryIndex) {
-    return kPartialsCacheOffset + getPartialIndex(nodeIndex, categoryIndex);
+    return kPartialsCacheOffset * kCategoryCount + getPartialIndex(nodeIndex, categoryIndex);
 }
 
 BEAGLE_GPU_TEMPLATE
