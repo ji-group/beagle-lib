@@ -1252,19 +1252,15 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
 //            std::cerr<<"AP * alpha = "<<byCol(integrationTmp)<<"\n";
 //#endif
 
-            // destP = IntegrationTmp
             destP.copyFrom( integrationTmp );
 
 //#ifdef BEAGLE_DEBUG_FLOW
-//            std::cerr<<"P = IntegrationTmp ="<<std::endl;
-//            PrintfDeviceVector(destP.ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//            std::cerr<<"P = IntegrationTmp = "<<byCol(destP)<<std::endl;
 //#endif
 
+	    F += destP;
 
-//            F += destP;
-	    F += integrationTmp;
-
-            Real c2 = normPInf(integrationTmp);
+            Real c2 = normPInf(destP);
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"F += destP, c1 = " <<c1 <<"  c2 = " <<c2 <<byCol(F)<<std::endl;
 //#endif
