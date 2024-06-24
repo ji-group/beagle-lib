@@ -1085,7 +1085,8 @@ std::tuple<int,int> BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getStatistics2(doub
 }
 
 BEAGLE_GPU_TEMPLATE
-int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose) {
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose)
+{
     for (int category = 0; category < kCategoryCount; category++) {
         const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
         const int edgeMultiplierIndex1 = edgeIndex1 * kCategoryCount + category;
@@ -1095,16 +1096,28 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
         const int edgeMultiplierIndex2 = edgeIndex2 * kCategoryCount + category;
         const Real edgeMultiplier2 = hEdgeMultipliers[edgeMultiplierIndex2];
 
-
         MemcpyDeviceToDevice(dACscValuesCache[matrixIndex1], dBsCsrValuesCache[hEigenMaps[edgeIndex1]], currentCacheNNZs[hEigenMaps[edgeIndex1]]);
         MemcpyDeviceToDevice(dACscValuesCache[matrixIndex2], dBsCsrValuesCache[hEigenMaps[edgeIndex2]], currentCacheNNZs[hEigenMaps[edgeIndex2]]);
-        if constexpr (std::is_same<Real, float>::value) {
-            CUBLAS_CHECK(cublasSscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex1]], &edgeMultiplier1, dACscValuesCache[matrixIndex1], 1));  //Check if this is asynchronous with the following
-            CUBLAS_CHECK(cublasSscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex2]], &edgeMultiplier2, dACscValuesCache[matrixIndex2], 1));  //Check if this is asynchronous with the following
-        } else {
-            CUBLAS_CHECK(cublasDscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex1]], &edgeMultiplier1, dACscValuesCache[matrixIndex1], 1));  //Check if this is asynchronous with the following
-            CUBLAS_CHECK(cublasDscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex2]], &edgeMultiplier2, dACscValuesCache[matrixIndex2], 1));  //Check if this is asynchronous with the following
-        }
+	auto format = transpose ? sparseFormat::csc : sparseFormat::csr;
+
+	dAs[matrixIndex1] = SpMatrixDevice<Real>(cublasHandle, cusparseHandle,
+						 kPaddedStateCount, kPaddedStateCount,
+						 currentCacheNNZs[hEigenMaps[edgeIndex1]],
+						 dACscValuesCache[matrixIndex1],
+						 dBsCsrColumnsCache[hEigenMaps[edgeIndex1]],
+						 dBsCsrOffsetsCache[hEigenMaps[edgeIndex1]],
+						 format);
+
+	dAs[matrixIndex2] = SpMatrixDevice<Real>(cublasHandle, cusparseHandle,
+						 kPaddedStateCount, kPaddedStateCount,
+						 currentCacheNNZs[hEigenMaps[edgeIndex2]],
+						 dACscValuesCache[matrixIndex2],
+						 dBsCsrColumnsCache[hEigenMaps[edgeIndex2]],
+						 dBsCsrOffsetsCache[hEigenMaps[edgeIndex2]],
+						 format);
+
+	dAs[matrixIndex1] *= edgeMultiplier1; //Check if this is asynchronous with the following
+	dAs[matrixIndex2] *= edgeMultiplier2;
 
 #ifdef BEAGLE_DEBUG_FLOW
         std::cerr<<"category = "<<category<<std::endl;
@@ -1113,24 +1126,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
         std::cerr<<"edgeMultiplierIndex1 = "<<edgeMultiplierIndex1<<std::endl;
         std::cerr<<"edgeMultiplier1 = "<<edgeMultiplier1<<std::endl;
         std::cerr<<"hEigenMaps[edgeIndex1] = "<<hEigenMaps[edgeIndex1]<<std::endl;
-        PrintfDeviceVector(dACscValuesCache[matrixIndex1], currentCacheNNZs[hEigenMaps[edgeIndex1]], -1, 0, 0);
+	std::cerr<<"dAs["<<matrixIndex1<<"] = \n"<<dAs[matrixIndex1]<<"\n";
 #endif
-
-	auto format = transpose ? sparseFormat::csc : sparseFormat::csr;
-
-	dAs[matrixIndex1] = SpMatrixDevice<Real>(cusparseHandle, kPaddedStateCount, kPaddedStateCount,
-						 currentCacheNNZs[hEigenMaps[edgeIndex1]],
-						 dACscValuesCache[matrixIndex1],
-						 dBsCsrColumnsCache[hEigenMaps[edgeIndex1]],
-						 dBsCsrOffsetsCache[hEigenMaps[edgeIndex1]],
-						 format);
-
-	dAs[matrixIndex2] = SpMatrixDevice<Real>(cusparseHandle, kPaddedStateCount, kPaddedStateCount,
-						 currentCacheNNZs[hEigenMaps[edgeIndex2]],
-						 dACscValuesCache[matrixIndex2],
-						 dBsCsrColumnsCache[hEigenMaps[edgeIndex2]],
-						 dBsCsrOffsetsCache[hEigenMaps[edgeIndex2]],
-						 format);
     }
     cudaDeviceSynchronize();
     return BEAGLE_SUCCESS;

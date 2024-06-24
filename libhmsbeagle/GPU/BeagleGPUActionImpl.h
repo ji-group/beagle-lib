@@ -210,28 +210,40 @@ struct DnMatrixDevice
 
     DnMatrixDevice<Real>& operator*=(Real d)
     {
+        cublasStatus_t status;
         if constexpr (std::is_same<Real, float>::value) {
-            cublasSscal(cublasHandle, size(), &d, ptr, 1);
+            status = cublasSscal(cublasHandle, size(), &d, ptr, 1);
         } else {
-            cublasDscal(cublasHandle, size(), &d, ptr, 1);
+            status = cublasDscal(cublasHandle, size(), &d, ptr, 1);
         }
 
-	return *this;
+        if (status != CUBLAS_STATUS_SUCCESS)
+        {
+            std::cerr<<"cublas error "<<status<<" in DnMatrix<>::operator*=\n";
+            exit(1);
+        }
+        return *this;
     }
 
     DnMatrixDevice<Real>& operator+=(const DnMatrixDevice<Real>& D)
     {
-	assert(D.size1 == size1);
-	assert(D.size2 == size2);
-	assert(D.cublasHandle == cublasHandle);
-	Real one = 1;
-	if constexpr (std::is_same<Real, float>::value) {
-	    cublasSaxpy(cublasHandle, size(), &one, D.ptr, 1, ptr, 1);
-	} else {
-	    cublasDaxpy(cublasHandle, size(), &one, D.ptr, 1, ptr, 1);
-	}
+        cublasStatus_t status;
+        assert(D.size1 == size1);
+        assert(D.size2 == size2);
+        assert(D.cublasHandle == cublasHandle);
+        Real one = 1;
+        if constexpr (std::is_same<Real, float>::value) {
+            status = cublasSaxpy(cublasHandle, size(), &one, D.ptr, 1, ptr, 1);
+        } else {
+            status = cublasDaxpy(cublasHandle, size(), &one, D.ptr, 1, ptr, 1);
+        }
 
-	return *this;
+        if (status != CUBLAS_STATUS_SUCCESS)
+        {
+            std::cerr<<"cublas error "<<status<<" in DnMatrix<>::operator+=\n";
+            exit(1);
+        }
+        return *this;
     }
 
     // Disallow copying.
@@ -273,6 +285,7 @@ enum class sparseFormat { none, csr, csc };
 template <typename Real>
 struct SpMatrixDevice
 {
+    cublasHandle_t cublasHandle = nullptr;
     cusparseHandle_t cusparseHandle = nullptr;
     cusparseSpMatDescr_t descr = nullptr;
     int size1 = 0; // rows
@@ -300,6 +313,7 @@ struct SpMatrixDevice
     // Allow moving.
     SpMatrixDevice<Real>& operator=(SpMatrixDevice<Real>&& D) noexcept
     {
+	std::swap(cublasHandle, D.cublasHandle);
 	std::swap(cusparseHandle, D.cusparseHandle);
 	std::swap(descr, D.descr);
 	std::swap(size1, D.size1);
@@ -312,7 +326,24 @@ struct SpMatrixDevice
 	return *this;
     }
 
-    // Disallow copying.
+    SpMatrixDevice<Real>& operator*=(Real d)
+    {
+        cublasStatus_t status;
+        if constexpr (std::is_same<Real, float>::value) {
+            status = cublasSscal(cublasHandle, num_non_zeros, &d, values, 1);
+        } else {
+            status = cublasDscal(cublasHandle, num_non_zeros, &d, values, 1);
+        }
+
+        if (status != CUBLAS_STATUS_SUCCESS)
+        {
+            std::cerr<<"cublas error "<<status<<" in SpMatrix<>::operator*=\n";
+            exit(1);
+        }
+        return *this;
+    }
+
+   // Disallow copying.
     SpMatrixDevice(const SpMatrixDevice<Real>&) = delete;
     // Allow moving.
     SpMatrixDevice(SpMatrixDevice<Real>&& D) noexcept
@@ -321,8 +352,8 @@ struct SpMatrixDevice
     }
 
     SpMatrixDevice() = default;
-    SpMatrixDevice(cusparseHandle_t h, int s1, int s2, int n, Real* v, int* c, int* o, sparseFormat f)
-	:cusparseHandle(h), size1(s1), size2(s2), num_non_zeros(n), values(v), inner(c), offsets(o), format(f)
+    SpMatrixDevice(cublasHandle_t h1, cusparseHandle_t h2, int s1, int s2, int n, Real* v, int* c, int* o, sparseFormat f)
+	:cublasHandle(h1), cusparseHandle(h2), size1(s1), size2(s2), num_non_zeros(n), values(v), inner(c), offsets(o), format(f)
     {
 	cusparseStatus_t status;
 	if (format == sparseFormat::csc)
