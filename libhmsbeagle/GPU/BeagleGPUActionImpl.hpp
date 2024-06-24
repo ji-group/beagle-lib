@@ -1217,8 +1217,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
     F.copyFrom( inPartials );
 
 //#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"F = partials operation, FCache:"<<std::endl;
-//    PrintfDeviceVector(F, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//    std::cerr<<"F = partials operation, FCache:\n"<<F<<std::endl;
 //#endif
     cudaDeviceSynchronize();
 
@@ -1231,8 +1230,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
     const Real one = 1;
     for (int i = 0; i < s; i++) {
 //#ifdef BEAGLE_DEBUG_FLOW
-//        std::cerr<<"dPartials:"<<std::endl;
-//        PrintfDeviceVector(inPartials.ptr, kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+//        std::cerr<<"dPartials:\n"<<inPartials<<std::endl;
 //#endif
 
         Real c1 = normPInf(inPartials);
