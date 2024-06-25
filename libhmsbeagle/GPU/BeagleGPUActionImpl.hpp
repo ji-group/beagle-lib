@@ -689,42 +689,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updatePartials(const int* operation
     return returnCode;
 }
 
-//BEAGLE_GPU_TEMPLATE
-//int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const int* bufferIndices,
-//                                                                   const int* categoryWeightsIndices,
-//                                                                   const int* stateFrequenciesIndices,
-//                                                                   const int* cumulativeScaleIndices,
-//                                                                   int count,
-//                                                                   double* outSumLogLikelihood) {
-//
-//#ifdef BEAGLE_DEBUG_FLOW
-//    fprintf(stderr, "\tEntering BeagleGPUActionImpl::calculateRootLogLikelihoods\n");
-//#endif
-//
-//    int returnCode = BEAGLE_SUCCESS;
-//
-//    if (count == 1) {
-//
-//    } else {
-//        return BEAGLE_ERROR_NO_IMPLEMENTATION;
-//    }
-//
-//#ifdef BEAGLE_DEBUG_VALUES
-//    Real r = 0;
-//fprintf(stderr, "parent = \n");
-//gpu->PrintfDeviceVector(dIntegrationTmp, kPatternCount, r);
-//#endif
-//
-//
-//#ifdef BEAGLE_DEBUG_FLOW
-//    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::calculateRootLogLikelihoods\n");
-//#endif
-//
-//    return returnCode;
-//}
-
-
-
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialIndex(int nodeIndex, int categoryIndex) {
     return nodeIndex * kCategoryCount + categoryIndex;
