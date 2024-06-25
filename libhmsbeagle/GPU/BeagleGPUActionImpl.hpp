@@ -439,6 +439,42 @@ std::ostream& operator<<(std::ostream& o, const SpMatrixDevice<Real>& D)
     return o<<byRow(D, true);
 }
 
+
+template <typename Real>
+struct asDeviceVec
+{
+    const Real* data;
+    int length;
+
+    asDeviceVec(const Real* d, int l):data(d),length(l) { }
+};
+
+template <typename Real>
+std::ostream& operator<<(std::ostream& o, const asDeviceVec<Real>& D)
+{
+    auto H = MemcpyDeviceToHostVector(D.data, D.length);
+
+    o<<"[ ";
+    for(auto& h: H)
+	o<<h<<" ";
+    o<<"]";
+
+    return o;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& o, const std::vector<T>& H)
+{
+    o<<"[ ";
+    for(auto& h: H)
+	o<<h<<" ";
+    o<<"]";
+
+    return o;
+}
+
+
+
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
                                   int partialsBufferCount,
