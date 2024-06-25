@@ -384,6 +384,18 @@ struct SpMatrixDevice
     }
 };
 
+template <typename Real>
+void dotProduct(Real* out, cublasHandle_t handle, int n, Real* v1, Real* v2)
+{
+    if constexpr (std::is_same<Real, float>::value)
+    {
+	cublasSdot(handle, n, v1, 1, v2, 1, out);
+    }
+    else
+    {
+	cublasDdot(handle, n, v1, 1, v2, 1, out);
+    }
+};
 
 template <typename Real>
 auto normPInf(const DnMatrixDevice<Real>& M)

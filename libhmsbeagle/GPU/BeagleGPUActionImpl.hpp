@@ -1078,8 +1078,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
         gpu->PrintfDeviceVector(dIntegrationTmp, kPaddedPatternCount, r);
 #endif
 
-        kernels->SumSites1(dIntegrationTmp, dSumLogLikelihood, dPatternWeights,
-                                    kPatternCount);
+	// Take the dot product of the pattern log-likelihoods and the pattern weights.
+        dotProduct((Real*)dSumLogLikelihood, cublasHandle, kPatternCount, (Real*)dIntegrationTmp, (Real*)dPatternWeights);
 
         if (kFlags & BEAGLE_FLAG_COMPUTATION_SYNCH) {
             gpu->MemcpyDeviceToHost(hLogLikelihoodsCache, dSumLogLikelihood, sizeof(Real) * kSumSitesBlockCount);
