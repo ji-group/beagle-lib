@@ -548,7 +548,21 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsOrigin;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hCategoryRates;
 
-
+    // For calculateRootLogLikelihoods
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dAccumulatedScalingFactors;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIntegrationTmp;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dWeights;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dFrequencies;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dSumLogLikelihood;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPatternWeights;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hLogLikelihoodsCache;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kSumSitesBlockCount;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kPatternCount;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kScaleBufferSize;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPtrQueue;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPtrQueue;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dMaxScalingFactors;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIndexMaxScalingFactors;
 
     int upPartials(bool byPartition,
 		   const int *operations,
@@ -559,6 +573,13 @@ protected:
 		      const int *operations,
 		      int operationCount,
 		      int cumulativeScalingIndex);
+
+    int calculateRootLogLikelihoods(const int* bufferIndices,
+                                    const int* categoryWeightsIndices,
+                                    const int* stateFrequenciesIndices,
+                                    const int* cumulativeScaleIndices,
+                                    int count,
+                                    double* outSumLogLikelihood);
 
     ~BeagleGPUActionImpl();
 

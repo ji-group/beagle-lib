@@ -1022,6 +1022,152 @@ double BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getDValue(int p, int eigenIndex)
     return hds[eigenIndex][p];
 }
 
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const int* bufferIndices,
+                                                                         const int* categoryWeightsIndices,
+                                                                         const int* stateFrequenciesIndices,
+                                                                         const int* cumulativeScaleIndices,
+                                                                         int count,
+                                                                         double* outSumLogLikelihood) {
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::calculateRootLogLikelihoods\n");
+#endif
+
+    int returnCode = BEAGLE_SUCCESS;
+
+    if (count == 1) {
+        const int rootNodeIndex = bufferIndices[0];
+        const int categoryWeightsIndex = categoryWeightsIndices[0];
+        const int stateFrequenciesIndex = stateFrequenciesIndices[0];
+
+
+        GPUPtr dCumulativeScalingFactor;
+        bool scale = 1;
+        if (kFlags & BEAGLE_FLAG_SCALING_AUTO)
+            dCumulativeScalingFactor = dAccumulatedScalingFactors;
+        else if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS)
+            dCumulativeScalingFactor = dScalingFactors[bufferIndices[0] - kTipCount];
+        else if (cumulativeScaleIndices[0] != BEAGLE_OP_NONE)
+            dCumulativeScalingFactor = dScalingFactors[cumulativeScaleIndices[0]];
+        else
+            scale = 0;
+
+#ifdef BEAGLE_DEBUG_VALUES
+        Real r = 0;
+        fprintf(stderr,"root partials = \n");
+        gpu->PrintfDeviceVector(dPartials[rootNodeIndex], kPaddedPatternCount, r);
+#endif
+
+        if (scale) {
+            kernels->IntegrateLikelihoodsDynamicScaling(dIntegrationTmp, dPartials[rootNodeIndex],
+                                                        dWeights[categoryWeightsIndex],
+                                                        dFrequencies[stateFrequenciesIndex],
+                                                        dCumulativeScalingFactor,
+                                                        kPaddedPatternCount,
+                                                        kCategoryCount);
+        } else {
+            kernels->IntegrateLikelihoods(dIntegrationTmp, dPartials[rootNodeIndex],
+                                          dWeights[categoryWeightsIndex],
+                                          dFrequencies[stateFrequenciesIndex],
+                                          kPaddedPatternCount, kCategoryCount);
+        }
+
+#ifdef BEAGLE_DEBUG_VALUES
+        fprintf(stderr,"before SumSites1 = \n");
+        gpu->PrintfDeviceVector(dIntegrationTmp, kPaddedPatternCount, r);
+#endif
+
+        kernels->SumSites1(dIntegrationTmp, dSumLogLikelihood, dPatternWeights,
+                                    kPatternCount);
+
+        if (kFlags & BEAGLE_FLAG_COMPUTATION_SYNCH) {
+            gpu->MemcpyDeviceToHost(hLogLikelihoodsCache, dSumLogLikelihood, sizeof(Real) * kSumSitesBlockCount);
+
+            *outSumLogLikelihood = 0.0;
+            for (int i = 0; i < kSumSitesBlockCount; i++) {
+                if (hLogLikelihoodsCache[i] != hLogLikelihoodsCache[i])
+                    returnCode = BEAGLE_ERROR_FLOATING_POINT;
+
+                *outSumLogLikelihood += hLogLikelihoodsCache[i];
+            }
+        }
+
+    } else {
+        // TODO: evaluate performance, maybe break up kernels below for each subsetIndex case
+
+        if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
+            for(int n = 0; n < count; n++) {
+                int cumulativeScalingFactor = bufferIndices[n] - kTipCount;
+                hPtrQueue[n] = cumulativeScalingFactor * kScaleBufferSize;
+            }
+            gpu->MemcpyHostToDevice(dPtrQueue, hPtrQueue, sizeof(unsigned int) * count);
+        } else if (cumulativeScaleIndices[0] != BEAGLE_OP_NONE) {
+            for(int n = 0; n < count; n++)
+                hPtrQueue[n] = cumulativeScaleIndices[n] * kScaleBufferSize;
+            gpu->MemcpyHostToDevice(dPtrQueue, hPtrQueue, sizeof(unsigned int) * count);
+        }
+
+        for (int subsetIndex = 0 ; subsetIndex < count; ++subsetIndex ) {
+
+            const GPUPtr tmpDWeights = dWeights[categoryWeightsIndices[subsetIndex]];
+            const GPUPtr tmpDFrequencies = dFrequencies[stateFrequenciesIndices[subsetIndex]];
+            const int rootNodeIndex = bufferIndices[subsetIndex];
+
+            if (cumulativeScaleIndices[0] != BEAGLE_OP_NONE || (kFlags & BEAGLE_FLAG_SCALING_ALWAYS)) {
+                kernels->IntegrateLikelihoodsFixedScaleMulti(dIntegrationTmp, dPartials[rootNodeIndex], tmpDWeights,
+                                                             tmpDFrequencies, dScalingFactors[0], dPtrQueue, dMaxScalingFactors,
+                                                             dIndexMaxScalingFactors,
+                                                             kPaddedPatternCount,
+                                                             kCategoryCount, count, subsetIndex);
+            } else {
+                if (subsetIndex == 0) {
+                    kernels->IntegrateLikelihoodsMulti(dIntegrationTmp, dPartials[rootNodeIndex], tmpDWeights,
+                                                       tmpDFrequencies,
+                                                       kPaddedPatternCount, kCategoryCount, 0);
+                } else if (subsetIndex == count - 1) {
+                    kernels->IntegrateLikelihoodsMulti(dIntegrationTmp, dPartials[rootNodeIndex], tmpDWeights,
+                                                       tmpDFrequencies,
+                                                       kPaddedPatternCount, kCategoryCount, 1);
+                } else {
+                    kernels->IntegrateLikelihoodsMulti(dIntegrationTmp, dPartials[rootNodeIndex], tmpDWeights,
+                                                       tmpDFrequencies,
+                                                       kPaddedPatternCount, kCategoryCount, 2);
+                }
+            }
+
+
+            kernels->SumSites1(dIntegrationTmp, dSumLogLikelihood, dPatternWeights,
+                                        kPatternCount);
+
+            if (kFlags & BEAGLE_FLAG_COMPUTATION_SYNCH) {
+                gpu->MemcpyDeviceToHost(hLogLikelihoodsCache, dSumLogLikelihood, sizeof(Real) * kSumSitesBlockCount);
+
+                *outSumLogLikelihood = 0.0;
+                for (int i = 0; i < kSumSitesBlockCount; i++) {
+                    if (hLogLikelihoodsCache[i] != hLogLikelihoodsCache[i])
+                        returnCode = BEAGLE_ERROR_FLOATING_POINT;
+
+                    *outSumLogLikelihood += hLogLikelihoodsCache[i];
+                }
+            }
+        }
+    }
+
+#ifdef BEAGLE_DEBUG_VALUES
+    Real r = 0;
+    fprintf(stderr, "parent = \n");
+    gpu->PrintfDeviceVector(dIntegrationTmp, kPatternCount, r);
+#endif
+
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::calculateRootLogLikelihoods\n");
+#endif
+
+    return returnCode;
+}
+
 
 BEAGLE_GPU_TEMPLATE
 std::tuple<int,int> BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getStatistics2(double t, int nCol,
