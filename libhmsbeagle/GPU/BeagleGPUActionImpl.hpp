@@ -1052,14 +1052,46 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
         scale = 0;
 
 #ifdef BEAGLE_DEBUG_VALUES
-    Real r = 0;
-    fprintf(stderr,"root partials = \n");
-    gpu->PrintfDeviceVector(dPartials[rootNodeIndex], kPaddedPatternCount, r);
+    std::cerr<<"root partials = "<<asDeviceVec((Real*)dPartials[rootNodeIndex], kPaddedPatternCount * kPaddedStateCount * kCategoryCount)<<"\n";
 #endif
 
-    // We want to sum dRootPartials(category, pattern, state) * dWeights[category] * dFrequencies[state]
+    auto hRootPartials = MemcpyDeviceToHostVector((Real*)dPartials[rootNodeIndex], kPaddedPatternCount * kPaddedStateCount * kCategoryCount);
+    auto hStateFrequencies = MemcpyDeviceToHostVector((Real*)dFrequencies[stateFrequenciesIndex], kStateCount);
+    auto hCategoryWeights = MemcpyDeviceToHostVector((Real*)dWeights[categoryWeightsIndex], kCategoryCount);
+    auto hPatternWeights = MemcpyDeviceToHostVector((Real*)dPatternWeights, kPatternCount);
+    std::vector<Real> hColumnProbs(kPatternCount);
+
+//    std::cerr<<"root partials (h) = "<<hRootPartials<<"\n";
+//    std::cerr<<"state frequencies (h) = "<<hStateFrequencies<<"\n";
+//    std::cerr<<"category weights (h) = "<<hCategoryWeights<<"\n";
+
+    // We want to sum dRootPartials(category, pattern, state) * dWeights[category] * dFrequencies[state,category]
     //    over (category,state).
     // dRootPartials(c,p,s) = dRootPartials[c*kPatternCount*kPaddedStateCount + p*kPaddedStateCount + s]
+    double OurResult = 0;
+    for(int pattern = 0; pattern < kPatternCount; pattern++)
+    {
+	double Pr = 0;
+	for(int category = 0; category < kCategoryCount; category++)
+	{
+	    double tmp = 0;
+	    for(int state = 0; state < kStateCount; state++)
+	    {
+		tmp += hRootPartials[state + pattern*kPaddedStateCount + category*kPaddedStateCount*kPaddedPatternCount] * hStateFrequencies[state];
+	    }
+
+	    Pr += tmp * hCategoryWeights[category];
+	}
+	Pr = log(Pr);
+	hColumnProbs[pattern] = Pr;
+	OurResult += Pr*hPatternWeights[pattern];
+    }
+
+    MemcpyHostToDevice((Real*)dIntegrationTmp, (Real*)hColumnProbs.data(), kPatternCount);
+
+/*
+    std::cerr<<"site probs (d1) = "<<asDeviceVec((Real*)dIntegrationTmp, kPatternCount)<<"\n";
+*/
 
     if (scale) {
         // See kernelIntegrateLikelihoodsAutoScaling in KernelsX.cu
@@ -1084,6 +1116,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     // Take the dot product of the pattern log-likelihoods and the pattern weights.
     // The output (dSumLogLikelihood) needs to be a device pointer.
     dotProduct((Real*)dSumLogLikelihood, cublasHandle, kPatternCount, (Real*)dIntegrationTmp, (Real*)dPatternWeights);
+
+    std::cerr<<"logLikelihood (kernel) = "<<MemcpyDeviceToHostVector((Real*)dSumLogLikelihood,1)[0]<<"   logLikelihood (ours) = "<<OurResult<<"\n";
 
     if (kFlags & BEAGLE_FLAG_COMPUTATION_SYNCH) {
         gpu->MemcpyDeviceToHost(hLogLikelihoodsCache, dSumLogLikelihood, sizeof(Real) * kSumSitesBlockCount);
