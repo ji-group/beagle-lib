@@ -1078,8 +1078,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     }
 
 #ifdef BEAGLE_DEBUG_VALUES
-    fprintf(stderr,"before SumSites1 = \n");
-    gpu->PrintfDeviceVector(dIntegrationTmp, kPaddedPatternCount, r);
+    std::cerr<<"before pattern weights = "<<asDeviceVec((Real*)dIntegrationTmp, kPatternCount)<<"\n";
 #endif
 
     // Take the dot product of the pattern log-likelihoods and the pattern weights.
