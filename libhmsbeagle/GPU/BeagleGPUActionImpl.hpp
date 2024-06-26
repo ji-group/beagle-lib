@@ -1209,6 +1209,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     std::cerr<<"site probs (d1) = "<<asDeviceVec((Real*)dIntegrationTmp, kPatternCount)<<"\n";
 */
 
+    /*
     if (scale) {
         // if SCALING_AUTO -> See kernelIntegrateLikelihoodsAutoScaling (in KernelsX.cu)
         // otherwise       -> see kernelIntegrateLikelihoodsFixedScale  (in KernelsX.cu)
@@ -1225,6 +1226,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
                                       dFrequencies[stateFrequenciesIndex],
                                       kPaddedPatternCount, kCategoryCount);
     }
+    */
 
 #ifdef BEAGLE_DEBUG_VALUES
     std::cerr<<"before pattern weights = "<<asDeviceVec((Real*)dIntegrationTmp, kPatternCount)<<"\n";
