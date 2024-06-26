@@ -1084,11 +1084,26 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     auto hStateFrequencies = MemcpyDeviceToHostVector((Real*)dFrequencies[stateFrequenciesIndex], kStateCount);
     auto hCategoryWeights = MemcpyDeviceToHostVector((Real*)dWeights[categoryWeightsIndex], kCategoryCount);
     auto hPatternWeights = MemcpyDeviceToHostVector((Real*)dPatternWeights, kPatternCount);
+    std::vector<Real> hScalingFactors;
+    if (kFlags & BEAGLE_FLAG_SCALING_AUTO)
+    {
+	// scaling factor per pattern*category -- see BeagleGPUImpl<>::createInstance
+	// scaling factor is char?? -- see BeagleGPUImpl<>::createInstance
+	// scaling factor is int??  -- see KernelIntegrateLikelihoodsAutoScaling
+	// See kernelIntegrateLikelihoodsAutoScaling in KernelsX.cu
+	std::cerr<<"BeagleGPUActionImpl< >::calculateRootLogLikelihoods -- FLAG_SCALING_AUTO not implemented!";
+	std::abort();
+    }
+    else if (scale)
+	hScalingFactors = MemcpyDeviceToHostVector((Real*)dCumulativeScalingFactor, kScaleBufferSize);
+
     std::vector<Real> hColumnProbs(kPatternCount);
 
+//    showScalingInfo(std::cerr, kFlags, cumulativeScaleIndices, kScaleBufferSize);
 //    std::cerr<<"root partials (h) = "<<hRootPartials<<"\n";
 //    std::cerr<<"state frequencies (h) = "<<hStateFrequencies<<"\n";
 //    std::cerr<<"category weights (h) = "<<hCategoryWeights<<"\n";
+//    std::cerr<<"scaling factors (h) = "<<hScalingFactors<<"\n";
 
     // We want to sum dRootPartials(category, pattern, state) * dWeights[category] * dFrequencies[state,category]
     //    over (category,state).
@@ -1108,6 +1123,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	    Pr += tmp * hCategoryWeights[category];
 	}
 	Pr = log(Pr);
+
+	if (scale)
+	{
+	    // see kernelIntegrateLikelihoodsFixedScale in KernelsX.cu
+	    Pr += hScalingFactors[pattern];
+	}
 	hColumnProbs[pattern] = Pr;
 	OurResult += Pr*hPatternWeights[pattern];
     }
@@ -1119,7 +1140,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 */
 
     if (scale) {
-        // See kernelIntegrateLikelihoodsAutoScaling in KernelsX.cu
+        // if SCALING_AUTO -> See kernelIntegrateLikelihoodsAutoScaling (in KernelsX.cu)
+        // otherwise       -> see kernelIntegrateLikelihoodsFixedScale  (in KernelsX.cu)
         kernels->IntegrateLikelihoodsDynamicScaling(dIntegrationTmp, dPartials[rootNodeIndex],
                                                     dWeights[categoryWeightsIndex],
                                                     dFrequencies[stateFrequenciesIndex],
