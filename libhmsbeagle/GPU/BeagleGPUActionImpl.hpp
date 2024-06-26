@@ -869,10 +869,10 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 	    if (cumulativeScalingBuffer)
 		MemcpyHostToDevice( (Real*)cumulativeScalingBuffer, hostCumulativeScalingBuffer.data(), kPatternCount );
 
-	    std::cerr<<"rescaled partials (kernel) = "<<asDeviceVec((Real*)partials3, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
-	    std::cerr<<"rescaled partials (CPU)    = "<<hostPartials<<"\n";
-	    std::cerr<<"scaling factors (kernel) = "<<asDeviceVec((Real*)scalingFactors, kPatternCount)<<"\n";
-	    std::cerr<<"scaling factors (CPU)    = "<<hostScalingFactors<<"\n";
+//	    std::cerr<<"rescaled partials (kernel) = "<<asDeviceVec((Real*)partials3, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
+//	    std::cerr<<"rescaled partials (CPU)    = "<<hostPartials<<"\n";
+//	    std::cerr<<"scaling factors (kernel) = "<<asDeviceVec((Real*)scalingFactors, kPatternCount)<<"\n";
+//	    std::cerr<<"scaling factors (CPU)    = "<<hostScalingFactors<<"\n";
         }
 
         if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
