@@ -797,48 +797,74 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
                              secondChildPartialIndex, secondChildSubstitutionMatrixIndex);
 
 
-	if (rescale == 1)
-	{
-	    GPUPtr partials3 = dPartials[destinationPartialIndex];
+        if (rescale == 1)
+        {
+            GPUPtr partials3 = dPartials[destinationPartialIndex];
 
-	    kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
-				     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
+	    auto hostPartials = MemcpyDeviceToHostVector((Real*)partials3, kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
+	    auto hostScalingFactors = MemcpyDeviceToHostVector((Real*)scalingFactors, kPaddedPatternCount);
+	    std::vector<Real> hostCumulativeScalingBuffer;
+	    if (cumulativeScalingBuffer)
+		hostCumulativeScalingBuffer = MemcpyDeviceToHostVector((Real*)cumulativeScalingBuffer, kPaddedPatternCount);
+
+            kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
+                                     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
 
 
-	    bool scalers_log = (kFlags & BEAGLE_FLAG_SCALERS_LOG)?true:false;
-
-/*
-	    for(int pattern = 0; pattern < kPatternCount;pattern++)
-	    {
-		FIND_MAX_PARTIALS_X_CPU();
-		if (max == 0)
+            bool scalers_log = (kFlags & BEAGLE_FLAG_SCALERS_LOG)?true:false;
+            for(int pattern = 0; pattern < kPatternCount;pattern++)
+            {
+                // FIND_MAX_PARTIALS_X_CPU();
+                int deltaPartialsByState = pattern * kPaddedPatternCount;
+                REAL max = 0;
+                for(int m = 0; m < kCategoryCount; m++)
 		{
-		    max = 1.0;
-		    if (scalers_log)
-			scalingFactors[pattern] = 0;
-		    else
-			scalingFactors[pattern] = 1;
-		}
-		else
+                    int deltaPartialsByCategory = m * kPaddedStateCount * kPaddedPatternCount;
+                    int deltaPartials = deltaPartialsByCategory + deltaPartialsByState;
+                    for(int i = 0; i < kPaddedStateCount; i++) {
+                        REAL iPartial = hostPartials[deltaPartials + i];
+                        if (iPartial > max)
+                            max = iPartial;
+                    }
+                }
+
+                if (max == 0)
+                {
+                    max = 1.0;
+                    if (scalers_log)
+                        hostScalingFactors[pattern] = 0;
+                    else
+                        hostScalingFactors[pattern] = 1;
+                }
+                else
+                {
+                    if (scalers_log)
+                    {
+                        REAL logMax = log(max);
+                        hostScalingFactors[pattern] = logMax;
+                        if (cumulativeScalingBuffer != 0)
+                            hostCumulativeScalingBuffer[pattern] += logMax;
+                    }
+                    else
+                    {
+                        hostScalingFactors[pattern] = max;
+                        if (cumulativeScalingBuffer != 0)
+                            hostCumulativeScalingBuffer[pattern] += log(max);
+                    }
+                }
+
+                // SCALE_PARTIALS_X_CPU();
+                for(int m = 0; m < kCategoryCount; m++)
 		{
-		    if (scalers_log)
-		    {
-			REAL logMax = log(max);
-			scalingFactors[pattern] = logMax;
-			if (cumulativeScalingBuffer != 0)
-			    cumulativeScaling[pattern] += logMax;
-		    }
-		    else
-		    {
-			scalingFactors[pattern] = max;
-			if (cumulativeScalingBuffer != 0)
-			    cumulativeScaling[pattern] += log(max);
-		    }
-		}
-		SCALE_PARTIALS_X_CPU();
-	    }
-*/
-	}
+                    int deltaPartialsByCategory = m * kPaddedStateCount * kPaddedPatternCount;
+                    int deltaPartials = deltaPartialsByCategory + deltaPartialsByState;
+                    for(int i = 0; i < kPaddedStateCount; i++) {
+                        hostPartials[deltaPartials + i] /= max;
+                    }
+                }
+            }
+
+        }
 
         if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
             int parScalingIndex = destinationPartialIndex - kTipCount;
