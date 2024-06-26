@@ -815,7 +815,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
             for(int pattern = 0; pattern < kPatternCount;pattern++)
             {
                 // FIND_MAX_PARTIALS_X_CPU();
-                int deltaPartialsByState = pattern * kPaddedPatternCount;
+                int deltaPartialsByState = pattern * kPaddedStateCount;
                 REAL max = 0;
                 for(int m = 0; m < kCategoryCount; m++)
 		{
