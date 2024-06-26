@@ -1243,7 +1243,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     // The output (dSumLogLikelihood) needs to be a device pointer.
     dotProduct((Real*)dSumLogLikelihood, cublasHandle, kPatternCount, (Real*)dIntegrationTmp, (Real*)dPatternWeights);
 
-    std::cerr<<"logLikelihood (kernel) = "<<MemcpyDeviceToHostVector((Real*)dSumLogLikelihood,1)[0]<<"   logLikelihood (ours) = "<<OurResult<<"\n";
+//    std::cerr<<"logLikelihood (kernel) = "<<MemcpyDeviceToHostVector((Real*)dSumLogLikelihood,1)[0]<<"   logLikelihood (ours) = "<<OurResult<<"\n";
 
     if (kFlags & BEAGLE_FLAG_COMPUTATION_SYNCH) {
         gpu->MemcpyDeviceToHost(hLogLikelihoodsCache, dSumLogLikelihood, sizeof(Real) * kSumSitesBlockCount);
