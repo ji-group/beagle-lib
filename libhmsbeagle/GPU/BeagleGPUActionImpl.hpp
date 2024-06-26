@@ -807,8 +807,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 	    if (cumulativeScalingBuffer)
 		hostCumulativeScalingBuffer = MemcpyDeviceToHostVector((Real*)cumulativeScalingBuffer, kPaddedPatternCount);
 
-            kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
-                                     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
+//            kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
+//                                     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
 
 
             bool scalers_log = (kFlags & BEAGLE_FLAG_SCALERS_LOG)?true:false;
