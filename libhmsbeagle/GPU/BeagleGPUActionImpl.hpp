@@ -1022,6 +1022,31 @@ double BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getDValue(int p, int eigenIndex)
     return hds[eigenIndex][p];
 }
 
+std::ostream& showScalingInfo(std::ostream& o, std::uint64_t kFlags, const int* cumulativeScaleIndices, int kScaleBufferSize)
+{
+    int scale = 1;
+    if (kFlags & BEAGLE_FLAG_SCALING_AUTO)
+	;
+    else if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS)
+	;
+    else if (cumulativeScaleIndices[0] != BEAGLE_OP_NONE)
+	;
+    else
+	scale = 0;
+
+    o<<"scale = "<<scale
+     <<"  scaling_auto = "<<bool(kFlags & BEAGLE_FLAG_SCALING_AUTO)
+     <<"  scaling always = "<<bool(kFlags & BEAGLE_FLAG_SCALING_ALWAYS)
+     <<"  scaling_dynamic = "<<bool(kFlags & BEAGLE_FLAG_SCALING_DYNAMIC)
+     <<"  scalers = "<<bool(kFlags & BEAGLE_FLAG_SCALERS_LOG)
+     <<"  scalers_raw = "<<bool(kFlags & BEAGLE_FLAG_SCALERS_RAW)
+     <<"  cumulative_scale_indices = "<<cumulativeScaleIndices[0]
+     <<"  kScaleBufferSize = "<<kScaleBufferSize
+     <<"\n";
+
+    return o;
+}
+
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const int* bufferIndices,
                                                                          const int* categoryWeightsIndices,
