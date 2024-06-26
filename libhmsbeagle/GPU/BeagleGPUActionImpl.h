@@ -458,6 +458,8 @@ public:
                        int operationCount,
                        int cumulativeScalingIndex);
 
+    void rescalePartials(Real* partials, Real* scalingFactors, Real* cumulativeScalingBuffer, int streamIndex);
+
 protected:
 
     int kPartialsCacheOffset;
