@@ -803,6 +803,34 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 
 	    kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
 				     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
+
+/*
+	    FIND_MAX_PARTIALS_X_CPU();
+	    // fPartialsDynamicScalingAccumulate;
+	    if (kFlags & BEAGLE_FLAG_SCALERS_LOG)
+	    {
+		// kernelPartialsDynamicScalingAccumulateScalersLog
+		if (max == 0) {
+		    max = 1.0;
+		    scalingFactors[pattern] = 0.0;
+		} else {
+		    REAL logMax = log(max);
+		    scalingFactors[pattern] = logMax;
+		    if (cumulativeScalingBuffer != 0)
+			cumulativeScaling[pattern] += logMax;
+		}
+	    }
+	    else
+	    {
+		// "kernelPartialsDynamicScalingAccumulate";
+		if (max == 0)
+		    max = 1.0;
+		scalingFactors[pattern] = max;
+		if (cumulativeScalingBuffer != 0)
+		    cumulativeScaling[pattern] += log(max);
+	    }
+	    SCALE_PARTIALS_X_CPU();
+*/
 	}
 
         if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
