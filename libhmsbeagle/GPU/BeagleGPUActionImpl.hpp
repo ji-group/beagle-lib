@@ -1207,7 +1207,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	    Pr += hScalingFactors[pattern];
 	}
 	hColumnProbs[pattern] = Pr;
-	OurResult += Pr*hPatternWeights[pattern];
+//	OurResult += Pr*hPatternWeights[pattern];
     }
 
     MemcpyHostToDevice((Real*)dIntegrationTmp, (Real*)hColumnProbs.data(), kPatternCount);
