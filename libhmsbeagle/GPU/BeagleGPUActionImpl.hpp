@@ -804,32 +804,39 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
 	    kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
 				     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
 
+
+	    bool scalers_log = (kFlags & BEAGLE_FLAG_SCALERS_LOG)?true:false;
+
 /*
-	    FIND_MAX_PARTIALS_X_CPU();
-	    // fPartialsDynamicScalingAccumulate;
-	    if (kFlags & BEAGLE_FLAG_SCALERS_LOG)
+	    for(int pattern = 0; pattern < kPatternCount;pattern++)
 	    {
-		// kernelPartialsDynamicScalingAccumulateScalersLog
-		if (max == 0) {
-		    max = 1.0;
-		    scalingFactors[pattern] = 0.0;
-		} else {
-		    REAL logMax = log(max);
-		    scalingFactors[pattern] = logMax;
-		    if (cumulativeScalingBuffer != 0)
-			cumulativeScaling[pattern] += logMax;
-		}
-	    }
-	    else
-	    {
-		// "kernelPartialsDynamicScalingAccumulate";
+		FIND_MAX_PARTIALS_X_CPU();
 		if (max == 0)
+		{
 		    max = 1.0;
-		scalingFactors[pattern] = max;
-		if (cumulativeScalingBuffer != 0)
-		    cumulativeScaling[pattern] += log(max);
+		    if (scalers_log)
+			scalingFactors[pattern] = 0;
+		    else
+			scalingFactors[pattern] = 1;
+		}
+		else
+		{
+		    if (scalers_log)
+		    {
+			REAL logMax = log(max);
+			scalingFactors[pattern] = logMax;
+			if (cumulativeScalingBuffer != 0)
+			    cumulativeScaling[pattern] += logMax;
+		    }
+		    else
+		    {
+			scalingFactors[pattern] = max;
+			if (cumulativeScalingBuffer != 0)
+			    cumulativeScaling[pattern] += log(max);
+		    }
+		}
+		SCALE_PARTIALS_X_CPU();
 	    }
-	    SCALE_PARTIALS_X_CPU();
 */
 	}
 
