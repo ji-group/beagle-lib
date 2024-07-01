@@ -1185,7 +1185,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     // We want to sum dRootPartials(category, pattern, state) * dWeights[category] * dFrequencies[state,category]
     //    over (category,state).
     // dRootPartials(c,p,s) = dRootPartials[c*kPatternCount*kPaddedStateCount + p*kPaddedStateCount + s]
-    double OurResult = 0;
     for(int pattern = 0; pattern < kPatternCount; pattern++)
     {
 	double Pr = 0;
@@ -1199,15 +1198,16 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 
 	    Pr += tmp * hCategoryWeights[category];
 	}
+	hColumnProbs[pattern] = Pr;
+    }
+
+    for(auto& Pr: hColumnProbs)
 	Pr = log(Pr);
 
+    for(int pattern = 0; pattern < kPatternCount; pattern++)
+    {
 	if (scale)
-	{
-	    // see kernelIntegrateLikelihoodsFixedScale in KernelsX.cu
-	    Pr += hScalingFactors[pattern];
-	}
-	hColumnProbs[pattern] = Pr;
-//	OurResult += Pr*hPatternWeights[pattern];
+	    hColumnProbs[pattern] += hScalingFactors[pattern];
     }
 
     MemcpyHostToDevice((Real*)dIntegrationTmp, (Real*)hColumnProbs.data(), kPatternCount);
