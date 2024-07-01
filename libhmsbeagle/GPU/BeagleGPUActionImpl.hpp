@@ -1157,9 +1157,55 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     std::cerr<<"root partials = "<<asDeviceVec((Real*)dPartials[rootNodeIndex], kPaddedPatternCount * kPaddedStateCount * kCategoryCount)<<"\n";
 #endif
 
-    auto hRootPartials = MemcpyDeviceToHostVector((Real*)dPartials[rootNodeIndex], kPaddedPatternCount * kPaddedStateCount * kCategoryCount);
-    auto hStateFrequencies = MemcpyDeviceToHostVector((Real*)dFrequencies[stateFrequenciesIndex], kStateCount);
+    Real* siteProbs = (Real*)dIntegrationTmp;
+    Real* rootPartials = (Real*)dPartials[rootNodeIndex];
+
+    auto hRootPartials = MemcpyDeviceToHostVector(rootPartials, kPaddedPatternCount * kPaddedStateCount * kCategoryCount);
     auto hCategoryWeights = MemcpyDeviceToHostVector((Real*)dWeights[categoryWeightsIndex], kCategoryCount);
+    std::cerr<<"hRootPartials = "<<hRootPartials<<"\n";
+
+    for(int category = 0; category < kCategoryCount; category++)
+    {
+	Real* rootPartialsForCat = rootPartials + (category * kPaddedPatternCount * kPaddedStateCount);
+	Real* stateFrequenciesForCat = (Real*)dFrequencies[stateFrequenciesIndex]; // these really should be category-dependent
+	Real* weightForCat = &hCategoryWeights[category];
+
+	Real beta = (category == 0) ? 0.0 : 1.0;
+	// siteProbs[p]  = dWeights[0] * \sum(s) rootPartials(0,p,s) * stateFreqs(s)
+	// siteProbs[p] += dWeights[c] * \sum(s) rootPartials(c,p,s) * stateFreqs(s)
+
+	std::cerr<<"category = "<<category<<"  rootPartials = "<<asDeviceVec(rootPartialsForCat, kPaddedPatternCount * kPaddedStateCount)<<"\n";
+	std::cerr<<"    freqs = "<<asDeviceVec(stateFrequenciesForCat, kStateCount)<<"\n";
+	std::cerr<<"    siteProbs(before) = "<<asDeviceVec(siteProbs, kPaddedPatternCount)<<"\n";
+	cublasStatus_t status;
+	if constexpr (std::is_same<Real, float>::value) {
+	    status = cublasSgemv(cublasHandle, CUBLAS_OP_N,
+				 kPaddedPatternCount, kPaddedStateCount,
+				 weightForCat,
+				 rootPartialsForCat, kPaddedPatternCount,  //leading dimension 
+				 stateFrequenciesForCat, 1,
+				 &beta,
+				 siteProbs, 1);
+	}
+	else
+	{
+	    status = cublasDgemv(cublasHandle, CUBLAS_OP_N,
+				 kPaddedPatternCount, kPaddedStateCount,
+				 weightForCat,
+				 rootPartialsForCat, kPaddedPatternCount,  //leading dimension 
+				 stateFrequenciesForCat, 1,
+				 &beta,
+				 siteProbs, 1);
+	}
+	if (status != CUBLAS_STATUS_SUCCESS)
+        {
+            std::cerr<<"cublas error "<<status<<" in calcRootLogLikelihood: cublas<t>gemv( )DnMatrix<>::operator*=\n";
+            exit(1);
+        }
+	std::cerr<<"    siteProbs(after) = "<<asDeviceVec(siteProbs, kPaddedPatternCount)<<"\n";
+    }
+
+    auto hStateFrequencies = MemcpyDeviceToHostVector((Real*)dFrequencies[stateFrequenciesIndex], kStateCount);
     auto hPatternWeights = MemcpyDeviceToHostVector((Real*)dPatternWeights, kPatternCount);
     std::vector<Real> hScalingFactors;
     if (kFlags & BEAGLE_FLAG_SCALING_AUTO)
