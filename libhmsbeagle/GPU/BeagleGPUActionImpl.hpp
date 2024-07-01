@@ -1164,6 +1164,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     auto hCategoryWeights = MemcpyDeviceToHostVector((Real*)dWeights[categoryWeightsIndex], kCategoryCount);
     std::cerr<<"hRootPartials = "<<hRootPartials<<"\n";
 
+    // Each iteration of this loop does work on the order of O(kPaddedPatternCount * kPaddedStateCount) on the GPU.
+    // So its probably OK for this outer loop to run on the host.
     for(int category = 0; category < kCategoryCount; category++)
     {
 	Real* rootPartialsForCat = rootPartials + (category * kPaddedPatternCount * kPaddedStateCount);
