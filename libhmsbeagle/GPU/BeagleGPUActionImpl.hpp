@@ -1174,7 +1174,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     else if (scale)
 	hScalingFactors = MemcpyDeviceToHostVector((Real*)dCumulativeScalingFactor, kScaleBufferSize);
 
-    std::vector<Real> hColumnProbs(kPatternCount);
+    std::vector<Real> hColumnProbs = MemcpyDeviceToHostVector(siteProbs, kPatternCount);
 
 //    showScalingInfo(std::cerr, kFlags, cumulativeScaleIndices, kScaleBufferSize);
 //    std::cerr<<"root partials (h) = "<<hRootPartials<<"\n";
