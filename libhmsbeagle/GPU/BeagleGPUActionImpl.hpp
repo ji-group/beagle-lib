@@ -1181,7 +1181,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	std::cerr<<"    siteProbs(before) = "<<asDeviceVec(siteProbs, kPaddedPatternCount)<<"\n";
 	cublasStatus_t status;
 	if constexpr (std::is_same<Real, float>::value) {
-	    status = cublasSgemv(cublasHandle, CUBLAS_OP_N,
+	    status = cublasSgemv(cublasHandle, CUBLAS_OP_T,
 				 kPaddedPatternCount, kPaddedStateCount,
 				 weightForCat,
 				 rootPartialsForCat, kPaddedPatternCount,  //leading dimension 
@@ -1191,7 +1191,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	}
 	else
 	{
-	    status = cublasDgemv(cublasHandle, CUBLAS_OP_N,
+	    status = cublasDgemv(cublasHandle, CUBLAS_OP_T,
 				 kPaddedPatternCount, kPaddedStateCount,
 				 weightForCat,
 				 rootPartialsForCat, kPaddedPatternCount,  //leading dimension 
