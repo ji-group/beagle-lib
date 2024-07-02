@@ -1230,23 +1230,24 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 //    std::cerr<<"category weights (h) = "<<hCategoryWeights<<"\n";
 //    std::cerr<<"scaling factors (h) = "<<hScalingFactors<<"\n";
 
-    // We want to sum dRootPartials(category, pattern, state) * dWeights[category] * dFrequencies[state,category]
-    //    over (category,state).
-    // dRootPartials(c,p,s) = dRootPartials[c*kPatternCount*kPaddedStateCount + p*kPaddedStateCount + s]
-    for(int pattern = 0; pattern < kPatternCount; pattern++)
+    for(int category = 0; category < kCategoryCount; category++)
     {
-	double Pr = 0;
-	for(int category = 0; category < kCategoryCount; category++)
+	for(int pattern = 0; pattern < kPatternCount; pattern++)
 	{
-	    double tmp = 0;
+	    double Pr = 0;
 	    for(int state = 0; state < kStateCount; state++)
 	    {
-		tmp += hRootPartials[state + pattern*kPaddedStateCount + category*kPaddedStateCount*kPaddedPatternCount] * hStateFrequencies[state];
+		Pr += hRootPartials[state + pattern*kPaddedStateCount + category*kPaddedStateCount*kPaddedPatternCount] * hStateFrequencies[state];
 	    }
 
-	    Pr += tmp * hCategoryWeights[category];
+	    Pr *= hCategoryWeights[category];
+	    if (category == 0)
+		hColumnProbs[pattern] = Pr;
+	    else
+		hColumnProbs[pattern] += Pr;
 	}
-	hColumnProbs[pattern] = Pr;
+
+	std::cerr<<"siteProbs(after) = "<<hColumnProbs<<"\n";
     }
 
     for(auto& Pr: hColumnProbs)
