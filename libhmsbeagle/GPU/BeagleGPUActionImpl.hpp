@@ -1230,26 +1230,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 //    std::cerr<<"category weights (h) = "<<hCategoryWeights<<"\n";
 //    std::cerr<<"scaling factors (h) = "<<hScalingFactors<<"\n";
 
-    for(int category = 0; category < kCategoryCount; category++)
-    {
-	for(int pattern = 0; pattern < kPatternCount; pattern++)
-	{
-	    double Pr = 0;
-	    for(int state = 0; state < kStateCount; state++)
-	    {
-		Pr += hRootPartials[state + pattern*kPaddedStateCount + category*kPaddedStateCount*kPaddedPatternCount] * hStateFrequencies[state];
-	    }
-
-	    Pr *= hCategoryWeights[category];
-	    if (category == 0)
-		hColumnProbs[pattern] = Pr;
-	    else
-		hColumnProbs[pattern] += Pr;
-	}
-
-	std::cerr<<"siteProbs(after) = "<<hColumnProbs<<"\n";
-    }
-
     for(auto& Pr: hColumnProbs)
 	Pr = log(Pr);
 
