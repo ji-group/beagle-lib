@@ -1162,7 +1162,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 
     auto hRootPartials = MemcpyDeviceToHostVector(rootPartials, kPaddedPatternCount * kPaddedStateCount * kCategoryCount);
     auto hCategoryWeights = MemcpyDeviceToHostVector((Real*)dWeights[categoryWeightsIndex], kCategoryCount);
-    std::cerr<<"hRootPartials = "<<hRootPartials<<"\n";
+    // std::cerr<<"hRootPartials = "<<hRootPartials<<"\n";
 
     // Each iteration of this loop does work on the order of O(kPaddedPatternCount * kPaddedStateCount) on the GPU.
     // So its probably OK for this outer loop to run on the host.
@@ -1176,9 +1176,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	// siteProbs[p]  = dWeights[0] * \sum(s) rootPartials(0,p,s) * stateFreqs(s)
 	// siteProbs[p] += dWeights[c] * \sum(s) rootPartials(c,p,s) * stateFreqs(s)
 
-	std::cerr<<"category = "<<category<<"  rootPartials = "<<asDeviceVec(rootPartialsForCat, kPaddedPatternCount * kPaddedStateCount)<<"\n";
-	std::cerr<<"    freqs = "<<asDeviceVec(stateFrequenciesForCat, kStateCount)<<"\n";
-	std::cerr<<"    siteProbs(before) = "<<asDeviceVec(siteProbs, kPaddedPatternCount)<<"\n";
 	cublasStatus_t status;
 	if constexpr (std::is_same<Real, float>::value) {
 	    status = cublasSgemv(cublasHandle, CUBLAS_OP_T,
@@ -1204,7 +1201,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
             std::cerr<<"cublas error "<<status<<" in calcRootLogLikelihood: cublas<t>gemv( )DnMatrix<>::operator*=\n";
             exit(1);
         }
-	std::cerr<<"    siteProbs(after) = "<<asDeviceVec(siteProbs, kPaddedPatternCount)<<"\n";
     }
 
     auto hStateFrequencies = MemcpyDeviceToHostVector((Real*)dFrequencies[stateFrequenciesIndex], kStateCount);
