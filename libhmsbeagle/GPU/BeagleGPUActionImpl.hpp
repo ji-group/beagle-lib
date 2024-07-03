@@ -1255,43 +1255,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     std::cerr<<"site probs (d1) = "<<asDeviceVec((Real*)dIntegrationTmp, kPatternCount)<<"\n";
 */
 
-    // Step 1. Sum over states: pi * partials -> TMP1
-    // pi = 1 x kStateCount       partials = kStateCount * kPatternCount * kCategoryCount      TMP = 1 x (kPatternCount * kCategoryCount)
-    // DnMatrixDevice<Real> PI(cublasHandle, (Real*)dFrequencies[stateFrequenciesIndex], 1, kPaddedStateCount); // grouped by column
-    // DnMatrixDevice<Real> PARTIALS(cublasHandle, dIntegrationTmp, kPaddedStateCount, kPaddedPatternCount * kCategoryCount); // grouped by column
-
-    // ***STARTHERE*** PROBLEM - We need some memory here to store TMP1!
-    // Alternatively we MODIFY partials(cat,pat,state) by multiplying by weight(cat) and freq(state), and then just sum it.
-    // cublas is heavily optimized, so writing our own kernel might not be so easy: https://siboehm.com/articles/22/CUDA-MMM
-
-    // Step 2. Sum over category weights: TMP1 * cats -> columnProbs
-    // TMP = kPatternCount x kCategoryCount     cats = kCategoryCount x 1     columnProbs = kPatternCount x 1
-
-    // Step 3. Take the log of all the column probabilities.
-
-    // Step 4. Take the sum of the logged column probabilities.
-
-    // Step 5. If cumulativeScalingBuffer, take the sum of the cumulativeScalingBuffer also.
-
-    /*
-    if (scale) {
-        // if SCALING_AUTO -> See kernelIntegrateLikelihoodsAutoScaling (in KernelsX.cu)
-        // otherwise       -> see kernelIntegrateLikelihoodsFixedScale  (in KernelsX.cu)
-        kernels->IntegrateLikelihoodsDynamicScaling(dIntegrationTmp, dPartials[rootNodeIndex],
-                                                    dWeights[categoryWeightsIndex],
-                                                    dFrequencies[stateFrequenciesIndex],
-                                                    dCumulativeScalingFactor,
-                                                    kPaddedPatternCount,
-                                                    kCategoryCount);
-    } else {
-        // See kernelIntegrateLikelihoods in KernelsX.cu
-        kernels->IntegrateLikelihoods(dIntegrationTmp, dPartials[rootNodeIndex],
-                                      dWeights[categoryWeightsIndex],
-                                      dFrequencies[stateFrequenciesIndex],
-                                      kPaddedPatternCount, kCategoryCount);
-    }
-    */
-
 #ifdef BEAGLE_DEBUG_VALUES
     std::cerr<<"before pattern weights = "<<asDeviceVec((Real*)dIntegrationTmp, kPatternCount)<<"\n";
 #endif
