@@ -1252,33 +1252,17 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	}
 	else
 	{
-//	    std::cerr<<"scaling factors (device) = "<<asDeviceVec(dCumulativeScalingFactor, 4)<<"\n";
-//	    std::cerr<<"site Probs (device) = "<<asDeviceVec(siteProbs, 4)<<"\n";
-
 	    Real alpha = 1;
 	    status = cublasDaxpy(cublasHandle, kPatternCount,
 				 &alpha,
 				 dCumulativeScalingFactor, 1,
 				 siteProbs, 1);
-
-//	    std::cerr<<"scaling factors (device) = "<<asDeviceVec(dCumulativeScalingFactor, 4)<<"\n";
-//	    std::cerr<<"site Probs (device) = "<<asDeviceVec(siteProbs, 4)<<"\n";
 	}
 	if (status != CUBLAS_STATUS_SUCCESS)
 	{
 	    std::cerr<<"cublas error "<<status<<" in cublas<t>axpy( ).";
 	    exit(1);
 	}
-/*
-	std::cerr<<"site Probs(host) = "<<hColumnProbs<<"\n";
-	for(int pattern = 0; pattern < kPatternCount; pattern++)
-	{
-	    hColumnProbs[pattern] += hScalingFactors[pattern];
-	}
-	std::cerr<<"scaling factors (host) = "<<hScalingFactors<<"\n";
-	std::cerr<<"site Probs(host) = "<<hColumnProbs<<"\n";
-	MemcpyHostToDevice(siteProbs, (Real*)hColumnProbs.data(), kPatternCount);
-*/
     }
 
 
