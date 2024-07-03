@@ -1191,7 +1191,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     Real* siteProbs = (Real*)dIntegrationTmp;
     Real* rootPartials = (Real*)dPartials[rootNodeIndex];
 
-    auto hRootPartials = MemcpyDeviceToHostVector(rootPartials, kPaddedPatternCount * kPaddedStateCount * kCategoryCount);
+    // auto hRootPartials = MemcpyDeviceToHostVector(rootPartials, kPaddedPatternCount * kPaddedStateCount * kCategoryCount);
     auto hCategoryWeights = MemcpyDeviceToHostVector((Real*)dWeights[categoryWeightsIndex], kCategoryCount);
     // std::cerr<<"hRootPartials = "<<hRootPartials<<"\n";
 
@@ -1211,9 +1211,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	     weightForCat, rootPartialsForCat, kPaddedStateCount, stateFrequenciesForCat, beta, siteProbs);
     }
 
-    auto hStateFrequencies = MemcpyDeviceToHostVector((Real*)dFrequencies[stateFrequenciesIndex], kStateCount);
-    auto hPatternWeights = MemcpyDeviceToHostVector((Real*)dPatternWeights, kPatternCount);
-    std::vector<Real> hScalingFactors;
+    // auto hStateFrequencies = MemcpyDeviceToHostVector((Real*)dFrequencies[stateFrequenciesIndex], kStateCount);
+    // auto hPatternWeights = MemcpyDeviceToHostVector((Real*)dPatternWeights, kPatternCount);
     if (kFlags & BEAGLE_FLAG_SCALING_AUTO)
     {
 	// scaling factor per pattern*category -- see BeagleGPUImpl<>::createInstance
@@ -1223,8 +1222,10 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	std::cerr<<"BeagleGPUActionImpl< >::calculateRootLogLikelihoods -- FLAG_SCALING_AUTO not implemented!";
 	std::abort();
     }
-    else if (scale)
-	hScalingFactors = MemcpyDeviceToHostVector(dCumulativeScalingFactor, kScaleBufferSize);
+
+//    std::vector<Real> hScalingFactors;
+//    if (scale)
+//	hScalingFactors = MemcpyDeviceToHostVector(dCumulativeScalingFactor, kScaleBufferSize);
 
 //    showScalingInfo(std::cerr, kFlags, cumulativeScaleIndices, kScaleBufferSize);
 //    std::cerr<<"root partials (h) = "<<hRootPartials<<"\n";
