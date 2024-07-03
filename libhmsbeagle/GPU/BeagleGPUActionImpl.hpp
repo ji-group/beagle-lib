@@ -1173,14 +1173,14 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
     const int categoryWeightsIndex = categoryWeightsIndices[0];
     const int stateFrequenciesIndex = stateFrequenciesIndices[0];
 
-    GPUPtr dCumulativeScalingFactor;
+    const Real* dCumulativeScalingFactor = nullptr;
     bool scale = 1;
     if (kFlags & BEAGLE_FLAG_SCALING_AUTO)
-        dCumulativeScalingFactor = dAccumulatedScalingFactors;
+        dCumulativeScalingFactor = (const Real*)dAccumulatedScalingFactors;
     else if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS)
-        dCumulativeScalingFactor = dScalingFactors[bufferIndices[0] - kTipCount];
+        dCumulativeScalingFactor = (const Real*)dScalingFactors[bufferIndices[0] - kTipCount];
     else if (cumulativeScaleIndices[0] != BEAGLE_OP_NONE)
-        dCumulativeScalingFactor = dScalingFactors[cumulativeScaleIndices[0]];
+        dCumulativeScalingFactor = (const Real*)dScalingFactors[cumulativeScaleIndices[0]];
     else
         scale = 0;
 
@@ -1224,15 +1224,15 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	std::abort();
     }
     else if (scale)
-	hScalingFactors = MemcpyDeviceToHostVector((Real*)dCumulativeScalingFactor, kScaleBufferSize);
-
-    std::vector<Real> hColumnProbs = MemcpyDeviceToHostVector(siteProbs, kPatternCount);
+	hScalingFactors = MemcpyDeviceToHostVector(dCumulativeScalingFactor, kScaleBufferSize);
 
 //    showScalingInfo(std::cerr, kFlags, cumulativeScaleIndices, kScaleBufferSize);
 //    std::cerr<<"root partials (h) = "<<hRootPartials<<"\n";
 //    std::cerr<<"state frequencies (h) = "<<hStateFrequencies<<"\n";
 //    std::cerr<<"category weights (h) = "<<hCategoryWeights<<"\n";
 //    std::cerr<<"scaling factors (h) = "<<hScalingFactors<<"\n";
+
+    std::vector<Real> hColumnProbs = MemcpyDeviceToHostVector(siteProbs, kPatternCount);
 
     for(auto& Pr: hColumnProbs)
 	Pr = log(Pr);
@@ -1249,7 +1249,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	    hColumnProbs[pattern] += hScalingFactors[pattern];
     }
 
-    MemcpyHostToDevice((Real*)dIntegrationTmp, (Real*)hColumnProbs.data(), kPatternCount);
+    MemcpyHostToDevice(siteProbs, (Real*)hColumnProbs.data(), kPatternCount);
 
 /*
     std::cerr<<"site probs (d1) = "<<asDeviceVec((Real*)dIntegrationTmp, kPatternCount)<<"\n";
