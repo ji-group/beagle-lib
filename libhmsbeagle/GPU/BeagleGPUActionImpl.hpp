@@ -1233,12 +1233,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 //    std::cerr<<"category weights (h) = "<<hCategoryWeights<<"\n";
 //    std::cerr<<"scaling factors (h) = "<<hScalingFactors<<"\n";
 
-    std::vector<Real> hColumnProbs = MemcpyDeviceToHostVector(siteProbs, kPatternCount);
-
-    for(auto& Pr: hColumnProbs)
-	Pr = log(Pr);
-
-    MemcpyHostToDevice(siteProbs, (Real*)hColumnProbs.data(), kPatternCount);
+    cuda_log_vector(siteProbs, kPatternCount);
 
     if (scale)
     {
