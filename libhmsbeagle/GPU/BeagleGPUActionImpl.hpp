@@ -757,29 +757,21 @@ void  BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::rescalePartials(Real* partials, R
         }
 
         if (max == 0)
-        {
-            max = 1.0;
-            if (scalers_log)
-                hostScalingFactors[pattern] = 0;
-            else
-                hostScalingFactors[pattern] = 1;
-        }
-        else
-        {
-            if (scalers_log)
-            {
-                REAL logMax = log(max);
-                hostScalingFactors[pattern] = logMax;
-                if (cumulativeScalingBuffer != 0)
-                    hostCumulativeScalingBuffer[pattern] += logMax;
-            }
-            else
-            {
-                hostScalingFactors[pattern] = max;
-                if (cumulativeScalingBuffer != 0)
-                    hostCumulativeScalingBuffer[pattern] += log(max);
-            }
-        }
+	    max = 1.0;
+
+	if (scalers_log)
+	{
+	    REAL logMax = log(max);
+	    hostScalingFactors[pattern] = logMax;
+	    if (cumulativeScalingBuffer != 0)
+		hostCumulativeScalingBuffer[pattern] += logMax;
+	}
+	else
+	{
+	    hostScalingFactors[pattern] = max;
+	    if (cumulativeScalingBuffer != 0)
+		hostCumulativeScalingBuffer[pattern] += log(max);
+	}
 
         // SCALE_PARTIALS_X_CPU();
         for(int m = 0; m < kCategoryCount; m++)
