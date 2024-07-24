@@ -52,4 +52,7 @@ std::vector<T> MemcpyDeviceToHostVector(const T* dptr, int n)
 void cuda_log_vector(double* v, int length);
 void cuda_log_vector(float* v, int length);
 
+void rescalePartialsDevice(float*, float*, float*, int, int, int);
+void rescalePartialsDevice(double*, double*, double*, int, int, int);
+
 #endif
