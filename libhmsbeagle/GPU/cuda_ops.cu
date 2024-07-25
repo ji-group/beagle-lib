@@ -128,5 +128,11 @@ void rescalePartialsDevice(double* partials, double* scalingFactors, double* cum
     // We want to go from (category,pattern) -> pattern.
     // 01234...(P-1)01234..(P-1)01234...(P-1).
     // We need to maximize over the non-adjacent values for each category.
+
+    // Actually, we can probably do this in one operation without allocating a temporary.
+    // We need to construct a permutation iterator that reorders the input values so that all entries
+    //   for the same category are adjacent.
+    // Then we can order the keys so that we have groups of size nStates * nCategories.
+    // auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int) 0), (_1 / (nStates*nCategories)) );
 }
 
