@@ -47,38 +47,48 @@ void rescalePartialsDevice(float* partials, float* scalingFactors, float* cumula
     //    However, non-adjacent values with the same key end up in different groups.
     //    thrust::reduce_by_key performs the reduction operation on each group.
 
-    // 3. After maximizing over states, we then need to maximize over categories.
+    // 3. Thrust can maximize over states (adjacent memory_ and categories (non-adjacent) in one operation
+    //    by changing the order in which entries of the input matrix are visited.  All the entries in the
+    //    same group need to be visited sequentially.  We can do this using a permutation iterator.
 
     // Implementation notes:
-    // * ideally we could maximize over states (adjacent memory) and categories (non-adjacent) in one operation.
-    // * can thrust maximize over states and categories in one operation?
-    // * the library MatX (https://github.com/NVIDIA/MatX) offers much nicer syntax, but
-    //   thrust is more older and more stable (in 2024)
+    // * the library MatX (https://github.com/NVIDIA/MatX) offers much nicer syntax, but thrust is older
+    //   and more stable (in 2024)
 
     // The size of a partials buffer
     size_t partials_size = nStates * nPatterns * nCategories;
 
-    // When we maximize over states, we will get this many values.
-    thrust::device_vector<float> max_tmp(nPatterns * nCategories);
 
-    // A list of 00000..111111..222222........00000... that groups values by pattern.
-    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int) 0), (_1 / nStates) % nPatterns);
+    // OK, so we can convert the input index i=[0...partials_size] to (p,c,s) as follows:
+    //   s = i % nStates
+    //   c = (i / nStates) % nCategories
+    //   p = (i / nStates * nCategories)
 
-    // maximize over states for each category.
+    // The linear index into the input matrix is:
+    //   j = s + nStates *p + (nStates*nPatterns)*c
+
+    // A list of 00000..111111..222222........(P-1)(P-1)(P-1)(P-1) that groups values by state and categories.
+    // There should be nPatterns groups.
+    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int) 0), (_1 / (nStates * nCategories)));
+
+    // We need to compute j as a function of i:
+    //   j(i) = (i % nStates) + nStates*(i/(nStates * nCategories)) + (nStates*nPatterns)*((i/nStates) % nCategories)
+    auto in_values_start = thrust::make_permutation_iterator(
+	thrust::device_pointer_cast<float>(partials),
+	thrust::make_transform_iterator( thrust::make_counting_iterator((int)0),
+					 (_1 % nStates) + nStates*(_1/(nStates*nCategories)) + nStates*nPatterns*((_1/nStates)%nCategories))
+	);
+
     thrust::reduce_by_key(
+	// add execution policy thrust::cuda::par_nosync?
 	in_keys_start,                                 // key indices start (group by pattern)
 	in_keys_start + partials_size,                 // key indices end
-	thrust::device_pointer_cast<float>(partials),  // values to reduce (category, pattern, state)
+	thrust::device_pointer_cast<float>(partials), // values to reduce (category, pattern, state)
 	thrust::make_discard_iterator(),               // key values out
-	&max_tmp[0],                                   // reduced values out
+	thrust::device_pointer_cast<float>(cumulativeScalingBuffer), // reduced values out
 	thrust::equal_to<int>(),                       // compare keys operation
-	thrust::maximum<float>()                       // reduction operation
+	thrust::maximum<float>()                      // reduction operation
     );
-
-    // Now we have maxima per (category,pattern) in max_tmp.
-    // We want to go from (category,pattern) -> pattern.
-    // 01234...(P-1)01234..(P-1)01234...(P-1).
-    // We need to maximize over the non-adjacent values for each category.
 }
 
 void rescalePartialsDevice(double* partials, double* scalingFactors, double* cumulativeScalingBuffer,
@@ -95,44 +105,47 @@ void rescalePartialsDevice(double* partials, double* scalingFactors, double* cum
     //    However, non-adjacent values with the same key end up in different groups.
     //    thrust::reduce_by_key performs the reduction operation on each group.
 
-    // 3. After maximizing over states, we then need to maximize over categories.
+    // 3. Thrust can maximize over states (adjacent memory_ and categories (non-adjacent) in one operation
+    //    by changing the order in which entries of the input matrix are visited.  All the entries in the
+    //    same group need to be visited sequentially.  We can do this using a permutation iterator.
 
     // Implementation notes:
-    // * ideally we could maximize over states (adjacent memory) and categories (non-adjacent) in one operation.
-    // * can thrust maximize over states and categories in one operation?
-    // * the library MatX (https://github.com/NVIDIA/MatX) offers much nicer syntax, but
-    //   thrust is more older and more stable (in 2024)
+    // * the library MatX (https://github.com/NVIDIA/MatX) offers much nicer syntax, but thrust is older
+    //   and more stable (in 2024)
 
     // The size of a partials buffer
     size_t partials_size = nStates * nPatterns * nCategories;
 
-    // When we maximize over states, we will get this many values.
-    thrust::device_vector<double> max_tmp(nPatterns * nCategories);
 
-    // A list of 00000..111111..222222........00000... that groups values by pattern.
-    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int) 0), (_1 / nStates) % nPatterns);
+    // OK, so we can convert the input index i=[0...partials_size] to (p,c,s) as follows:
+    //   s = i % nStates
+    //   c = (i / nStates) % nCategories
+    //   p = (i / nStates * nCategories)
 
-    // maximize over states for each category.
+    // The linear index into the input matrix is:
+    //   j = s + nStates *p + (nStates*nPatterns)*c
+
+    // A list of 00000..111111..222222........(P-1)(P-1)(P-1)(P-1) that groups values by state and categories.
+    // There should be nPatterns groups.
+    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int) 0), (_1 / (nStates * nCategories)));
+
+    // We need to compute j as a function of i:
+    //   j(i) = (i % nStates) + nStates*(i/(nStates * nCategories)) + (nStates*nPatterns)*((i/nStates) % nCategories)
+    auto in_values_start = thrust::make_permutation_iterator(
+	thrust::device_pointer_cast<double>(partials),
+	thrust::make_transform_iterator( thrust::make_counting_iterator((int)0),
+					 (_1 % nStates) + nStates*(_1/(nStates*nCategories)) + nStates*nPatterns*((_1/nStates)%nCategories))
+	);
+
     thrust::reduce_by_key(
 	// add execution policy thrust::cuda::par_nosync?
 	in_keys_start,                                 // key indices start (group by pattern)
 	in_keys_start + partials_size,                 // key indices end
 	thrust::device_pointer_cast<double>(partials), // values to reduce (category, pattern, state)
 	thrust::make_discard_iterator(),               // key values out
-	&max_tmp[0],                                   // reduced values out
+	thrust::device_pointer_cast<double>(cumulativeScalingBuffer), // reduced values out
 	thrust::equal_to<int>(),                       // compare keys operation
 	thrust::maximum<double>()                      // reduction operation
     );
-
-    // Now we have maxima per (category,pattern) in max_tmp.
-    // We want to go from (category,pattern) -> pattern.
-    // 01234...(P-1)01234..(P-1)01234...(P-1).
-    // We need to maximize over the non-adjacent values for each category.
-
-    // Actually, we can probably do this in one operation without allocating a temporary.
-    // We need to construct a permutation iterator that reorders the input values so that all entries
-    //   for the same category are adjacent.
-    // Then we can order the keys so that we have groups of size nStates * nCategories.
-    // auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int) 0), (_1 / (nStates*nCategories)) );
 }
 
