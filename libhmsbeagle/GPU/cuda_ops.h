@@ -55,4 +55,7 @@ void cuda_log_vector(float* v, int length);
 void rescalePartialsDevice(float*, float*, float*, int, int, int);
 void rescalePartialsDevice(double*, double*, double*, int, int, int);
 
+void  rescalePartials2(int kPaddedPatternCount, float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex);
+void  rescalePartials2(int kPaddedPatternCount, double* partials, double* scalingFactors, double* cumulativeScalingBuffer, int streamIndex);
+
 #endif
