@@ -728,6 +728,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updatePartials(const int* operation
 BEAGLE_GPU_TEMPLATE
 void  BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::rescalePartials(Real* partials, Real* scalingFactors, Real* cumulativeScalingBuffer, int streamIndex)
 {
+//    rescalePartials2(kCategoryCount, kPaddedPatternCount, kPaddedStateCount, partials, scalingFactors, cumulativeScalingBuffer, streamIndex);
 
 //            kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
 //                                     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
