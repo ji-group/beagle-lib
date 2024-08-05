@@ -186,7 +186,17 @@ void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternC
                 cumulativeScalingBuffer[pattern] += log(max);
         }
 
+        // SCALE_PARTIALS_X_CPU();
+        for(int m = 0; m < kCategoryCount; m++)
+        {
+            int deltaPartialsByCategory = m * kPaddedStateCount * kPaddedPatternCount;
+            int deltaPartials = deltaPartialsByCategory + deltaPartialsByState;
+            for(int i = 0; i < kPaddedStateCount; i++) {
+                partials[deltaPartials + i] /= max;
+            }
+        }
     };
+
     thrust::for_each(start_pattern, start_pattern + kPaddedPatternCount, rescale_pattern);
 }
 
