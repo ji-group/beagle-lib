@@ -149,8 +149,8 @@ void rescalePartialsDevice(double* partials, double* scalingFactors, double* cum
     );
 }
 
-void  rescalePartials2(int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
-		       float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex)
+void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
+                       float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex)
 {
     auto start_pattern = thrust::make_counting_iterator<int>(0);
     auto rescale_pattern = [=] __device__ (int pattern) {
@@ -169,11 +169,28 @@ void  rescalePartials2(int kCategoryCount, int kPaddedPatternCount, int kPaddedS
             }
         }
 
+        if (max == 0)
+            max = 1.0;
+
+        if (scalers_log)
+        {
+            float logMax = log(max);
+            scalingFactors[pattern] = logMax;
+            if (cumulativeScalingBuffer != 0)
+                cumulativeScalingBuffer[pattern] += logMax;
+        }
+        else
+        {
+            scalingFactors[pattern] = max;
+            if (cumulativeScalingBuffer != 0)
+                cumulativeScalingBuffer[pattern] += log(max);
+        }
+
     };
     thrust::for_each(start_pattern, start_pattern + kPaddedPatternCount, rescale_pattern);
 }
 
-void  rescalePartials2(int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
+void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
 		       double* partials, double* scalingFactors, double* cumulativeScalingBuffer, int streamIndex)
 {
     auto start_pattern = thrust::make_counting_iterator<int>(0);

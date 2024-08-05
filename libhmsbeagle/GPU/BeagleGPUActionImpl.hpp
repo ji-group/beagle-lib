@@ -728,8 +728,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updatePartials(const int* operation
 BEAGLE_GPU_TEMPLATE
 void  BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::rescalePartials(Real* partials, Real* scalingFactors, Real* cumulativeScalingBuffer, int streamIndex)
 {
-//    rescalePartials2(kCategoryCount, kPaddedPatternCount, kPaddedStateCount, partials, scalingFactors, cumulativeScalingBuffer, streamIndex);
-
 //            kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
 //                                     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
 
@@ -739,9 +737,10 @@ void  BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::rescalePartials(Real* partials, R
     if (cumulativeScalingBuffer)
         hostCumulativeScalingBuffer = MemcpyDeviceToHostVector(cumulativeScalingBuffer, kPaddedPatternCount);
 
+    bool scalers_log = (kFlags & BEAGLE_FLAG_SCALERS_LOG)?true:false;
+    // rescalePartials2(scalers_log, kCategoryCount, kPaddedPatternCount, kPaddedStateCount, partials, scalingFactors, cumulativeScalingBuffer, streamIndex);
     // rescalePartialsDevice(partials, scalingFactors, cumulativeScalingBuffer, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
 
-    bool scalers_log = (kFlags & BEAGLE_FLAG_SCALERS_LOG)?true:false;
     for(int pattern = 0; pattern < kPatternCount;pattern++)
     {
         // FIND_MAX_PARTIALS_X_CPU();
