@@ -728,72 +728,18 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updatePartials(const int* operation
 BEAGLE_GPU_TEMPLATE
 void  BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::rescalePartials(Real* partials, Real* scalingFactors, Real* cumulativeScalingBuffer, int streamIndex)
 {
+    std::cerr<<"initial  partials (kernel) = "<<asDeviceVec((Real*)partials, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
+
 //            kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
 //                                     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
 
-    auto hostPartials = MemcpyDeviceToHostVector(partials, kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
-    auto hostScalingFactors = MemcpyDeviceToHostVector(scalingFactors, kPaddedPatternCount);
-    std::vector<Real> hostCumulativeScalingBuffer;
-    if (cumulativeScalingBuffer)
-        hostCumulativeScalingBuffer = MemcpyDeviceToHostVector(cumulativeScalingBuffer, kPaddedPatternCount);
-
     bool scalers_log = (kFlags & BEAGLE_FLAG_SCALERS_LOG)?true:false;
-    // rescalePartials2(scalers_log, kCategoryCount, kPaddedPatternCount, kPaddedStateCount, partials, scalingFactors, cumulativeScalingBuffer, streamIndex);
+
     // rescalePartialsDevice(partials, scalingFactors, cumulativeScalingBuffer, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
+    rescalePartials2(scalers_log, kCategoryCount, kPaddedPatternCount, kPaddedStateCount, partials, scalingFactors, cumulativeScalingBuffer, streamIndex);
 
-    for(int pattern = 0; pattern < kPatternCount;pattern++)
-    {
-        // FIND_MAX_PARTIALS_X_CPU();
-        int deltaPartialsByState = pattern * kPaddedStateCount;
-        REAL max = 0;
-        for(int m = 0; m < kCategoryCount; m++)
-        {
-            int deltaPartialsByCategory = m * kPaddedStateCount * kPaddedPatternCount;
-            int deltaPartials = deltaPartialsByCategory + deltaPartialsByState;
-            for(int i = 0; i < kPaddedStateCount; i++) {
-                REAL iPartial = hostPartials[deltaPartials + i];
-                if (iPartial > max)
-                    max = iPartial;
-            }
-        }
-
-        if (max == 0)
-	    max = 1.0;
-
-	if (scalers_log)
-	{
-	    REAL logMax = log(max);
-	    hostScalingFactors[pattern] = logMax;
-	    if (cumulativeScalingBuffer != 0)
-		hostCumulativeScalingBuffer[pattern] += logMax;
-	}
-	else
-	{
-	    hostScalingFactors[pattern] = max;
-	    if (cumulativeScalingBuffer != 0)
-		hostCumulativeScalingBuffer[pattern] += log(max);
-	}
-
-        // SCALE_PARTIALS_X_CPU();
-        for(int m = 0; m < kCategoryCount; m++)
-        {
-            int deltaPartialsByCategory = m * kPaddedStateCount * kPaddedPatternCount;
-            int deltaPartials = deltaPartialsByCategory + deltaPartialsByState;
-            for(int i = 0; i < kPaddedStateCount; i++) {
-                hostPartials[deltaPartials + i] /= max;
-            }
-        }
-    }
-
-    MemcpyHostToDevice( partials, hostPartials.data(), kPaddedStateCount * kPaddedPatternCount * kCategoryCount );
-    MemcpyHostToDevice( scalingFactors, hostScalingFactors.data(), kPatternCount );
-    if (cumulativeScalingBuffer)
-        MemcpyHostToDevice( cumulativeScalingBuffer, hostCumulativeScalingBuffer.data(), kPatternCount );
-
-//          std::cerr<<"rescaled partials (kernel) = "<<asDeviceVec((Real*)partials3, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
-//          std::cerr<<"rescaled partials (CPU)    = "<<hostPartials<<"\n";
-//          std::cerr<<"scaling factors (kernel) = "<<asDeviceVec((Real*)scalingFactors, kPatternCount)<<"\n";
-//          std::cerr<<"scaling factors (CPU)    = "<<hostScalingFactors<<"\n";
+    std::cerr<<"rescaled partials (kernel) = "<<asDeviceVec((Real*)partials, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
+    std::cerr<<"scaling factors (kernel) = "<<asDeviceVec((Real*)scalingFactors, kPatternCount)<<"\n";
 }
 
 BEAGLE_GPU_TEMPLATE
