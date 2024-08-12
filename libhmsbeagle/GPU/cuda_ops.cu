@@ -13,6 +13,7 @@ void cuda_log_vector(double* v, int length)
 {
     thrust::device_ptr<double> vdptr = thrust::device_pointer_cast<double>(v);
 
+    // In-place update is accomplished by making the output iterator the same the starting input iterator.
     thrust::transform(vdptr, vdptr + length, vdptr, [] __device__ (double x) {return log(x);});
 }
 
@@ -20,6 +21,7 @@ void cuda_log_vector(float* v, int length)
 {
     thrust::device_ptr<float> vdptr = thrust::device_pointer_cast<float>(v);
 
+    // In-place update is accomplished by making the output iterator the same the starting input iterator.
     thrust::transform(vdptr, vdptr + length, vdptr, [] __device__ (float x) {return log(x);});
 }
 
