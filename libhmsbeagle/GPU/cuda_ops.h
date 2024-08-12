@@ -52,8 +52,8 @@ std::vector<T> MemcpyDeviceToHostVector(const T* dptr, int n)
 void cuda_log_vector(double* v, int length);
 void cuda_log_vector(float* v, int length);
 
-void rescalePartialsDevice(float*, float*, float*, int, int, int);
-void rescalePartialsDevice(double*, double*, double*, int, int, int);
+void rescalePartialsDevice(float*, float*, float*, int, int, int, bool);
+void rescalePartialsDevice(double*, double*, double*, int, int, int, bool);
 
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
 		       float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex);

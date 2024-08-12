@@ -728,18 +728,16 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updatePartials(const int* operation
 BEAGLE_GPU_TEMPLATE
 void  BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::rescalePartials(Real* partials, Real* scalingFactors, Real* cumulativeScalingBuffer, int streamIndex)
 {
-    std::cerr<<"initial  partials (kernel) = "<<asDeviceVec((Real*)partials, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
+//    std::cerr<<"initial  partials (kernel) = "<<asDeviceVec((Real*)partials, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
 
 //            kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
 //                                     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
 
     bool scalers_log = (kFlags & BEAGLE_FLAG_SCALERS_LOG)?true:false;
-
     // rescalePartialsDevice(partials, scalingFactors, cumulativeScalingBuffer, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
     rescalePartials2(scalers_log, kCategoryCount, kPaddedPatternCount, kPaddedStateCount, partials, scalingFactors, cumulativeScalingBuffer, streamIndex);
-
-    std::cerr<<"rescaled partials (kernel) = "<<asDeviceVec((Real*)partials, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
-    std::cerr<<"scaling factors (kernel) = "<<asDeviceVec((Real*)scalingFactors, kPatternCount)<<"\n";
+//    std::cerr<<"rescaled partials (kernel) = "<<asDeviceVec((Real*)partials, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
+//    std::cerr<<"scaling factors (kernel) = "<<asDeviceVec((Real*)scalingFactors, kPatternCount)<<"\n";
 }
 
 BEAGLE_GPU_TEMPLATE
