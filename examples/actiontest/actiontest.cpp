@@ -21,9 +21,9 @@ typedef Eigen::Triplet<double> Triplet;
 
 #include "libhmsbeagle/beagle.h"
 
-char *human = (char*)"GAGT";
-char *chimp = (char*)"GAGG";
-char *gorilla = (char*)"AAAT";
+char *human = (char*)"GAGTC";
+char *chimp = (char*)"GAGGT";
+char *gorilla = (char*)"AAATC";
 
 //char *human = (char*)"G";
 //char *chimp = (char*)"G";
@@ -653,7 +653,7 @@ int main( int argc, const char* argv[] )
 //                             1);                                    // count
 
 
-    std::cout<<"logL = "<<logL<<" (R = -18.04619478977292)\n\n";
+    std::cout<<"logL = "<<logL<<" (R = -21.827146738233282)\n\n";
 
     double * seerootPartials = (double*) malloc(sizeof(double) * stateCount * nPatterns * rateCategoryCount);
     int offset = 0;
