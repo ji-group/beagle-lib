@@ -119,7 +119,7 @@ void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternC
 // FIXME: It would be nice to merge the code for the <float> and <double> versions of
 //        rescalePartialsDevice, but this was somehow causing the program to crash.
 
-void justMaximize(float* partials, float* scalingFactors, float* cumulativeScalingBuffer,
+void justMaximize(float* partials, float* scalingFactors,
 		  int nStates, int nPatterns, int nCategories)
 {
     using namespace thrust::placeholders;
@@ -171,14 +171,14 @@ void justMaximize(float* partials, float* scalingFactors, float* cumulativeScali
 	in_keys_start + partials_size,                 // key indices end
 	in_values_start,                               // values to reduce (category, pattern, state)
 	thrust::make_discard_iterator(),               // key values out
-	thrust::device_pointer_cast<float>(cumulativeScalingBuffer), // reduced values out
+	thrust::device_pointer_cast<float>(scalingFactors), // reduced values out
 	thrust::equal_to<int>(),                       // compare keys operation
 	thrust::maximum<float>()                      // reduction operation
     );
 }
 
-void justMaximize(double* partials, double* scalingFactors, double* cumulativeScalingBuffer,
-		  int nStates, int nPatterns, int nCategories, bool scalers_log)
+void justMaximize(double* partials, double* scalingFactors,
+		  int nStates, int nPatterns, int nCategories)
 {
     using namespace thrust::placeholders;
 
@@ -229,7 +229,7 @@ void justMaximize(double* partials, double* scalingFactors, double* cumulativeSc
 	in_keys_start + partials_size,                 // key indices end
 	in_values_start,                               // values to reduce (category, pattern, state)
 	thrust::make_discard_iterator(),               // key values out
-	thrust::device_pointer_cast<double>(cumulativeScalingBuffer), // reduced values out
+	thrust::device_pointer_cast<double>(scalingFactors), // reduced values out
 	thrust::equal_to<int>(),                       // compare keys operation
 	thrust::maximum<double>()                      // reduction operation
     );
