@@ -169,7 +169,7 @@ void justMaximize(float* partials, float* scalingFactors, float* cumulativeScali
 	// add execution policy thrust::cuda::par_nosync?
 	in_keys_start,                                 // key indices start (group by pattern)
 	in_keys_start + partials_size,                 // key indices end
-	thrust::device_pointer_cast<float>(partials), // values to reduce (category, pattern, state)
+	in_values_start,                               // values to reduce (category, pattern, state)
 	thrust::make_discard_iterator(),               // key values out
 	thrust::device_pointer_cast<float>(cumulativeScalingBuffer), // reduced values out
 	thrust::equal_to<int>(),                       // compare keys operation
@@ -227,7 +227,7 @@ void justMaximize(double* partials, double* scalingFactors, double* cumulativeSc
 	// add execution policy thrust::cuda::par_nosync?
 	in_keys_start,                                 // key indices start (group by pattern)
 	in_keys_start + partials_size,                 // key indices end
-	thrust::device_pointer_cast<double>(partials), // values to reduce (category, pattern, state)
+	in_values_start,                               // values to reduce (category, pattern, state)
 	thrust::make_discard_iterator(),               // key values out
 	thrust::device_pointer_cast<double>(cumulativeScalingBuffer), // reduced values out
 	thrust::equal_to<int>(),                       // compare keys operation
