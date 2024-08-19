@@ -41,33 +41,28 @@ struct rescalePartialsDeviceOp
     {
 	// FIND_MAX_PARTIALS_X_CPU();
         int deltaPartialsByState = pattern * kPaddedStateCount;
-        REAL max = 0;
-        for(int m = 0; m < kCategoryCount; m++)
-        {
-            int deltaPartialsByCategory = m * kPaddedStateCount * kPaddedPatternCount;
-            int deltaPartials = deltaPartialsByCategory + deltaPartialsByState;
-            for(int i = 0; i < kPaddedStateCount; i++) {
-                REAL iPartial = partials[deltaPartials + i];
-                if (iPartial > max)
-                    max = iPartial;
-            }
-        }
+	auto& max = scalingFactors[pattern];
 
         if (max == 0)
 	    max = 1.0;
 
-	if (scalers_log)
+	if (not cumulativeScalingBuffer)
 	{
-	    REAL logMax = log(max);
-	    scalingFactors[pattern] = logMax;
-	    if (cumulativeScalingBuffer != 0)
-		cumulativeScalingBuffer[pattern] += logMax;
+	    if (scalers_log)
+		scalingFactors[pattern] = log(max);
 	}
 	else
 	{
-	    scalingFactors[pattern] = max;
-	    if (cumulativeScalingBuffer != 0)
+	    if (scalers_log)
+	    {
+		REAL logMax = log(max);
+		scalingFactors[pattern] = logMax;
+		cumulativeScalingBuffer[pattern] += logMax;
+	    }
+	    else
+	    {
 		cumulativeScalingBuffer[pattern] += log(max);
+	    }
 	}
 
         // SCALE_PARTIALS_X_CPU();
