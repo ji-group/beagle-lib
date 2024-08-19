@@ -94,28 +94,6 @@ struct rescalePartialsDeviceOp
 
 };
 
-void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
-                       float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex)
-{
-    auto start = thrust::make_counting_iterator<int>(0);
-    auto end = start + kPaddedPatternCount;
-
-    thrust::for_each(start, end,
-		     rescalePartialsDeviceOp<float>(partials, scalingFactors, cumulativeScalingBuffer,
-						    kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
-}
-
-void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
-		       double* partials, double* scalingFactors, double* cumulativeScalingBuffer, int streamIndex)
-{
-    auto start = thrust::make_counting_iterator<int>(0);
-    auto end = start + kPaddedPatternCount;
-
-    thrust::for_each(start, end,
-		     rescalePartialsDeviceOp<double>(partials, scalingFactors, cumulativeScalingBuffer,
-						     kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
-}
-
 // FIXME: It would be nice to merge the code for the <float> and <double> versions of
 //        rescalePartialsDevice, but this was somehow causing the program to crash.
 
@@ -233,5 +211,33 @@ void justMaximize(double* partials, double* scalingFactors,
 	thrust::equal_to<int>(),                       // compare keys operation
 	thrust::maximum<double>()                      // reduction operation
     );
+}
+
+void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
+                       float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex)
+{
+    justMaximize(partials, scalingFactors, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
+
+    auto start = thrust::make_counting_iterator<int>(0);
+    auto end = start + kPaddedPatternCount;
+
+    thrust::for_each(start, end,
+		     rescalePartialsDeviceOp<float>(partials, scalingFactors, cumulativeScalingBuffer,
+						    kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
+}
+
+void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
+		       double* partials, double* scalingFactors, double* cumulativeScalingBuffer, int streamIndex)
+{
+    justMaximize(partials, scalingFactors, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
+
+    auto start = thrust::make_counting_iterator<int>(0);
+    auto end = start + kPaddedPatternCount;
+
+    thrust::for_each(start, end,
+		     rescalePartialsDeviceOp<double>(partials, scalingFactors, cumulativeScalingBuffer,
+						     kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
+
+    thrust::device_vector<double> tmp2(scalingFactors,scalingFactors+std::min(8,kPaddedPatternCount));
 }
 
