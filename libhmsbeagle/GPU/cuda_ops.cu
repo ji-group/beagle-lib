@@ -39,7 +39,7 @@ struct rescalePartialsDeviceOp
     bool scalers_log;
     __host__ __device__ void operator()(int pattern) const
     {
-	        // FIND_MAX_PARTIALS_X_CPU();
+	// FIND_MAX_PARTIALS_X_CPU();
         int deltaPartialsByState = pattern * kPaddedStateCount;
         REAL max = 0;
         for(int m = 0; m < kCategoryCount; m++)
