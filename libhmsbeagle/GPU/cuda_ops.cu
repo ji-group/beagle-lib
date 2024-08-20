@@ -31,13 +31,11 @@ struct rescalePartialsDeviceOp
 {
     REAL* partials;
     REAL* scalingFactors;
-    REAL* cumulativeScalingBuffer;
 
     int kPaddedStateCount;
     int kPaddedPatternCount;
     int kCategoryCount;
 
-    bool scalers_log;
     __host__ __device__ void operator()(int pattern) const
     {
 	// FIND_MAX_PARTIALS_X_CPU();
@@ -53,21 +51,14 @@ struct rescalePartialsDeviceOp
                 partials[deltaPartials + i] /= max;
             }
         }
-
-	if (scalers_log) max = log(max);
-
-	if (cumulativeScalingBuffer)
-	    cumulativeScalingBuffer[pattern] += (scalers_log)?max:log(max);
     }
 
-    rescalePartialsDeviceOp(REAL* r1, REAL* r2, REAL* r3, int i1, int i2, int i3, bool b)
+    rescalePartialsDeviceOp(REAL* r1, REAL* r2, int i1, int i2, int i3)
 	:partials(r1),
 	 scalingFactors(r2),
-	 cumulativeScalingBuffer(r3),
 	 kPaddedStateCount(i1),
 	 kPaddedPatternCount(i2),
-	 kCategoryCount(i3),
-	 scalers_log(b)
+	 kCategoryCount(i3)
 	{
 	}
 
@@ -195,40 +186,116 @@ void justMaximize(double* partials, double* scalingFactors,
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
                        float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex)
 {
+    using namespace thrust::placeholders;
+
+//    thrust::device_ptr<float> partials2 = thrust::device_pointer_cast<float>(partials);
+    thrust::device_ptr<float> scalingFactors2 = thrust::device_pointer_cast<float>(scalingFactors);
+
     // 1. Find maximum partial likelihood -> scalingFactors[pattern]
     justMaximize(partials, scalingFactors, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
 
     // 2. Transform scalingfactors[pattern] -> 1 if it equals 0.
-    thrust::device_ptr<float> partials2 = thrust::device_pointer_cast<float>(partials);
-
-    thrust::transform(partials2, partials2 + kPaddedPatternCount, partials2, [] __device__ (float x) { return (x == 0) ? 1.0 : x;});
+    thrust::transform(scalingFactors2, scalingFactors2 + kPaddedPatternCount, scalingFactors2, [] __device__ (float x) { return (x == 0) ? 1.0 : x;});
 
     // 3. Rescale each pattern by scalingFactors[pattern]
     auto start = thrust::make_counting_iterator<int>(0);
     auto end = start + kPaddedPatternCount;
 
-    thrust::async::for_each(start, end,
-                            rescalePartialsDeviceOp<float>(partials, scalingFactors, cumulativeScalingBuffer,
-                                                           kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
+    thrust::for_each(start, end,
+                     rescalePartialsDeviceOp<float>(partials, scalingFactors,
+                                                    kPaddedStateCount, kPaddedPatternCount, kCategoryCount));
+
+//    std::cerr<<"scalers_log = "<<scalers_log<<"   cumulativeScalingBuffer = "<<cumulativeScalingBuffer<<"\n";
+
+    // 4. Transform by log if (scalers_log)
+    if (scalers_log)
+        thrust::transform(scalingFactors2, scalingFactors2 + kPaddedPatternCount, // in
+                          scalingFactors2,                                        // out
+                          [] __device__ (float x) { return log(x); }             // transformation
+                         );
+
+    // 5. Add to cumulativeScalingBuffer
+    if (cumulativeScalingBuffer)
+    {
+        thrust::device_ptr<float> cumulative2 = thrust::device_pointer_cast<float>(cumulativeScalingBuffer);
+
+        if (scalers_log)
+        {
+            thrust::transform(cumulative2, cumulative2 + kPaddedPatternCount, // in1
+                              scalingFactors2,                                // in2
+                              cumulative2,                                    // out
+                              thrust::plus<float>()                          // operation;
+                             );
+        }
+        else
+        {
+            auto logScalingFactors2 = thrust::make_transform_iterator( scalingFactors2,
+                                                                       [] __host__ __device__ (float x) { return log(x); });
+
+            thrust::transform(cumulative2, cumulative2 + kPaddedPatternCount, // in1
+                              logScalingFactors2,                             // in2
+                              cumulative2,                                    // out
+                              thrust::plus<float>()                          // operation;
+                             );
+        }
+    }
 }
 
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
                        double* partials, double* scalingFactors, double* cumulativeScalingBuffer, int streamIndex)
 {
+    using namespace thrust::placeholders;
+
+//    thrust::device_ptr<double> partials2 = thrust::device_pointer_cast<double>(partials);
+    thrust::device_ptr<double> scalingFactors2 = thrust::device_pointer_cast<double>(scalingFactors);
+
     // 1. Find maximum partial likelihood -> scalingFactors[pattern]
     justMaximize(partials, scalingFactors, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
 
     // 2. Transform scalingfactors[pattern] -> 1 if it equals 0.
-    thrust::device_ptr<double> partials2 = thrust::device_pointer_cast<double>(partials);
-
-    thrust::transform(partials2, partials2 + kPaddedPatternCount, partials2, [] __device__ (double x) { return (x == 0) ? 1.0 : x;});
+    thrust::transform(scalingFactors2, scalingFactors2 + kPaddedPatternCount, scalingFactors2, [] __device__ (double x) { return (x == 0) ? 1.0 : x;});
 
     // 3. Rescale each pattern by scalingFactors[pattern]
     auto start = thrust::make_counting_iterator<int>(0);
     auto end = start + kPaddedPatternCount;
 
-    thrust::async::for_each(start, end,
-                            rescalePartialsDeviceOp<double>(partials, scalingFactors, cumulativeScalingBuffer,
-                                                            kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
+    thrust::for_each(start, end,
+                     rescalePartialsDeviceOp<double>(partials, scalingFactors,
+                                                     kPaddedStateCount, kPaddedPatternCount, kCategoryCount));
+
+//    std::cerr<<"scalers_log = "<<scalers_log<<"   cumulativeScalingBuffer = "<<cumulativeScalingBuffer<<"\n";
+
+    // 4. Transform by log if (scalers_log)
+    if (scalers_log)
+        thrust::transform(scalingFactors2, scalingFactors2 + kPaddedPatternCount, // in
+                          scalingFactors2,                                        // out
+                          [] __device__ (double x) { return log(x); }             // transformation
+                         );
+
+    // 5. Add to cumulativeScalingBuffer
+    if (cumulativeScalingBuffer)
+    {
+        thrust::device_ptr<double> cumulative2 = thrust::device_pointer_cast<double>(cumulativeScalingBuffer);
+
+        if (scalers_log)
+        {
+            thrust::transform(cumulative2, cumulative2 + kPaddedPatternCount, // in1
+                              scalingFactors2,                                // in2
+                              cumulative2,                                    // out
+                              thrust::plus<double>()                          // operation;
+                             );
+        }
+        else
+        {
+            auto logScalingFactors2 = thrust::make_transform_iterator( scalingFactors2,
+                                                                       [] __host__ __device__ (double x) { return log(x); });
+
+            thrust::transform(cumulative2, cumulative2 + kPaddedPatternCount, // in1
+                              logScalingFactors2,                             // in2
+                              cumulative2,                                    // out
+                              thrust::plus<double>()                          // operation;
+                             );
+        }
+    }
 }
 
