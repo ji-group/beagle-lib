@@ -26,12 +26,14 @@ void cuda_log_vector(float* v, int length)
     thrust::transform(vdptr, vdptr + length, vdptr, [] __device__ (float x) {return log(x);});
 }
 
+// This seems to be slow because it inserts cudaStreamSynchronize()
 double cuda_max(double* v, int length)
 {
     thrust::device_ptr<double> dptr = thrust::device_pointer_cast<double>(v);
     return *(thrust::max_element(dptr, dptr + length));
 }
 
+// This seems to be slow because it inserts cudaStreamSynchronize()
 float cuda_max(float* v, int length)
 {
     thrust::device_ptr<float> dptr = thrust::device_pointer_cast<float>(v);
