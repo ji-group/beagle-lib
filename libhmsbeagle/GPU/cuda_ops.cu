@@ -26,6 +26,18 @@ void cuda_log_vector(float* v, int length)
     thrust::transform(vdptr, vdptr + length, vdptr, [] __device__ (float x) {return log(x);});
 }
 
+double cuda_max(double* v, int length)
+{
+    thrust::device_ptr<double> dptr = thrust::device_pointer_cast<double>(v);
+    return *(thrust::max_element(dptr, dptr + length));
+}
+
+float cuda_max(float* v, int length)
+{
+    thrust::device_ptr<float> dptr = thrust::device_pointer_cast<float>(v);
+    return *(thrust::max_element(dptr, dptr + length));
+}
+
 // FIXME: It would be nice to merge the code for the <float> and <double> versions of
 //        rescalePartialsDevice, but this was somehow causing the program to crash.
 
