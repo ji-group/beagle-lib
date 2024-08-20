@@ -8,6 +8,7 @@
 #include <thrust/iterator/discard_iterator.h>
 #include <thrust/reduce.h>
 #include <thrust/functional.h>
+#include <thrust/async/for_each.h>
 
 void cuda_log_vector(double* v, int length)
 {
@@ -42,9 +43,6 @@ struct rescalePartialsDeviceOp
 	// FIND_MAX_PARTIALS_X_CPU();
         int deltaPartialsByState = pattern * kPaddedStateCount;
 	auto& max = scalingFactors[pattern];
-
-        if (max == 0)
-	    max = 1.0;
 
         // SCALE_PARTIALS_X_CPU();
         for(int m = 0; m < kCategoryCount; m++)
@@ -197,28 +195,40 @@ void justMaximize(double* partials, double* scalingFactors,
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
                        float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex)
 {
+    // 1. Find maximum partial likelihood -> scalingFactors[pattern]
     justMaximize(partials, scalingFactors, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
 
+    // 2. Transform scalingfactors[pattern] -> 1 if it equals 0.
+    thrust::device_ptr<float> partials2 = thrust::device_pointer_cast<float>(partials);
+
+    thrust::transform(partials2, partials2 + kPaddedPatternCount, partials2, [] __device__ (float x) { return (x == 0) ? 1.0 : x;});
+
+    // 3. Rescale each pattern by scalingFactors[pattern]
     auto start = thrust::make_counting_iterator<int>(0);
     auto end = start + kPaddedPatternCount;
 
-    thrust::for_each(start, end,
-		     rescalePartialsDeviceOp<float>(partials, scalingFactors, cumulativeScalingBuffer,
-						    kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
+    thrust::async::for_each(start, end,
+                            rescalePartialsDeviceOp<float>(partials, scalingFactors, cumulativeScalingBuffer,
+                                                           kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
 }
 
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
-		       double* partials, double* scalingFactors, double* cumulativeScalingBuffer, int streamIndex)
+                       double* partials, double* scalingFactors, double* cumulativeScalingBuffer, int streamIndex)
 {
+    // 1. Find maximum partial likelihood -> scalingFactors[pattern]
     justMaximize(partials, scalingFactors, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
 
+    // 2. Transform scalingfactors[pattern] -> 1 if it equals 0.
+    thrust::device_ptr<double> partials2 = thrust::device_pointer_cast<double>(partials);
+
+    thrust::transform(partials2, partials2 + kPaddedPatternCount, partials2, [] __device__ (double x) { return (x == 0) ? 1.0 : x;});
+
+    // 3. Rescale each pattern by scalingFactors[pattern]
     auto start = thrust::make_counting_iterator<int>(0);
     auto end = start + kPaddedPatternCount;
 
-    thrust::for_each(start, end,
-		     rescalePartialsDeviceOp<double>(partials, scalingFactors, cumulativeScalingBuffer,
-						     kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
-
-    thrust::device_vector<double> tmp2(scalingFactors,scalingFactors+std::min(8,kPaddedPatternCount));
+    thrust::async::for_each(start, end,
+                            rescalePartialsDeviceOp<double>(partials, scalingFactors, cumulativeScalingBuffer,
+                                                            kPaddedStateCount, kPaddedPatternCount, kCategoryCount, scalers_log));
 }
 
