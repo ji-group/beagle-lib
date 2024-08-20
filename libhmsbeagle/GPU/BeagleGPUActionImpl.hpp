@@ -1446,7 +1446,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
 //        std::cerr<<"dPartials:\n"<<inPartials<<std::endl;
 //#endif
 
-        Real c1 = normPInf(inPartials);
+        Real c1 = normPInf(destP);
 
         for (int j = 1; j < m + 1; j++) {
 //#ifdef BEAGLE_DEBUG_FLOW
