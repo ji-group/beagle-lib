@@ -989,7 +989,6 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
     }
 
 //    simpleAction3(partials1Index, edgeIndex1, partials2Index, edgeIndex2);
-    cudaDeviceSynchronize();
 
     for (int category = 0; category < kCategoryCount; category++)
     {
@@ -1018,8 +1017,6 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
 //        PrintfDeviceVector(dPartialCache[destPartialIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
     }
-    cudaDeviceSynchronize();
-
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -1346,7 +1343,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
 	std::cerr<<"dAs["<<matrixIndex1<<"] = \n"<<dAs[matrixIndex1]<<"\n";
 #endif
     }
-    cudaDeviceSynchronize();
+
     return BEAGLE_SUCCESS;
 }
 
@@ -1436,7 +1433,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"F = partials operation, FCache:\n"<<F<<std::endl;
 //#endif
-    cudaDeviceSynchronize();
 
     const Real eta = exp(t * hMuBs[hEigenMaps[edgeIndex]] * edgeMultiplier / (Real) s);
 

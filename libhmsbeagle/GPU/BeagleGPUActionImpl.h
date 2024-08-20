@@ -105,7 +105,6 @@ Real normPInf(Real* matrix, int nRows, int nCols, cublasHandle_t cublasH) {
     } else {
         CUBLAS_CHECK(cublasIdamax(cublasH, nRows * nCols, matrix, 1, &index));
     }
-    cudaDeviceSynchronize();
     CHECK_CUDA(cudaMemcpy(&result, matrix + index - 1, sizeof(Real), cudaMemcpyDeviceToHost))
     return std::abs(result);
 }
