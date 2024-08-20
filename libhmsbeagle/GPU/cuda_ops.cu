@@ -46,25 +46,6 @@ struct rescalePartialsDeviceOp
         if (max == 0)
 	    max = 1.0;
 
-	if (not cumulativeScalingBuffer)
-	{
-	    if (scalers_log)
-		scalingFactors[pattern] = log(max);
-	}
-	else
-	{
-	    if (scalers_log)
-	    {
-		REAL logMax = log(max);
-		scalingFactors[pattern] = logMax;
-		cumulativeScalingBuffer[pattern] += logMax;
-	    }
-	    else
-	    {
-		cumulativeScalingBuffer[pattern] += log(max);
-	    }
-	}
-
         // SCALE_PARTIALS_X_CPU();
         for(int m = 0; m < kCategoryCount; m++)
         {
@@ -74,6 +55,11 @@ struct rescalePartialsDeviceOp
                 partials[deltaPartials + i] /= max;
             }
         }
+
+	if (scalers_log) max = log(max);
+
+	if (cumulativeScalingBuffer)
+	    cumulativeScalingBuffer[pattern] += (scalers_log)?max:log(max);
     }
 
     rescalePartialsDeviceOp(REAL* r1, REAL* r2, REAL* r3, int i1, int i2, int i3, bool b)
