@@ -60,4 +60,11 @@ void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternC
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
 		       double* partials, double* scalingFactors, double* cumulativeScalingBuffer, int streamIndex);
 
+void sumRootLikelihoods(float* siteProbs, // OUT
+			float* partials, float* weights, float* frequencies, // INT
+			int nStates, int nPatterns, int nCategories);
+
+void sumRootLikelihoods(double* siteProbs, // OUT
+			double* partials, double* weights, double* frequencies, // INT
+			int nStates, int nPatterns, int nCategories);
 #endif

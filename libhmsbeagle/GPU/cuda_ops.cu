@@ -159,6 +159,92 @@ void justMaximize(double* partials, double* scalingFactors,
     );
 }
 
+template <typename T>
+struct Prod3
+{
+    __host__ __device__ T operator()(thrust::tuple<T,T,T> t)
+    {
+	return thrust::get<0>(t) * thrust::get<1>(t) * thrust::get<2>(t);
+    }
+};
+
+void sumRootLikelihoods(float* siteProbs, // OUT
+			float* partials, float* weights, float* frequencies, // INT
+			int nStates, int nPatterns, int nCategories)
+{
+}
+
+
+void sumRootLikelihoods(double* siteProbs, // OUT
+			double* likelihoods, double* weights, double* frequencies, // INT
+			int nStates, int nPatterns, int nCategories)
+{
+    using namespace thrust::placeholders;
+
+    // The size of a partials buffer
+    size_t partials_size = nStates * nPatterns * nCategories;
+
+
+    // OK, so we can convert the input index i=[0...partials_size] to (p,c,s) as follows:
+    //   s = i % nStates
+    //   c = (i / nStates) % nCategories
+    //   p = (i / nStates * nCategories)
+
+    // 1. A list of 00000..111111..222222........(P-1)(P-1)(P-1)(P-1) that groups values by state and categories.
+    // There should be nPatterns groups.
+    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int) 0), (_1 / (nStates * nCategories)));
+
+    // 2. The linear index into the likelihood matrix is:
+    //   j = s + nStates *p + (nStates*nPatterns)*c
+    //
+    // We need to compute j as a function of i:
+    //   j(i) = (i % nStates) + nStates*(i/(nStates * nCategories)) + (nStates*nPatterns)*((i/nStates) % nCategories)
+    auto in_lks_start = thrust::make_permutation_iterator(
+	thrust::device_pointer_cast<double>(likelihoods),
+	thrust::make_transform_iterator( thrust::make_counting_iterator((int)0),
+					 (_1 % nStates) + nStates*(_1/(nStates*nCategories)) + nStates*nPatterns*((_1/nStates)%nCategories))
+	);
+
+    // 3. The linear index into the weights matrix is just:
+    //   k = c
+    // Therefore
+    //   k(i) = (i / nStates) % nCategories
+
+    auto in_weights_start =  thrust::make_permutation_iterator(
+	thrust::device_pointer_cast<double>(weights),
+	thrust::make_transform_iterator( thrust::make_counting_iterator((int)0),
+					 (_1/nStates)%nCategories)
+	);
+
+    // 4. The linear index into the states matrix is:
+    //   l = s
+    // Therefore
+    //   l(i) = (i % nStates)
+
+    auto in_frequencies_start =  thrust::make_permutation_iterator(
+	thrust::device_pointer_cast<double>(frequencies),
+	thrust::make_transform_iterator( thrust::make_counting_iterator((int)0),
+					 _1 % nStates)
+	);
+
+
+    auto tuples = thrust::make_zip_iterator(thrust::make_tuple(in_lks_start, in_weights_start, in_frequencies_start));
+
+    auto in_values_start = thrust::make_transform_iterator(tuples, Prod3<double>());
+
+    thrust::reduce_by_key(
+	// add execution policy thrust::cuda::par_nosync?
+	in_keys_start,                                  // key indices start (group by pattern)
+	in_keys_start + partials_size,                  // key indices end
+	in_values_start,                                // values to reduce (category, pattern, state)
+	thrust::make_discard_iterator(),                // key values out
+	thrust::device_pointer_cast<double>(siteProbs), // reduced values out
+	thrust::equal_to<int>()                         // compare keys operation
+	                                                // Default operation is (+)
+    );
+}
+
+
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
                        float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex)
 {

@@ -1124,26 +1124,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 
     Real* siteProbs = (Real*)dIntegrationTmp;
     Real* rootPartials = (Real*)dPartials[rootNodeIndex];
+    Real* categoryWeights = (Real*)dWeights[categoryWeightsIndex];
+    Real* stateFrequencies = (Real*)dFrequencies[stateFrequenciesIndex]; // these really should be category-dependent
 
-    // auto hRootPartials = MemcpyDeviceToHostVector(rootPartials, kPaddedPatternCount * kPaddedStateCount * kCategoryCount);
-    auto hCategoryWeights = MemcpyDeviceToHostVector((Real*)dWeights[categoryWeightsIndex], kCategoryCount);
-    // std::cerr<<"hRootPartials = "<<hRootPartials<<"\n";
-
-    // Each iteration of this loop does work on the order of O(kPaddedPatternCount * kPaddedStateCount) on the GPU.
-    // So its probably OK for this outer loop to run on the host.
-    for(int category = 0; category < kCategoryCount; category++)
-    {
-	Real* rootPartialsForCat = rootPartials + (category * kPaddedPatternCount * kPaddedStateCount);
-	Real* stateFrequenciesForCat = (Real*)dFrequencies[stateFrequenciesIndex]; // these really should be category-dependent
-	Real weightForCat = hCategoryWeights[category];
-
-	Real beta = (category == 0) ? 0.0 : 1.0;
-	// siteProbs[p]  = dWeights[0] * \sum(s) rootPartials(0,p,s) * stateFreqs(s)
-	// siteProbs[p] += dWeights[c] * \sum(s) rootPartials(c,p,s) * stateFreqs(s)
-
-	gemv(cublasHandle, CUBLAS_OP_T, kPaddedStateCount, kPaddedPatternCount,
-	     weightForCat, rootPartialsForCat, kPaddedStateCount, stateFrequenciesForCat, beta, siteProbs);
-    }
+    // 1. Compute pr[pattern] = sum_{category,state} likelihood(category,pattern,state) * categoryWeights[category] * statesFrequencies[state]
+    sumRootLikelihoods(siteProbs, rootPartials, categoryWeights, stateFrequencies, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
 
     // auto hStateFrequencies = MemcpyDeviceToHostVector((Real*)dFrequencies[stateFrequenciesIndex], kStateCount);
     // auto hPatternWeights = MemcpyDeviceToHostVector((Real*)dPatternWeights, kPatternCount);
@@ -1157,18 +1142,10 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const i
 	std::abort();
     }
 
-//    std::vector<Real> hScalingFactors;
-//    if (scale)
-//	hScalingFactors = MemcpyDeviceToHostVector(dCumulativeScalingFactor, kScaleBufferSize);
-
-//    showScalingInfo(std::cerr, kFlags, cumulativeScaleIndices, kScaleBufferSize);
-//    std::cerr<<"root partials (h) = "<<hRootPartials<<"\n";
-//    std::cerr<<"state frequencies (h) = "<<hStateFrequencies<<"\n";
-//    std::cerr<<"category weights (h) = "<<hCategoryWeights<<"\n";
-//    std::cerr<<"scaling factors (h) = "<<hScalingFactors<<"\n";
-
+    // 2. Compute log(pr[pattern])
     cuda_log_vector(siteProbs, kPatternCount);
 
+    // 3. Add scaling factors back in.
     if (scale)
     {
 	cublasStatus_t status;
