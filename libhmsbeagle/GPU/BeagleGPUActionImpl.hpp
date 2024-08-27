@@ -1410,20 +1410,14 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
 
             destP.copyFrom( integrationTmp );
 
-	    F += destP;
+            F += destP;
 
             Real c2 = normPInf(destP);
-//#ifdef BEAGLE_DEBUG_FLOW
-//            std::cerr<<"F += destP, c1 = " <<c1 <<"  c2 = " <<c2 <<byCol(F)<<std::endl;
-//#endif
-
-            if (c1 + c2 <= tol * normPInf(F)) {
-                break;
-            }
+            if (c1 + c2 <= tol * normPInf(F)) break;
             c1 = c2;
         }
 
-	F *= eta;
+        F *= eta;
 
         destP.copyFrom ( F );
 
