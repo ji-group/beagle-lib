@@ -1389,39 +1389,15 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
     auto& F = (*FF)[category];
     auto& integrationTmp = (*integrationTmpPtr)[category];
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"Before destP = partials operation, destPCache:\n"<<std::endl;
-//    std::cerr<<byCol(inPartials)<<"\n";
-//#endif
-
-//    destP = partials;
     destP.copyFrom( inPartials );
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"destP = partials:\n";
-//    std::cerr<<"   from: "<<byCol(inPartials)<<"\n";
-//    std::cerr<<"   to:   "<<byCol(destP)<<"\n";
-//#endif
-
-//    MatrixXd F(kStateCount, nCol);
-//    F = destP;
     F.copyFrom( inPartials );
-
-//#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"F = partials operation, FCache:\n"<<F<<std::endl;
-//#endif
 
     const Real eta = exp(t * hMuBs[hEigenMaps[edgeIndex]] * edgeMultiplier / (Real) s);
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"eta = "<<eta<<std::endl;
-//#endif
     const Real zero = 0;
     const Real one = 1;
     for (int i = 0; i < s; i++) {
-//#ifdef BEAGLE_DEBUG_FLOW
-//        std::cerr<<"dPartials:\n"<<inPartials<<std::endl;
-//#endif
 
         Real c1 = normPInf(destP);
 
@@ -1430,21 +1406,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
 //            std::cerr<<"j/m = "<<j<<"/"<<m<<", alpha = "<<alpha<<std::endl;
 //#endif
 
-//            integrationTmp = t / (s * j) * A * destP;
             spMM<Real>(integrationTmp, t / ((Real) s * j), A, destP, 0, integrationBuffer[category], integrationBufferSize[category]);
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//            std::cerr<<"edge multiplier = "<< hEdgeMultipliers[edgeIndex * kCategoryCount + category]<<"\nB ="<<std::endl;
-//            PrintfDeviceVector(dBsCsrValuesCache[hEigenMaps[edgeIndex]], currentCacheNNZs[hEigenMaps[edgeIndex]], -1, 0, 0);
-//            std::cerr<<"A =\n"<<A<<"\n";
-//            std::cerr<<"AP * alpha = "<<byCol(integrationTmp)<<"\n";
-//#endif
-
             destP.copyFrom( integrationTmp );
-
-//#ifdef BEAGLE_DEBUG_FLOW
-//            std::cerr<<"P = IntegrationTmp = "<<byCol(destP)<<std::endl;
-//#endif
 
 	    F += destP;
 
@@ -1461,11 +1425,6 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
 
 	F *= eta;
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//        std::cerr<<"F *= eta (eta ="<<eta<<"): "<<F<<"\n";
-//#endif
-
-//        destP = F;
         destP.copyFrom ( F );
 
 #ifdef BEAGLE_DEBUG_FLOW
