@@ -26,18 +26,29 @@ void cuda_log_vector(float* v, int length)
     thrust::transform(vdptr, vdptr + length, vdptr, [] __device__ (float x) {return log(x);});
 }
 
-// This seems to be slow because it inserts cudaStreamSynchronize()
-double cuda_max(double* v, int length)
+double cuda_max_abs(double* values, int length)
 {
-    thrust::device_ptr<double> dptr = thrust::device_pointer_cast<double>(v);
-    return *(thrust::max_element(dptr, dptr + length));
+    thrust::device_ptr<double> values_ptr = thrust::device_pointer_cast<double>(values);
+
+    auto in_ptr = thrust::transform_iterator(values_ptr, [] __host__ __device__ (double x) {return std::abs(x);});
+
+    // Don't use `*(thrust::max_element(....))` -- it is slower than thrust::reduce.
+
+    // thrust::reduce is similar in speed to cublasI{s,d}amax.
+    return thrust::reduce(in_ptr, in_ptr + length, 0.0, thrust::maximum<double>());
 }
 
 // This seems to be slow because it inserts cudaStreamSynchronize()
-float cuda_max(float* v, int length)
+float cuda_max_abs(float* values, int length)
 {
-    thrust::device_ptr<float> dptr = thrust::device_pointer_cast<float>(v);
-    return *(thrust::max_element(dptr, dptr + length));
+    thrust::device_ptr<float> values_ptr = thrust::device_pointer_cast<float>(values);
+
+    auto in_ptr = thrust::transform_iterator(values_ptr, [] __host__ __device__ (float x) {return std::abs(x);});
+
+    // Don't use `*(thrust::max_element(....))` -- it is slower than thrust::reduce.
+
+    // thrust::reduce is similar in speed to cublasI{s,d}amax.
+    return thrust::reduce(in_ptr, in_ptr + length, 0.0, thrust::maximum<float>());
 }
 
 // FIXME: It would be nice to merge the code for the <float> and <double> versions of

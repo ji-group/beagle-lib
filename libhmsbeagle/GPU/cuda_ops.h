@@ -52,8 +52,8 @@ std::vector<T> MemcpyDeviceToHostVector(const T* dptr, int n)
 void cuda_log_vector(double* v, int length);
 void cuda_log_vector(float* v, int length);
 
-double cuda_max(double* v, int length);
-float cuda_max(float* v, int length);
+double cuda_max_abs(double* v, int length);
+float cuda_max_abs(float* v, int length);
 
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
 		       float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex);
