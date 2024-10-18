@@ -21,9 +21,9 @@ typedef Eigen::Triplet<double> Triplet;
 
 #include "libhmsbeagle/beagle.h"
 
-char *human = (char*)"GAGT";
-char *chimp = (char*)"GAGG";
-char *gorilla = (char*)"AAAT";
+char *human = (char*)"GAGTC";
+char *chimp = (char*)"GAGGT";
+char *gorilla = (char*)"AAATC";
 
 //char *human = (char*)"G";
 //char *chimp = (char*)"G";
@@ -162,6 +162,11 @@ std::string showFlags(BeagleFlags flags)
     return o.str();
 }
 
+bool has_only_digits(const std::string& s)
+{
+    return s.find_first_not_of( "0123456789" ) == std::string::npos;
+}
+
 int main( int argc, const char* argv[] )
 {
     // print resource list
@@ -174,8 +179,6 @@ int main( int argc, const char* argv[] )
 	std::cout<<"\t\tFlags:"<<BeagleFlags(rList->list[i].supportFlags )<<"\n";
     }
     std::cout<<"\n";
-
-    bool scaling = false;
 
     bool doJC = true;
 
@@ -194,9 +197,23 @@ int main( int argc, const char* argv[] )
 //    int rateCategoryCount = 4;
     int rateCategoryCount = 2;
 
+    bool scaling = true;
+    for(int i=1;i<argc;i++)
+	if (!strcmp(argv[i],"--noscaling"))
+	    scaling = false;
     int scaleCount = (scaling ? 7 : 0);
 
-    bool useGpu = argc > 1 && strcmp(argv[1] , "--gpu") == 0;
+    int whichDevice = -1;
+    bool useGpu = false;
+    for(int i=1;i<argc;i++)
+    {
+	if (!strcmp(argv[i],"--gpu"))
+	{
+	    useGpu = true;
+	    if (i+1<argc and has_only_digits(argv[i+1]))
+		whichDevice = std::stoi(argv[i+1]);
+	}
+    }
 
     bool useThreading = false;
     for(int i=1;i<argc;i++)
@@ -207,24 +224,15 @@ int main( int argc, const char* argv[] )
 	if (!strcmp(argv[i],"--help"))
 	{
 	    std::cerr<<"Flag: --gpu\n";
+	    std::cerr<<"Flag: --gpu <integer>\n";
 	    std::cerr<<"Flag: --threading\n";
+	    std::cerr<<"Flag: --noscaling\n";
 	    std::exit(1);
 	}
 
     bool useTipStates = false;
 
-    int whichDevice = -1;
-    if (useGpu)
-    {
-        useSSE = false;
-
-        if (argc > 2) {
-            whichDevice = atol(argv[2]);
-            if (whichDevice < 0) {
-                whichDevice = -1;
-            }
-        }
-    }
+    if (useGpu) useSSE = false;
 
     BeagleInstanceDetails instDetails;
 
@@ -645,7 +653,7 @@ int main( int argc, const char* argv[] )
 //                             1);                                    // count
 
 
-    std::cout<<"logL = "<<logL<<" (R = -18.04619478977292)\n\n";
+    std::cout<<"logL = "<<logL<<" (R = -21.827146738233282)\n\n";
 
     double * seerootPartials = (double*) malloc(sizeof(double) * stateCount * nPatterns * rateCategoryCount);
     int offset = 0;

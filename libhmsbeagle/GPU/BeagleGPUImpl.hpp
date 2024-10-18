@@ -137,9 +137,11 @@ BeagleGPUImpl<BEAGLE_GPU_GENERIC>::~BeagleGPUImpl() {
 
         // TODO: free subpointers
         gpu->FreeMemory(dMatrices[0]);    // TODO Should try: gpu->FreeMemory(dMatricesOrigin); instead of above
-        gpu->FreeMemory(dEigenValues[0]); // TODO Here is where my Mac / Intel-GPU are throwing bad-exception
-        gpu->FreeMemory(dEvec[0]);        // TODO Should be save and then release just d*Origin?
-        gpu->FreeMemory(dIevc[0]);
+        if(dEigenValues) {
+            gpu->FreeMemory(dEigenValues[0]); // TODO Here is where my Mac / Intel-GPU are throwing bad-exception
+            gpu->FreeMemory(dEvec[0]);        // TODO Should be save and then release just d*Origin?
+            gpu->FreeMemory(dIevc[0]);
+        }
         gpu->FreeMemory(dWeights[0]);
         gpu->FreeMemory(dFrequencies[0]);
 

@@ -1,4 +1,3 @@
-
 /*
  *  BeagleGPUImpl.cpp
  *  BEAGLE
@@ -259,39 +258,222 @@ long long BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getFlags()
     return flags;
 }
 
-template <typename T> cusparseIndexType_t IndexType;
-template <> cusparseIndexType_t IndexType<int32_t> = CUSPARSE_INDEX_32I;
-template <> cusparseIndexType_t IndexType<int64_t> = CUSPARSE_INDEX_64I;
-
-template <typename T> cudaDataType DataType;
-template <> cudaDataType DataType<float> = CUDA_R_32F;
-template <> cudaDataType DataType<double> = CUDA_R_64F;
-
-template <typename T>
-T* cudaDeviceNew(int n)
+// Create an io-manipulator so that we can write std::cerr<<byRow(D)<<"\n";
+template <typename Real>
+class byRowDense
 {
-    T* result;
-    auto status = cudaMalloc((void**)&result, n*sizeof(T));
-    if (status != cudaSuccess)
-	throw std::runtime_error("cudaMalloc: failed!");
-    return result;
+    const DnMatrixDevice<Real>& D;
+    bool multiline = false;
+public:
+
+    friend std::ostream& operator<<(std::ostream& o, const byRowDense<Real>& pr)
+    {
+        auto& D = pr.D;
+	bool multiline = pr.multiline;
+
+        auto hPtr = MemcpyDeviceToHostVector(D.ptr, D.size());
+
+        if (not multiline) o<<"Rows[ ";
+        for(int row=0;row<D.size1;row++)
+        {
+            if (not multiline) o<<"[ ";
+            for(int col=0;col<D.size2;col++)
+            {
+                if (D.order == CUSPARSE_ORDER_COL)
+                    o<<hPtr[col*D.size1 + row]<<", ";
+                else
+                    o<<hPtr[row*D.size2 + col]<<", ";
+            }
+	    if (not multiline)
+		o<<"] ";
+	    else if (row+1 != D.size1)
+		o<<"\n";
+        }
+        if (not multiline) o<<"]";
+
+	if (D.order == CUSPARSE_ORDER_COL)
+	    o<<" (column-major)";
+	else
+	    o<<" (row-major)";
+
+	if (multiline) o<<"\n";
+        return o;
+    }
+
+    // Initialize the forwarding struct from the matrix that we want to print.
+    byRowDense(const DnMatrixDevice<Real>& d, bool m=false):D(d),multiline(m) {}
+};
+
+// Create an io-manipulator so that we can write std::cerr<<byCol(D)<<"\n";
+template <typename Real>
+class byColDense
+{
+    const DnMatrixDevice<Real>& D;
+public:
+
+    friend std::ostream& operator<<(std::ostream& o, const byColDense<Real>& pr)
+    {
+	auto& D = pr.D;
+
+        auto hPtr = MemcpyDeviceToHostVector(D.ptr, D.size());
+
+        o<<"Cols[ ";
+        for(int col=0;col<D.size2;col++)
+        {
+            o<<"[ ";
+            for(int row=0;row<D.size1;row++)
+            {
+                if (D.order == CUSPARSE_ORDER_COL)
+                    o<<hPtr[col*D.size1 + row]<<", ";
+                else
+                    o<<hPtr[row*D.size2 + col]<<", ";
+            }
+            o<<"] ";
+        }
+        o<<"]";
+
+	if (D.order == CUSPARSE_ORDER_COL)
+	    o<<" (column-major)";
+	else
+	    o<<" (row-major)";
+
+        return o;
+    }
+
+    // Initialize the forwarding struct from the matrix that we want to print.
+    byColDense(const DnMatrixDevice<Real>& d):D(d) {}
+};
+
+std::ostream& operator<<(std::ostream& o, sparseFormat f)
+{
+    if (f == sparseFormat::csr)
+	o<<"csr";
+    else if (f == sparseFormat::csc)
+	o<<"csc";
+    else
+	o<<"sparseFormat=unknown";
+    return o;
+}
+	
+// Create an io-manipulator so that we can write std::cerr<<byRow(D)<<"\n";
+template <typename Real>
+class byRowSparse
+{
+    const SpMatrixDevice<Real>& S;
+    bool multiline = false;
+public:
+
+    friend std::ostream& operator<<(std::ostream& o, const byRowSparse<Real>& pr)
+    {
+        auto& S = pr.S;
+	bool multiline = pr.multiline;
+
+	auto values = MemcpyDeviceToHostVector(S.values, S.num_non_zeros);
+	auto inner = MemcpyDeviceToHostVector(S.inner, S.num_non_zeros);
+	auto offsets = MemcpyDeviceToHostVector(S.offsets, S.outer_dim_size() + 1);
+	
+	std::vector< std::vector<Real> > D(S.size1, std::vector<Real>(S.size2, 0));
+        for(int o=0; o< S.outer_dim_size();o++)
+        {
+            for(int index=offsets[o];index<offsets[o+1];index++)
+            {
+                if (S.format == sparseFormat::csr)
+		    D[o][inner[index]] = values[index];
+		else
+		    D[inner[index]][o] = values[index];
+            }
+        }
+
+        if (not multiline) o<<"Row[ ";
+	for(int row=0;row<D.size();row++)
+	{
+            if (not multiline) o<<"[ ";
+	    for(int col=0;col<D[row].size();col++)
+	    {
+		o<<D[row][col]<<", ";
+            }
+            if (not multiline)
+		o<<"] ";
+	    else if (row+1 != D.size())
+		o<<"\n";
+        }
+        if (not multiline) o<<"]";
+
+	o<<" ("<<S.format<<")";
+	if (multiline) o<<"\n";
+
+        return o;
+    }
+
+    // Initialize the forwarding struct from the matrix that we want to print.
+    byRowSparse(const SpMatrixDevice<Real>& s, bool m = false):S(s),multiline(m) {}
+};
+
+template <typename Real>
+byRowDense<Real> byRow(const DnMatrixDevice<Real>& D, bool m = false)
+{
+    return byRowDense<Real>(D, m);
+}
+
+template <typename Real>
+byRowSparse<Real> byRow(const SpMatrixDevice<Real>& D, bool m = false)
+{
+    return byRowSparse<Real>(D, m);
+}
+
+template <typename Real>
+byColDense<Real> byCol(const DnMatrixDevice<Real>& D)
+{
+    return byColDense<Real>(D);
+}
+
+template <typename Real>
+std::ostream& operator<<(std::ostream& o, const DnMatrixDevice<Real>& D)
+{
+    return o<<byRow(D, true);
+}
+
+template <typename Real>
+std::ostream& operator<<(std::ostream& o, const SpMatrixDevice<Real>& D)
+{
+    return o<<byRow(D, true);
+}
+
+
+template <typename Real>
+struct asDeviceVec
+{
+    const Real* data;
+    int length;
+
+    asDeviceVec(const Real* d, int l):data(d),length(l) { }
+};
+
+template <typename Real>
+std::ostream& operator<<(std::ostream& o, const asDeviceVec<Real>& D)
+{
+    auto H = MemcpyDeviceToHostVector(D.data, D.length);
+
+    o<<"[ ";
+    for(auto& h: H)
+	o<<h<<" ";
+    o<<"]";
+
+    return o;
 }
 
 template <typename T>
-void MemcpyHostToDevice(T* dptr, const T* hptr, int n)
+std::ostream& operator<<(std::ostream& o, const std::vector<T>& H)
 {
-    auto status = cudaMemcpy(dptr, hptr, n*sizeof(T), cudaMemcpyHostToDevice);
-    if (status != cudaSuccess)
-	throw std::runtime_error("cudaMemcpy(Host->Device): failed!");
+    o<<"[ ";
+    for(auto& h: H)
+	o<<h<<" ";
+    o<<"]";
+
+    return o;
 }
 
-template <typename T>
-void MemcpyDeviceToDevice(T* dptr, const T* hptr, int n)
-{
-    auto status = cudaMemcpy(dptr, hptr, n*sizeof(T), cudaMemcpyDeviceToDevice);
-    if (status != cudaSuccess)
-	throw std::runtime_error("cudaMemcpy(Host->Device): failed!");
-}
+
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
@@ -336,7 +518,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     dBsCsrColumnsCache.resize(kEigenDecompCount);
     dBsCsrValuesCache.resize(kEigenDecompCount);
     dACscValuesCache.resize(kEigenDecompCount * kCategoryCount * 2);
-    dAs = std::vector<cusparseSpMatDescr_t>(kEigenDecompCount * kCategoryCount * 2, nullptr);
+    dAs = std::vector<SpMatrixDevice<Real>>(kEigenDecompCount * kCategoryCount * 2);
     currentCacheNNZs = std::vector<int>(kEigenDecompCount, kPaddedStateCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         dBsCsrOffsetsCache[i] = cudaDeviceNew<int>(kPaddedStateCount + 1);
@@ -350,56 +532,46 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 
 
     dPartialsWrapper.resize(kPartialsBufferCount * kCategoryCount);
-    dPartialCache.resize(kPartialsBufferCount * kCategoryCount);
     for (int i = 0; i < kPartialsBufferCount; i++) {
         for (int category = 0; category < kCategoryCount; category++) {
-            dPartialCache[i * kCategoryCount + category] = (Real *) gpu->CreateSubPointer(dPartialsOrigin, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * (kCategoryCount * i + category), sizeof(Real) * kPaddedStateCount * kPaddedPatternCount);
+	    auto ptr = (Real *) gpu->CreateSubPointer(dPartialsOrigin, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * (kCategoryCount * i + category), sizeof(Real) * kPaddedStateCount * kPaddedPatternCount);
+	    auto mat = DnMatrixDevice<Real>(cublasHandle, ptr, kPaddedStateCount, kPaddedPatternCount);
+            dPartialsWrapper[i * kCategoryCount + category] = std::move(mat);
         }
     }
 
-    for (int i = 0; i < kPartialsBufferCount * kCategoryCount; i++) {
-//        dPartialCache[i] = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount);
-        CHECK_CUSPARSE(cusparseCreateDnMat(&dPartialsWrapper[i], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dPartialCache[i],
-                                           DataType<Real>, CUSPARSE_ORDER_COL))
-    }
-
-    dFLeft = std::vector<cusparseDnMatDescr_t>(kCategoryCount, nullptr);
-    dFLeftCache = std::vector<Real*>(kCategoryCount, nullptr);
     Real* dLeftCachePtr = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
-    dFRight = std::vector<cusparseDnMatDescr_t>(kCategoryCount, nullptr);
-    dFRightCache = std::vector<Real*>(kCategoryCount, nullptr);
     Real* dRightCachePtr = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
 
-    dIntegrationTmpLeft = std::vector<cusparseDnMatDescr_t>(kCategoryCount, nullptr);
-    dIntegrationTmpLeftCache = std::vector<Real*>(kCategoryCount, nullptr);
     Real* dIntegrationTmpLeftCachePtr = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
-    dIntegrationTmpRight = std::vector<cusparseDnMatDescr_t>(kCategoryCount, nullptr);
-    dIntegrationTmpRightCache = std::vector<Real*>(kCategoryCount, nullptr);
     Real* dIntegrationTmpRightCachePtr = cudaDeviceNew<Real>(kPaddedStateCount * kPaddedPatternCount * kCategoryCount);
+
     integrationLeftBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
-    integrationLeftStoredBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
     dIntegrationLeftBuffer = std::vector<void*>(kCategoryCount, nullptr);
     integrationRightBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
-    integrationRightStoredBufferSize = std::vector<size_t>(kCategoryCount, kPaddedStateCount * kPaddedPatternCount);
     dIntegrationRightBuffer = std::vector<void*>(kCategoryCount, nullptr);
 
-    for (int category = 0; category < kCategoryCount; category++) {
-        dFLeftCache[category] = dLeftCachePtr + kPaddedStateCount * kPaddedPatternCount * category;
-        dFRightCache[category] = dRightCachePtr + kPaddedStateCount * kPaddedPatternCount * category;
-        dIntegrationTmpLeftCache[category] = dIntegrationTmpLeftCachePtr + kPaddedStateCount * kPaddedPatternCount * category;
-        dIntegrationTmpRightCache[category] = dIntegrationTmpRightCachePtr + kPaddedStateCount * kPaddedPatternCount * category;
+    dFLeft.clear();
+
+    dFRight.clear();
+
+    dIntegrationTmpLeft.clear();
+
+    dIntegrationTmpRight.clear();
+
+    for (int category = 0; category < kCategoryCount; category++)
+    {
+	size_t offset = kPaddedStateCount * kPaddedPatternCount * category;
+
+        dFLeft.emplace_back(cublasHandle, dLeftCachePtr + offset, kPaddedStateCount, kPaddedPatternCount);
+        dFRight.emplace_back(cublasHandle, dRightCachePtr + offset, kPaddedStateCount, kPaddedPatternCount);
+
+	dIntegrationTmpLeft.emplace_back(cublasHandle, dIntegrationTmpLeftCachePtr + offset,  kPaddedStateCount, kPaddedPatternCount);
+	dIntegrationTmpRight.emplace_back(cublasHandle, dIntegrationTmpRightCachePtr + offset,  kPaddedStateCount, kPaddedPatternCount);
     }
 
     for (int category = 0; category < kCategoryCount; category++) {
 
-        CHECK_CUSPARSE(cusparseCreateDnMat(&dFLeft[category], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dFLeftCache[category],
-                                           DataType<Real>, CUSPARSE_ORDER_COL))
-        CHECK_CUSPARSE(cusparseCreateDnMat(&dFRight[category], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dFRightCache[category],
-                                           DataType<Real>, CUSPARSE_ORDER_COL))
-        CHECK_CUSPARSE(cusparseCreateDnMat(&dIntegrationTmpLeft[category], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dIntegrationTmpLeftCache[category],
-                                           DataType<Real>, CUSPARSE_ORDER_COL))
-        CHECK_CUSPARSE(cusparseCreateDnMat(&dIntegrationTmpRight[category], kPaddedStateCount, kPaddedPatternCount, kPaddedStateCount, dIntegrationTmpRightCache[category],
-                                           DataType<Real>, CUSPARSE_ORDER_COL))
         CHECK_CUDA(cudaMalloc(&dIntegrationLeftBuffer[category], integrationLeftBufferSize[category]))
         CHECK_CUDA(cudaMalloc(&dIntegrationRightBuffer[category], integrationRightBufferSize[category]))
     }
@@ -420,24 +592,17 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
 BEAGLE_GPU_TEMPLATE
 BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::~BeagleGPUActionImpl()
 {
-//    BeagleGPUImpl<Real>::~BeagleGPUImpl<>();
 
-    for (int i = 0; i < dPartialsWrapper.size(); i++) {
-        cusparseDestroyDnMat(dPartialsWrapper[i]);
-        cudaFree(dPartialCache[i]);
-    }
     for (int i = 0; i < kCategoryCount; i++) {
-        cusparseDestroyDnMat(dFLeft[i]);
-        cusparseDestroyDnMat(dFRight[i]);
-        cusparseDestroyDnMat(dIntegrationTmpLeft[i]);
-        cusparseDestroyDnMat(dIntegrationTmpRight[i]);
-        cudaFree(dFLeftCache[i]);
-        cudaFree(dFRightCache[i]);
-        cudaFree(dIntegrationTmpLeftCache[i]);
-        cudaFree(dIntegrationTmpRightCache[i]);
         cudaFree(dIntegrationLeftBuffer[i]);
         cudaFree(dIntegrationRightBuffer[i]);
     }
+
+    // The memory for each matrix group was allocation in a single block.
+    cudaFree(dFLeft[0].ptr);
+    cudaFree(dFRight[0].ptr);
+    cudaFree(dIntegrationTmpLeft[0].ptr);
+    cudaFree(dIntegrationTmpRight[0].ptr);
 
     for (int i = 0; i < kEigenDecompCount; i++) {
         cudaFree(dBsCsrOffsetsCache[i]);
@@ -504,8 +669,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
 #endif
 
     BeagleGPUImpl<Real>::setTipPartials(tipIndex, inPartials);
+
     for (int category = 0; category < kCategoryCount; category++) {
-        dPartialCache[getPartialIndex(tipIndex, category)] = (Real*) dPartials[tipIndex] + kPaddedStateCount * kPaddedPatternCount * category;
+        dPartialsWrapper[getPartialIndex(tipIndex, category)].ptr = (Real*) dPartials[tipIndex] + kPaddedStateCount * kPaddedPatternCount * category;
     }
 
 
@@ -515,6 +681,26 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setTipPartials(int tipIndex, const 
 
     return BEAGLE_SUCCESS;
 }
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setPartials(int tipIndex, const Real* inPartials) {
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::setPartials\n");
+#endif
+
+    BeagleGPUImpl<Real>::setPartials(tipIndex, inPartials);
+    for (int category = 0; category < kCategoryCount; category++) {
+        dPartialsWrapper[getPartialIndex(tipIndex, category)].ptr = (Real*) dPartials[tipIndex] + kPaddedStateCount * kPaddedPatternCount * category;
+    }
+
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::setPartials\n");
+#endif
+
+    return BEAGLE_SUCCESS;
+}
+
 
 
 BEAGLE_GPU_TEMPLATE
@@ -539,41 +725,20 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updatePartials(const int* operation
     return returnCode;
 }
 
-//BEAGLE_GPU_TEMPLATE
-//int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const int* bufferIndices,
-//                                                                   const int* categoryWeightsIndices,
-//                                                                   const int* stateFrequenciesIndices,
-//                                                                   const int* cumulativeScaleIndices,
-//                                                                   int count,
-//                                                                   double* outSumLogLikelihood) {
-//
-//#ifdef BEAGLE_DEBUG_FLOW
-//    fprintf(stderr, "\tEntering BeagleGPUActionImpl::calculateRootLogLikelihoods\n");
-//#endif
-//
-//    int returnCode = BEAGLE_SUCCESS;
-//
-//    if (count == 1) {
-//
-//    } else {
-//        return BEAGLE_ERROR_NO_IMPLEMENTATION;
-//    }
-//
-//#ifdef BEAGLE_DEBUG_VALUES
-//    Real r = 0;
-//fprintf(stderr, "parent = \n");
-//gpu->PrintfDeviceVector(dIntegrationTmp, kPatternCount, r);
-//#endif
-//
-//
-//#ifdef BEAGLE_DEBUG_FLOW
-//    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::calculateRootLogLikelihoods\n");
-//#endif
-//
-//    return returnCode;
-//}
+BEAGLE_GPU_TEMPLATE
+void  BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::rescalePartials(Real* partials, Real* scalingFactors, Real* cumulativeScalingBuffer, int streamIndex)
+{
+//    std::cerr<<"initial  partials (kernel) = "<<asDeviceVec((Real*)partials, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
 
+//            kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
+//                                     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
 
+    bool scalers_log = (kFlags & BEAGLE_FLAG_SCALERS_LOG)?true:false;
+    // rescalePartialsDevice(partials, scalingFactors, cumulativeScalingBuffer, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
+    rescalePartials2(scalers_log, kCategoryCount, kPaddedPatternCount, kPaddedStateCount, partials, scalingFactors, cumulativeScalingBuffer, streamIndex);
+//    std::cerr<<"rescaled partials (kernel) = "<<asDeviceVec((Real*)partials, kPaddedStateCount * kPaddedPatternCount * kCategoryCount)<<"\n";
+//    std::cerr<<"scaling factors (kernel) = "<<asDeviceVec((Real*)scalingFactors, kPatternCount)<<"\n";
+}
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialIndex(int nodeIndex, int categoryIndex) {
@@ -582,7 +747,17 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialIndex(int nodeIndex, int 
 
 BEAGLE_GPU_TEMPLATE
 int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialCacheIndex(int nodeIndex, int categoryIndex) {
-    return kPartialsCacheOffset + getPartialIndex(nodeIndex, categoryIndex);
+    return kPartialsCacheOffset * kCategoryCount + getPartialIndex(nodeIndex, categoryIndex);
+}
+
+BEAGLE_GPU_TEMPLATE
+DnMatrixDevice<Real>& BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialsWrapper(int nodeIndex, int categoryIndex) {
+    return dPartialsWrapper[getPartialIndex(nodeIndex, categoryIndex)];
+}
+
+BEAGLE_GPU_TEMPLATE
+DnMatrixDevice<Real>& BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getPartialsCacheWrapper(int nodeIndex, int categoryIndex) {
+    return dPartialsWrapper[getPartialCacheIndex(nodeIndex, categoryIndex)];
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -596,9 +771,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
     fprintf(stderr, "\tEntering BeagleGPUActionImpl::upPartials\n");
 #endif
 
-    GPUPtr cumulativeScalingBuffer = 0;
+    Real* cumulativeScalingBuffer = 0;
     if (cumulativeScalingIndex != BEAGLE_OP_NONE)
-        cumulativeScalingBuffer = dScalingFactors[cumulativeScalingIndex];
+        cumulativeScalingBuffer = (Real*)dScalingFactors[cumulativeScalingIndex];
 
     int streamIndex = -1;
     int waitIndex = -1;
@@ -615,35 +790,34 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::upPartials(bool byPartition,
         const int secondChildSubstitutionMatrixIndex = operations[op * numOps + 6];
 
         int rescale = BEAGLE_OP_NONE;
-        GPUPtr scalingFactors = (GPUPtr)NULL;
+        Real* scalingFactors = nullptr;
 
         if (kFlags & BEAGLE_FLAG_SCALING_AUTO) {
             int sIndex = destinationPartialIndex - kTipCount;
 
 	    rescale = 2;
-	    scalingFactors = dScalingFactors[sIndex];
+	    scalingFactors = (Real*)dScalingFactors[sIndex];
         } else if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
             rescale = 1;
-            scalingFactors = dScalingFactors[destinationPartialIndex - kTipCount];
+            scalingFactors = (Real*)dScalingFactors[destinationPartialIndex - kTipCount];
         } else if ((kFlags & BEAGLE_FLAG_SCALING_MANUAL) && writeScalingIndex >= 0) {
             rescale = 1;
-            scalingFactors = dScalingFactors[writeScalingIndex];
+            scalingFactors = (Real*)dScalingFactors[writeScalingIndex];
         } else if ((kFlags & BEAGLE_FLAG_SCALING_MANUAL) && readScalingIndex >= 0) {
             rescale = 0;
-            scalingFactors = dScalingFactors[readScalingIndex];
+            scalingFactors = (Real*)dScalingFactors[readScalingIndex];
         }
 
         calcPartialsPartials(destinationPartialIndex, firstChildPartialIndex, firstChildSubstitutionMatrixIndex,
                              secondChildPartialIndex, secondChildSubstitutionMatrixIndex);
 
 
-	if (rescale == 1)
-	{
-	    GPUPtr partials3 = dPartials[destinationPartialIndex];
+        if (rescale == 1)
+        {
+            Real* partials3 = (Real*)dPartials[destinationPartialIndex];
 
-	    kernels->RescalePartials(partials3, scalingFactors, cumulativeScalingBuffer,
-				     kPaddedPatternCount, kCategoryCount, 0, streamIndex, -1);
-	}
+	    rescalePartials(partials3, scalingFactors, cumulativeScalingBuffer, streamIndex);
+        }
 
         if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS) {
             int parScalingIndex = destinationPartialIndex - kTipCount;
@@ -690,7 +864,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::PrintfDeviceVector(int* dPtr,
         for(int i=0; i<length; i++) {
             sum += hPtr[i];
             if( (hPtr[i] > checkValue) && (hPtr[i]-checkValue > 1.0E-4)) {
-                fprintf(stderr,"Check value exception!  (%d) %2.5e > %2.5e (diff = %2.5e)\n",
+                fprintf(stderr,"Check value exception!  (%d) %2.5d > %2.5e (diff = %2.5e)\n",
                         i,hPtr[i],checkValue, (hPtr[i]-checkValue));
                 if( signal != 0 )
                     *signal = 1;
@@ -708,6 +882,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::PrintfDeviceVector(int* dPtr,
         }
     }
     free(hPtr);
+    return 0;
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -745,6 +920,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::PrintfDeviceVector(Real* dPtr,
         }
     }
     free(hPtr);
+    return 0;
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -794,26 +970,25 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
 
     cacheAMatrices(edgeIndex1, edgeIndex2, false);
 
-//    for (int category = 0; category < kCategoryCount; category++)
-//    {
-//        const int partial1Index = getPartialIndex(partials1Index, category);
-//        const int partial2Index = getPartialIndex(partials2Index, category);
-//
-//        const int partial1CacheIndex = getPartialCacheIndex(partials1Index, category);
-//        const int partial2CacheIndex = getPartialCacheIndex(partials2Index, category);
-//
-//        const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
-//        const int matrixIndex2 = hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category;
-//
-//        simpleAction2(getPartialCacheIndex(partials1Index, category), getPartialIndex(partials1Index, category),
-//                      edgeIndex1, category, hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category, true, false);
-//
-//        simpleAction2(getPartialCacheIndex(partials2Index, category), getPartialIndex(partials2Index, category),
-//                      edgeIndex2, category, hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category, false, false);
-//    }
+    for (int category = 0; category < kCategoryCount; category++)
+    {
+        const int partial1Index = getPartialIndex(partials1Index, category);
+        const int partial2Index = getPartialIndex(partials2Index, category);
 
-    simpleAction3(partials1Index, edgeIndex1, partials2Index, edgeIndex2);
-    cudaDeviceSynchronize();
+        const int partial1CacheIndex = getPartialCacheIndex(partials1Index, category);
+        const int partial2CacheIndex = getPartialCacheIndex(partials2Index, category);
+
+        const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
+        const int matrixIndex2 = hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category;
+
+        simpleAction2(getPartialsCacheWrapper(partials1Index, category), getPartialsWrapper(partials1Index, category),
+                      edgeIndex1, category, matrixIndex1, true, false);
+
+        simpleAction2(getPartialsCacheWrapper(partials2Index, category), getPartialsWrapper(partials2Index, category),
+                      edgeIndex2, category, matrixIndex2, false, false);
+    }
+
+//    simpleAction3(partials1Index, edgeIndex1, partials2Index, edgeIndex2);
 
     for (int category = 0; category < kCategoryCount; category++)
     {
@@ -822,13 +997,14 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
         const int partial1CacheIndex = getPartialCacheIndex(partials1Index, category);
         const int partial2CacheIndex = getPartialCacheIndex(partials2Index, category);
 
+	// element-wise multiply
         if constexpr (std::is_same<Real, float>::value) {
-            CUBLAS_CHECK(cublasSdgmm(cublasHandle, CUBLAS_SIDE_LEFT, kPaddedStateCount * kPaddedPatternCount, 1, dPartialCache[partial1CacheIndex], kPaddedStateCount * kPaddedPatternCount,
-                                     dPartialCache[partial2CacheIndex], 1, dPartialCache[destPartialIndex], kPaddedStateCount * kPaddedPatternCount));
+            CUBLAS_CHECK(cublasSdgmm(cublasHandle, CUBLAS_SIDE_LEFT, kPaddedStateCount * kPaddedPatternCount, 1, dPartialsWrapper[partial1CacheIndex].ptr, kPaddedStateCount * kPaddedPatternCount,
+                                     dPartialsWrapper[partial2CacheIndex].ptr, 1, dPartialsWrapper[destPartialIndex].ptr, kPaddedStateCount * kPaddedPatternCount));
 
         } else {
-            CUBLAS_CHECK(cublasDdgmm(cublasHandle, CUBLAS_SIDE_LEFT, kPaddedStateCount * kPaddedPatternCount, 1, dPartialCache[partial1CacheIndex], kPaddedStateCount * kPaddedPatternCount,
-                                     dPartialCache[partial2CacheIndex], 1, dPartialCache[destPartialIndex], kPaddedStateCount * kPaddedPatternCount));
+            CUBLAS_CHECK(cublasDdgmm(cublasHandle, CUBLAS_SIDE_LEFT, kPaddedStateCount * kPaddedPatternCount, 1, dPartialsWrapper[partial1CacheIndex].ptr, kPaddedStateCount * kPaddedPatternCount,
+                                     dPartialsWrapper[partial2CacheIndex].ptr, 1, dPartialsWrapper[destPartialIndex].ptr, kPaddedStateCount * kPaddedPatternCount));
 
         }
 //#ifdef BEAGLE_DEBUG_FLOW
@@ -841,8 +1017,6 @@ void BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calcPartialsPartials(int destPInde
 //        PrintfDeviceVector(dPartialCache[destPartialIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
 //#endif
     }
-    cudaDeviceSynchronize();
-
 }
 
 BEAGLE_GPU_TEMPLATE
@@ -857,6 +1031,186 @@ double BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getDValue(int p, int eigenIndex)
     assert(p >= 0 and p < hds[eigenIndex].size());
 
     return hds[eigenIndex][p];
+}
+
+std::ostream& showScalingInfo(std::ostream& o, std::uint64_t kFlags, const int* cumulativeScaleIndices, int kScaleBufferSize)
+{
+    int scale = 1;
+    if (kFlags & BEAGLE_FLAG_SCALING_AUTO)
+	;
+    else if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS)
+	;
+    else if (cumulativeScaleIndices[0] != BEAGLE_OP_NONE)
+	;
+    else
+	scale = 0;
+
+    o<<"scale = "<<scale
+     <<"  scaling_auto = "<<bool(kFlags & BEAGLE_FLAG_SCALING_AUTO)
+     <<"  scaling always = "<<bool(kFlags & BEAGLE_FLAG_SCALING_ALWAYS)
+     <<"  scaling_dynamic = "<<bool(kFlags & BEAGLE_FLAG_SCALING_DYNAMIC)
+     <<"  scalers = "<<bool(kFlags & BEAGLE_FLAG_SCALERS_LOG)
+     <<"  scalers_raw = "<<bool(kFlags & BEAGLE_FLAG_SCALERS_RAW)
+     <<"  cumulative_scale_indices = "<<cumulativeScaleIndices[0]
+     <<"  kScaleBufferSize = "<<kScaleBufferSize
+     <<"\n";
+
+    return o;
+}
+
+template <typename Real>
+void gemv(cublasHandle_t handle, cublasOperation_t op, int size1, int size2, Real alpha, const Real* mat, int lda, const Real* vec, Real beta, Real* out)
+{
+    cublasStatus_t status;
+
+    if constexpr (std::is_same<Real, float>::value) {
+	status = cublasSgemv(handle, op,
+			     size1, size2,
+			     &alpha,
+			     mat, size1,  //leading dimension
+			     vec, 1,
+			     &beta,
+			     out, 1);
+    }
+    else
+    {
+	status = cublasDgemv(handle, op,
+			     size1, size2,
+			     &alpha,
+			     mat, size1,  //leading dimension
+			     vec, 1,
+			     &beta,
+			     out, 1);
+    }
+    if (status != CUBLAS_STATUS_SUCCESS)
+    {
+	std::cerr<<"cublas error "<<status<<" in cublas<t>gemv( ).";
+	exit(1);
+    }
+}
+
+BEAGLE_GPU_TEMPLATE
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::calculateRootLogLikelihoods(const int* bufferIndices,
+                                                                         const int* categoryWeightsIndices,
+                                                                         const int* stateFrequenciesIndices,
+                                                                         const int* cumulativeScaleIndices,
+                                                                         int count,
+                                                                         double* outSumLogLikelihood) {
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tEntering BeagleGPUActionImpl::calculateRootLogLikelihoods\n");
+#endif
+
+    int returnCode = BEAGLE_SUCCESS;
+
+    const int rootNodeIndex = bufferIndices[0];
+    const int categoryWeightsIndex = categoryWeightsIndices[0];
+    const int stateFrequenciesIndex = stateFrequenciesIndices[0];
+
+    const Real* dCumulativeScalingFactor = nullptr;
+    bool scale = 1;
+    if (kFlags & BEAGLE_FLAG_SCALING_AUTO)
+        dCumulativeScalingFactor = (const Real*)dAccumulatedScalingFactors;
+    else if (kFlags & BEAGLE_FLAG_SCALING_ALWAYS)
+        dCumulativeScalingFactor = (const Real*)dScalingFactors[bufferIndices[0] - kTipCount];
+    else if (cumulativeScaleIndices[0] != BEAGLE_OP_NONE)
+        dCumulativeScalingFactor = (const Real*)dScalingFactors[cumulativeScaleIndices[0]];
+    else
+        scale = 0;
+
+#ifdef BEAGLE_DEBUG_VALUES
+    std::cerr<<"root partials = "<<asDeviceVec((Real*)dPartials[rootNodeIndex], kPaddedPatternCount * kPaddedStateCount * kCategoryCount)<<"\n";
+#endif
+
+    Real* siteProbs = (Real*)dIntegrationTmp;
+    Real* rootPartials = (Real*)dPartials[rootNodeIndex];
+    Real* categoryWeights = (Real*)dWeights[categoryWeightsIndex];
+    Real* stateFrequencies = (Real*)dFrequencies[stateFrequenciesIndex]; // these really should be category-dependent
+
+    // 1. Compute pr[pattern] = sum_{category,state} likelihood(category,pattern,state) * categoryWeights[category] * statesFrequencies[state]
+    sumRootLikelihoods(siteProbs, rootPartials, categoryWeights, stateFrequencies, kPaddedStateCount, kPaddedPatternCount, kCategoryCount);
+
+    // auto hStateFrequencies = MemcpyDeviceToHostVector((Real*)dFrequencies[stateFrequenciesIndex], kStateCount);
+    // auto hPatternWeights = MemcpyDeviceToHostVector((Real*)dPatternWeights, kPatternCount);
+    if (kFlags & BEAGLE_FLAG_SCALING_AUTO)
+    {
+	// scaling factor per pattern*category -- see BeagleGPUImpl<>::createInstance
+	// scaling factor is char?? -- see BeagleGPUImpl<>::createInstance
+	// scaling factor is int??  -- see KernelIntegrateLikelihoodsAutoScaling
+	// See kernelIntegrateLikelihoodsAutoScaling in KernelsX.cu
+	std::cerr<<"BeagleGPUActionImpl< >::calculateRootLogLikelihoods -- FLAG_SCALING_AUTO not implemented!";
+	std::abort();
+    }
+
+    // 2. Compute log(pr[pattern])
+    cuda_log_vector(siteProbs, kPatternCount);
+
+    // 3. Add scaling factors back in.
+    if (scale)
+    {
+	cublasStatus_t status;
+	if constexpr (std::is_same<Real, float>::value)
+	{
+	    Real alpha = 1;
+	    status = cublasSaxpy(cublasHandle, kPatternCount,
+				 &alpha,
+				 dCumulativeScalingFactor, 1,
+				 siteProbs, 1);
+	}
+	else
+	{
+	    Real alpha = 1;
+	    status = cublasDaxpy(cublasHandle, kPatternCount,
+				 &alpha,
+				 dCumulativeScalingFactor, 1,
+				 siteProbs, 1);
+	}
+	if (status != CUBLAS_STATUS_SUCCESS)
+	{
+	    std::cerr<<"cublas error "<<status<<" in cublas<t>axpy( ).";
+	    exit(1);
+	}
+    }
+
+
+/*
+    std::cerr<<"site probs (d1) = "<<asDeviceVec((Real*)dIntegrationTmp, kPatternCount)<<"\n";
+*/
+
+#ifdef BEAGLE_DEBUG_VALUES
+    std::cerr<<"before pattern weights = "<<asDeviceVec((Real*)dIntegrationTmp, kPatternCount)<<"\n";
+#endif
+
+    // Take the dot product of the pattern log-likelihoods and the pattern weights.
+    // The output (dSumLogLikelihood) needs to be a device pointer.
+    dotProduct((Real*)dSumLogLikelihood, cublasHandle, kPatternCount, (Real*)dIntegrationTmp, (Real*)dPatternWeights);
+
+//    std::cerr<<"logLikelihood (kernel) = "<<MemcpyDeviceToHostVector((Real*)dSumLogLikelihood,1)[0]<<"   logLikelihood (ours) = "<<OurResult<<"\n";
+
+    if (kFlags & BEAGLE_FLAG_COMPUTATION_SYNCH) {
+        gpu->MemcpyDeviceToHost(hLogLikelihoodsCache, dSumLogLikelihood, sizeof(Real) * kSumSitesBlockCount);
+
+        *outSumLogLikelihood = 0.0;
+        for (int i = 0; i < kSumSitesBlockCount; i++) {
+            if (hLogLikelihoodsCache[i] != hLogLikelihoodsCache[i])
+                returnCode = BEAGLE_ERROR_FLOATING_POINT;
+
+            *outSumLogLikelihood += hLogLikelihoodsCache[i];
+        }
+    }
+
+#ifdef BEAGLE_DEBUG_VALUES
+    Real r = 0;
+    fprintf(stderr, "parent = \n");
+    gpu->PrintfDeviceVector(dIntegrationTmp, kPatternCount, r);
+#endif
+
+
+#ifdef BEAGLE_DEBUG_FLOW
+    fprintf(stderr, "\tLeaving  BeagleGPUActionImpl::calculateRootLogLikelihoods\n");
+#endif
+
+    return returnCode;
 }
 
 
@@ -922,7 +1276,8 @@ std::tuple<int,int> BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getStatistics2(doub
 }
 
 BEAGLE_GPU_TEMPLATE
-int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose) {
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int edgeIndex2, bool transpose)
+{
     for (int category = 0; category < kCategoryCount; category++) {
         const int matrixIndex1 = hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category;
         const int edgeMultiplierIndex1 = edgeIndex1 * kCategoryCount + category;
@@ -932,16 +1287,28 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
         const int edgeMultiplierIndex2 = edgeIndex2 * kCategoryCount + category;
         const Real edgeMultiplier2 = hEdgeMultipliers[edgeMultiplierIndex2];
 
-
         MemcpyDeviceToDevice(dACscValuesCache[matrixIndex1], dBsCsrValuesCache[hEigenMaps[edgeIndex1]], currentCacheNNZs[hEigenMaps[edgeIndex1]]);
         MemcpyDeviceToDevice(dACscValuesCache[matrixIndex2], dBsCsrValuesCache[hEigenMaps[edgeIndex2]], currentCacheNNZs[hEigenMaps[edgeIndex2]]);
-        if constexpr (std::is_same<Real, float>::value) {
-            CUBLAS_CHECK(cublasSscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex1]], &edgeMultiplier1, dACscValuesCache[matrixIndex1], 1));  //Check if this is asynchronous with the following
-            CUBLAS_CHECK(cublasSscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex2]], &edgeMultiplier2, dACscValuesCache[matrixIndex2], 1));  //Check if this is asynchronous with the following
-        } else {
-            CUBLAS_CHECK(cublasDscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex1]], &edgeMultiplier1, dACscValuesCache[matrixIndex1], 1));  //Check if this is asynchronous with the following
-            CUBLAS_CHECK(cublasDscal(cublasHandle, currentCacheNNZs[hEigenMaps[edgeIndex2]], &edgeMultiplier2, dACscValuesCache[matrixIndex2], 1));  //Check if this is asynchronous with the following
-        }
+	auto format = transpose ? sparseFormat::csc : sparseFormat::csr;
+
+	dAs[matrixIndex1] = SpMatrixDevice<Real>(cublasHandle, cusparseHandle,
+						 kPaddedStateCount, kPaddedStateCount,
+						 currentCacheNNZs[hEigenMaps[edgeIndex1]],
+						 dACscValuesCache[matrixIndex1],
+						 dBsCsrColumnsCache[hEigenMaps[edgeIndex1]],
+						 dBsCsrOffsetsCache[hEigenMaps[edgeIndex1]],
+						 format);
+
+	dAs[matrixIndex2] = SpMatrixDevice<Real>(cublasHandle, cusparseHandle,
+						 kPaddedStateCount, kPaddedStateCount,
+						 currentCacheNNZs[hEigenMaps[edgeIndex2]],
+						 dACscValuesCache[matrixIndex2],
+						 dBsCsrColumnsCache[hEigenMaps[edgeIndex2]],
+						 dBsCsrOffsetsCache[hEigenMaps[edgeIndex2]],
+						 format);
+
+	dAs[matrixIndex1] *= edgeMultiplier1; //Check if this is asynchronous with the following
+	dAs[matrixIndex2] *= edgeMultiplier2;
 
 #ifdef BEAGLE_DEBUG_FLOW
         std::cerr<<"category = "<<category<<std::endl;
@@ -950,30 +1317,10 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
         std::cerr<<"edgeMultiplierIndex1 = "<<edgeMultiplierIndex1<<std::endl;
         std::cerr<<"edgeMultiplier1 = "<<edgeMultiplier1<<std::endl;
         std::cerr<<"hEigenMaps[edgeIndex1] = "<<hEigenMaps[edgeIndex1]<<std::endl;
-        PrintfDeviceVector(dACscValuesCache[matrixIndex1], currentCacheNNZs[hEigenMaps[edgeIndex1]], -1, 0, 0);
+	std::cerr<<"dAs["<<matrixIndex1<<"] = \n"<<dAs[matrixIndex1]<<"\n";
 #endif
-
-        if (transpose) {
-            CHECK_CUSPARSE(cusparseCreateCsc(&dAs[matrixIndex1], kPaddedStateCount, kPaddedStateCount, currentCacheNNZs[hEigenMaps[edgeIndex1]],
-                                             dBsCsrOffsetsCache[hEigenMaps[edgeIndex1]], dBsCsrColumnsCache[hEigenMaps[edgeIndex1]], dACscValuesCache[matrixIndex1],
-                                             IndexType<int>, IndexType<int>,
-                                             CUSPARSE_INDEX_BASE_ZERO, DataType<Real>))
-            CHECK_CUSPARSE(cusparseCreateCsc(&dAs[matrixIndex2], kPaddedStateCount, kPaddedStateCount, currentCacheNNZs[hEigenMaps[edgeIndex2]],
-                                             dBsCsrOffsetsCache[hEigenMaps[edgeIndex2]], dBsCsrColumnsCache[hEigenMaps[edgeIndex2]], dACscValuesCache[matrixIndex2],
-                                             IndexType<int>, IndexType<int>,
-                                             CUSPARSE_INDEX_BASE_ZERO, DataType<Real>))
-        } else {
-            CHECK_CUSPARSE(cusparseCreateCsr(&dAs[matrixIndex1], kPaddedStateCount, kPaddedStateCount, currentCacheNNZs[hEigenMaps[edgeIndex1]],
-                                             dBsCsrOffsetsCache[hEigenMaps[edgeIndex1]], dBsCsrColumnsCache[hEigenMaps[edgeIndex1]], dACscValuesCache[matrixIndex1],
-                                             IndexType<int>, IndexType<int>,
-                                             CUSPARSE_INDEX_BASE_ZERO, DataType<Real>))
-            CHECK_CUSPARSE(cusparseCreateCsr(&dAs[matrixIndex2], kPaddedStateCount, kPaddedStateCount, currentCacheNNZs[hEigenMaps[edgeIndex2]],
-                                             dBsCsrOffsetsCache[hEigenMaps[edgeIndex2]], dBsCsrColumnsCache[hEigenMaps[edgeIndex2]], dACscValuesCache[matrixIndex2],
-                                             IndexType<int>, IndexType<int>,
-                                             CUSPARSE_INDEX_BASE_ZERO, DataType<Real>))
-        }
     }
-    cudaDeviceSynchronize();
+
     return BEAGLE_SUCCESS;
 }
 
@@ -999,8 +1346,14 @@ int spMM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSp
     return 0;
 }
 
+template <typename Real>
+int spMM(DnMatrixDevice<Real>& C, Real alpha, const SpMatrixDevice<Real>& A, const DnMatrixDevice<Real>& B, Real beta, void*& buffer, size_t& buffersize)
+{
+    return spMM<Real>(A.cusparseHandle, C.descr, alpha, A.descr, B.descr, beta, buffer, buffersize);
+}
+
 BEAGLE_GPU_TEMPLATE
-int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose) {
+int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>& destP, const DnMatrixDevice<Real>& inPartials, int edgeIndex, int category, int matrixIndex, bool left, bool transpose) {
     const double tol = pow(2.0, -53.0);
     const double t = 1.0;
     const int nCol = kPaddedStateCount * kPaddedPatternCount;
@@ -1013,135 +1366,63 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(int destPIndex, int p
 
 #ifdef BEAGLE_DEBUG_FLOW
     std::cerr << "\n\nsimpleAction2: m = " << m << "  s = " << s << " t = " << t << " nCol = " << nCol << " edgeMultiplier = " << edgeMultiplier << std::endl;
-    std::cerr << "destPIndex = "<<destPIndex<<" partialsIndex = " << partialsIndex << "  edgeIndex = " << edgeIndex << " category = " << category << " matrixIndex = "<<matrixIndex << std::endl;
+    std::cerr << "  edgeIndex = " << edgeIndex << " category = " << category << " matrixIndex = "<<matrixIndex << std::endl;
 #endif
 
 //    SpMatrix<Real> A = hBs[hEigenMaps[edgeIndex]] * edgeMultiplier;
-    cusparseSpMatDescr_t A = dAs[matrixIndex];
-    vector<cusparseDnMatDescr_t> F;
-    vector<cusparseDnMatDescr_t> integrationTmp;
-    std::vector<Real*> FCache;
-    std::vector<Real*> integrationCache;
+    auto& A = dAs[matrixIndex];
+    vector<DnMatrixDevice<Real>>* FF;
+    vector<DnMatrixDevice<Real>>* integrationTmpPtr;
     std::vector<void*> integrationBuffer;
     std::vector<size_t> integrationBufferSize;
     if (left) {
-        F = dFLeft;
-        integrationTmp = dIntegrationTmpLeft;
-        FCache = dFLeftCache;
-        integrationCache = dIntegrationTmpLeftCache;
+        FF = &dFLeft;
+        integrationTmpPtr = &dIntegrationTmpLeft;
         integrationBuffer = dIntegrationLeftBuffer;
         integrationBufferSize = integrationLeftBufferSize;
     } else {
-        F = dFRight;
-        integrationTmp = dIntegrationTmpRight;
-        FCache = dFRightCache;
-        integrationCache = dIntegrationTmpRightCache;
+        FF = &dFRight;
+        integrationTmpPtr = &dIntegrationTmpRight;
         integrationBuffer = dIntegrationRightBuffer;
         integrationBufferSize = integrationRightBufferSize;
     }
+    auto& F = (*FF)[category];
+    auto& integrationTmp = (*integrationTmpPtr)[category];
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"Before destP = partials operation, destPCache:\n"<<std::endl;
-//    PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//#endif
+    destP.copyFrom( inPartials );
 
-//    destP = partials;
-    MemcpyDeviceToDevice(dPartialCache[destPIndex], dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount);
-//    CHECK_CUSPARSE(cusparseDnMatSetValues(dPartialsWrapper[destPIndex], dPartialCache[partialsIndex]))
-
-
-//#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"destP = partials, copying: \n"<<std::endl;
-//    PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//    std::cerr<<"\nto:\n"<<std::endl;
-//    PrintfDeviceVector(dPartialCache[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//#endif
-
-//    MatrixXd F(kStateCount, nCol);
-//    F = destP;
-    MemcpyDeviceToDevice(FCache[category], dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount);
-//    CHECK_CUSPARSE(cusparseDnMatSetValues(F[category], dPartialCache[partialsIndex])) // TODO: loop category within this function
-//#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"F = partials operation, FCache:"<<std::endl;
-//    PrintfDeviceVector(FCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//#endif
-    cudaDeviceSynchronize();
+    F.copyFrom( inPartials );
 
     const Real eta = exp(t * hMuBs[hEigenMaps[edgeIndex]] * edgeMultiplier / (Real) s);
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//    std::cerr<<"eta = "<<eta<<std::endl;
-//#endif
     const Real zero = 0;
     const Real one = 1;
     for (int i = 0; i < s; i++) {
-//#ifdef BEAGLE_DEBUG_FLOW
-//        std::cerr<<"dPartials:"<<std::endl;
-//        PrintfDeviceVector(dPartialCache[partialsIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//#endif
 
-        Real c1 = normPInf(dPartialCache[partialsIndex], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+        Real c1 = normPInf(destP);
 
         for (int j = 1; j < m + 1; j++) {
 //#ifdef BEAGLE_DEBUG_FLOW
 //            std::cerr<<"j/m = "<<j<<"/"<<m<<", alpha = "<<alpha<<std::endl;
 //#endif
-//            destP = t / (s * j) * A * destP;
-            spMM<Real>(cusparseHandle, integrationTmp[category], t / ((Real) s * j), A, dPartialsWrapper[destPIndex], 0, integrationBuffer[category], integrationBufferSize[category]);
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//            std::cerr<<"edge multiplier = "<< hEdgeMultipliers[edgeIndex * kCategoryCount + category]<<"\nB ="<<std::endl;
-//            PrintfDeviceVector(dBsCsrValuesCache[hEigenMaps[edgeIndex]], currentCacheNNZs[hEigenMaps[edgeIndex]], -1, 0, 0);
-//            std::cerr<<"A ="<<std::endl;
-//            PrintfDeviceVector(dACscValuesCache[matrixIndex], currentCacheNNZs[hEigenMaps[edgeIndex]], -1, 0, 0);
-//            std::cerr<<"AP * alpha ="<<std::endl;
-//            PrintfDeviceVector(integrationCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//#endif
+            spMM<Real>(integrationTmp, t / ((Real) s * j), A, destP, 0, integrationBuffer[category], integrationBufferSize[category]);
 
-            // destP = IntegrationTmp
-            MemcpyDeviceToDevice(dPartialCache[destPIndex], integrationCache[category], kPaddedStateCount * kPaddedPatternCount);
+            destP.copyFrom( integrationTmp );
 
-//#ifdef BEAGLE_DEBUG_FLOW
-//
-//            std::cerr<<"P = IntegrationTmp ="<<std::endl;
-//            PrintfDeviceVector(dPartialCache[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//#endif
+            F += destP;
 
-            double c2 = normPInf(integrationCache[category], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
-//            F += destP;
-            if constexpr (std::is_same<Real, float>::value) {
-                CUBLAS_CHECK(cublasSaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &one, integrationCache[category], 1, FCache[category], 1));
-            } else {
-                CUBLAS_CHECK(cublasDaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &one, integrationCache[category], 1, FCache[category], 1));
-            }
-//#ifdef BEAGLE_DEBUG_FLOW
-//
-//            std::cerr<<"F += destP, c1 = " <<c1 <<"  c2 = " <<c2 <<std::endl;
-//            PrintfDeviceVector(FCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//#endif
-
-            if (c1 + c2 <= tol * normPInf(FCache[category],kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
-                break;
-            }
+            Real c2 = normPInf(destP);
+            if (c1 + c2 <= tol * normPInf(F)) break;
             c1 = c2;
         }
-//        F *= eta;
-        if constexpr (std::is_same<Real, float>::value) {
-            CUBLAS_CHECK(cublasSscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &eta, FCache[category], 1));
-        } else {
-            CUBLAS_CHECK(cublasDscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &eta, FCache[category], 1));
-        }
-//#ifdef BEAGLE_DEBUG_FLOW
-//
-//        std::cerr<<"F *= eta (eta ="<<eta<<"):"<<std::endl;
-//        PrintfDeviceVector(FCache[category], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
-//#endif
-//        destP = F;
-        MemcpyDeviceToDevice(dPartialCache[destPIndex], FCache[category], kPaddedStateCount * kPaddedPatternCount);
-#ifdef BEAGLE_DEBUG_FLOW
 
-        std::cerr<<"destP = F:"<<std::endl;
-        PrintfDeviceVector(dPartialCache[destPIndex], kPaddedStateCount * kPaddedPatternCount, -1, 0, 0);
+        F *= eta;
+
+        destP.copyFrom ( F );
+
+#ifdef BEAGLE_DEBUG_FLOW
+        std::cerr<<"i = "<<i<<" destP = F:\n"<<"  "<<byCol(destP)<<"\n";
 #endif
     }
 
@@ -1177,21 +1458,21 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
 
 
     //    destP = partials;
-    CHECK_CUDA(cudaMemcpyAsync(dPartialCache[getPartialCacheIndex(partialsIndex1, 0)], dPartialCache[getPartialIndex(partialsIndex1, 0)], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
-    CHECK_CUDA(cudaMemcpyAsync(dPartialCache[getPartialCacheIndex(partialsIndex2, 0)], dPartialCache[getPartialIndex(partialsIndex2, 0)], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
+    CHECK_CUDA(cudaMemcpyAsync(dPartialsWrapper[getPartialCacheIndex(partialsIndex1, 0)].ptr, dPartialsWrapper[getPartialIndex(partialsIndex1, 0)].ptr, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
+    CHECK_CUDA(cudaMemcpyAsync(dPartialsWrapper[getPartialCacheIndex(partialsIndex2, 0)].ptr, dPartialsWrapper[getPartialIndex(partialsIndex2, 0)].ptr, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
     //    F = destP;
-    CHECK_CUDA(cudaMemcpyAsync(dFLeftCache[0], dPartialCache[getPartialIndex(partialsIndex1, 0)], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
-    CHECK_CUDA(cudaMemcpyAsync(dFRightCache[0], dPartialCache[getPartialIndex(partialsIndex2, 0)], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
+    CHECK_CUDA(cudaMemcpyAsync(dFLeft[0].ptr, dPartialsWrapper[getPartialIndex(partialsIndex1, 0)].ptr, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
+    CHECK_CUDA(cudaMemcpyAsync(dFRight[0].ptr, dPartialsWrapper[getPartialIndex(partialsIndex2, 0)].ptr, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
 
     cudaDeviceSynchronize();
 
 #ifdef BEAGLE_DEBUG_FLOW
     std::cerr<<"P:" <<std::endl;
-    PrintfDeviceVector(dPartialCache[getPartialIndex(partialsIndex1, 0)], kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
+    PrintfDeviceVector(dPartialsWrapper[getPartialIndex(partialsIndex1, 0)].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
     std::cerr<<"destP:" <<std::endl;
-    PrintfDeviceVector(dPartialCache[getPartialCacheIndex(partialsIndex1, 0)], kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
+    PrintfDeviceVector(dPartialsWrapper[getPartialCacheIndex(partialsIndex1, 0)].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
     std::cerr<<"F:" <<std::endl;
-    PrintfDeviceVector(dFLeftCache[0], kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
+    PrintfDeviceVector(dFLeft[0].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
     std::cerr<<"ms:"<<std::endl;
     for (int i = 0; i < kCategoryCount; i++) {
         std::cerr<<"("<<std::get<0>(msCache[i])<<", "<<std::get<1>(msCache[i])<<"), ";
@@ -1204,9 +1485,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
     for (int i = 0; i < s_max; i++) {
 
         for (int category = 0; category < kCategoryCount; category++) {
-            const Real c1Left = normPInf(dPartialCache[getPartialIndex(partialsIndex1, category)], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+            const Real c1Left = normPInf(dPartialsWrapper[getPartialIndex(partialsIndex1, category)]);
             c1Cache[category] = c1Left;
-            const Real c1Right = normPInf(dPartialCache[getPartialIndex(partialsIndex2, category)], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
+            const Real c1Right = normPInf(dPartialsWrapper[getPartialIndex(partialsIndex2, category)]);
             c1Cache[kCategoryCount + category] = c1Right;
 
             etaCache[category] = (i < std::get<1>(msCache[category])) * (etaCache[category] - 1) + 1;
@@ -1239,75 +1520,40 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
 
             for (int category = 0; category < kCategoryCount; category++) {
 
-//                spMM<Real>(cusparseHandle, dIntegrationTmpLeft[category], alphaCache[category], ALeft, dPartialsWrapper[destPIndex1], 0, dIntegrationLeftBuffer[category], integrationLeftBufferSize[category]);
-//                spMM<Real>(cusparseHandle, dIntegrationTmpRight[category], alphaCache[kCategoryCount + category], ARight, dPartialsWrapper[destPIndex2], 0, dIntegrationRightBuffer[category], integrationRightBufferSize[category]);
-
-                CHECK_CUSPARSE(cusparseSpMM_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       &alphaCache[category], dAs[hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex1, category)], &zero,
-                                                       dIntegrationTmpLeft[category], DataType<Real>,
-                                                       CUSPARSE_SPMM_ALG_DEFAULT, &integrationLeftBufferSize[category]))
-
-                CHECK_CUSPARSE(cusparseSpMM_bufferSize(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                                       &alphaCache[kCategoryCount + category], dAs[hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex2, category)], &zero,
-                                                       dIntegrationTmpRight[category], DataType<Real>,
-                                                       CUSPARSE_SPMM_ALG_DEFAULT, &integrationRightBufferSize[kCategoryCount + category]))
-                if (integrationLeftBufferSize[category] > integrationLeftStoredBufferSize[category] && integrationMultipliers[category]) {
-                    CHECK_CUDA(cudaMalloc(&dIntegrationLeftBuffer[category],
-                                          integrationLeftBufferSize[category]))  // TODO: is this necessary? Are there better ways to claim additional buffer?
-                    integrationLeftStoredBufferSize[category] = integrationLeftBufferSize[category];
-                }
-                if (integrationRightBufferSize[category] > integrationRightStoredBufferSize[category] && integrationMultipliers[kCategoryCount + category]) {
-                    CHECK_CUDA(cudaMalloc(&dIntegrationRightBuffer[category],
-                                          integrationRightBufferSize[category]))  // TODO: is this necessary? Are there better ways to claim additional buffer?
-                    integrationRightStoredBufferSize[category] = integrationRightBufferSize[category];
-
-                }
-
-                // integrationTmp = alpha * A * destP
-                CHECK_CUSPARSE(cusparseSpMM(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                            CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                            &alphaCache[category], dAs[hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex1, category)], &zero,
-                                            dIntegrationTmpLeft[category], DataType<Real>,
-                                            CUSPARSE_SPMM_ALG_DEFAULT, dIntegrationLeftBuffer[category]))
-                CHECK_CUSPARSE(cusparseSpMM(cusparseHandle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                            CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                            &alphaCache[kCategoryCount + category], dAs[hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex2, category)], &zero,
-                                            dIntegrationTmpRight[category], DataType<Real>,
-                                            CUSPARSE_SPMM_ALG_DEFAULT, dIntegrationRightBuffer[category]))
+                spMM<Real>(dIntegrationTmpLeft[category], alphaCache[category], dAs[hEigenMaps[edgeIndex1] * kCategoryCount * 2 + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex1, category)], 0, dIntegrationLeftBuffer[category], integrationLeftBufferSize[category]);
+                spMM<Real>(dIntegrationTmpRight[category], alphaCache[kCategoryCount + category], dAs[hEigenMaps[edgeIndex2] * kCategoryCount * 2 + kCategoryCount + category], dPartialsWrapper[getPartialCacheIndex(partialsIndex2, category)], 0, dIntegrationRightBuffer[category], integrationRightBufferSize[category]);
 
             }
             cudaDeviceSynchronize();
 
 #ifdef BEAGLE_DEBUG_FLOW
             std::cerr<<"integrationTmp = alpha * A * destP = " <<std::endl;
-            PrintfDeviceVector(dIntegrationTmpLeftCache[0], kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
-            PrintfDeviceVector(dIntegrationTmpRightCache[0], kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
+            PrintfDeviceVector(dIntegrationTmpLeft[0].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
+            PrintfDeviceVector(dIntegrationTmpRight[0].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
 #endif
 
             // destP = IntegrationTmp
-            CHECK_CUDA(cudaMemcpyAsync(dPartialCache[getPartialCacheIndex(partialsIndex1, 0)], dIntegrationTmpLeftCache[0], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
-            CHECK_CUDA(cudaMemcpyAsync(dPartialCache[getPartialCacheIndex(partialsIndex2, 0)], dIntegrationTmpRightCache[0], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
+            CHECK_CUDA(cudaMemcpyAsync(dPartialsWrapper[getPartialCacheIndex(partialsIndex1, 0)].ptr, dIntegrationTmpLeft[0].ptr, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
+            CHECK_CUDA(cudaMemcpyAsync(dPartialsWrapper[getPartialCacheIndex(partialsIndex2, 0)].ptr, dIntegrationTmpRight[0].ptr, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
 
 //            F += destP = IntegrationTmp;
             if constexpr (std::is_same<Real, float>::value) {
-                CUBLAS_CHECK(cublasSaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, &one, dIntegrationTmpLeftCache[0], 1, dFLeftCache[0], 1));
-                CUBLAS_CHECK(cublasSaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, &one, dIntegrationTmpRightCache[0], 1, dFRightCache[0], 1));
+                CUBLAS_CHECK(cublasSaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, &one, dIntegrationTmpLeft[0].ptr, 1, dFLeft[0].ptr, 1));
+                CUBLAS_CHECK(cublasSaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, &one, dIntegrationTmpRight[0].ptr, 1, dFRight[0].ptr, 1));
             } else {
-                CUBLAS_CHECK(cublasDaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, &one, dIntegrationTmpLeftCache[0], 1, dFLeftCache[0], 1));
-                CUBLAS_CHECK(cublasDaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, &one, dIntegrationTmpRightCache[0], 1, dFRightCache[0], 1));
+                CUBLAS_CHECK(cublasDaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, &one, dIntegrationTmpLeft[0].ptr, 1, dFLeft[0].ptr, 1));
+                CUBLAS_CHECK(cublasDaxpy(cublasHandle, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, &one, dIntegrationTmpRight[0].ptr, 1, dFRight[0].ptr, 1));
             }
 
             cudaDeviceSynchronize();
 
             for (int category = 0; category < kCategoryCount; category++) {
-                c2Cache[category] = normPInf(dIntegrationTmpLeftCache[category], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
-                c2Cache[kCategoryCount + category] = normPInf(dIntegrationTmpRightCache[category], kPaddedStateCount, kPaddedPatternCount, cublasHandle);
-                if (c1Cache[category] + c2Cache[category] < tol * normPInf(dFLeftCache[category], kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
+                c2Cache[category] = normPInf(dIntegrationTmpLeft[category]);
+                c2Cache[kCategoryCount + category] = normPInf(dIntegrationTmpRight[category]);
+                if (c1Cache[category] + c2Cache[category] < tol * normPInf(dFLeft[category])) {
                     integrationMultipliers[category] = 0;
                 }
-                if (c1Cache[kCategoryCount + category] + c2Cache[kCategoryCount + category] < tol * normPInf(dFRightCache[category], kPaddedStateCount, kPaddedPatternCount, cublasHandle)) {
+                if (c1Cache[kCategoryCount + category] + c2Cache[kCategoryCount + category] < tol * normPInf(dFRight[category])) {
                     integrationMultipliers[kCategoryCount + category] = 0;
                 }
 
@@ -1317,9 +1563,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
 
 #ifdef BEAGLE_DEBUG_FLOW
             std::cerr<<"dFLeftCache = " <<std::endl;
-            PrintfDeviceVector(dFLeftCache[0], kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
+            PrintfDeviceVector(dFLeft[0].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
             std::cerr<<"dFRightCache = " <<std::endl;
-            PrintfDeviceVector(dFRightCache[0], kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
+            PrintfDeviceVector(dFRight[0].ptr, kPaddedStateCount * kPaddedPatternCount * kCategoryCount, -1, 0, 0);
             std::cerr<<"c2Cache = ";
             for (int i = 0; i < 2 * kCategoryCount; i++) {
                 std::cerr<<c2Cache[i]<<", ";
@@ -1335,17 +1581,17 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction3(int partialsIndex1, i
 //        F *= eta;
         for (int category = 0; category < kCategoryCount; category++) {
             if constexpr (std::is_same<Real, float>::value) {
-                CUBLAS_CHECK(cublasSscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &etaCache[category], dFLeftCache[category], 1));
-                CUBLAS_CHECK(cublasSscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &etaCache[kCategoryCount + category], dFRightCache[category], 1));
+                CUBLAS_CHECK(cublasSscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &etaCache[category], dFLeft[category].ptr, 1));
+                CUBLAS_CHECK(cublasSscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &etaCache[kCategoryCount + category], dFRight[category].ptr, 1));
             } else {
-                CUBLAS_CHECK(cublasDscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &etaCache[category], dFLeftCache[category], 1));
-                CUBLAS_CHECK(cublasDscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &etaCache[kCategoryCount + category], dFRightCache[category], 1));
+                CUBLAS_CHECK(cublasDscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &etaCache[category], dFLeft[category].ptr, 1));
+                CUBLAS_CHECK(cublasDscal(cublasHandle, kPaddedStateCount * kPaddedPatternCount, &etaCache[kCategoryCount + category], dFRight[category].ptr, 1));
             }
         }
         cudaDeviceSynchronize();
 //        destP = F;
-        CHECK_CUDA(cudaMemcpyAsync(dPartialCache[getPartialCacheIndex(partialsIndex1, 0)], dFLeftCache[0], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
-        CHECK_CUDA(cudaMemcpyAsync(dPartialCache[getPartialCacheIndex(partialsIndex2, 0)], dFRightCache[0], sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
+        CHECK_CUDA(cudaMemcpyAsync(dPartialsWrapper[getPartialCacheIndex(partialsIndex1, 0)].ptr, dFLeft[0].ptr, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
+        CHECK_CUDA(cudaMemcpyAsync(dPartialsWrapper[getPartialCacheIndex(partialsIndex2, 0)].ptr, dFRight[0].ptr, sizeof(Real) * kPaddedStateCount * kPaddedPatternCount * kCategoryCount, cudaMemcpyDeviceToDevice))
         cudaDeviceSynchronize();
     }
 
@@ -1470,7 +1716,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::updateTransitionMatrices(int eigenI
         }
     }
     // TODO: check if need to copy it from host to device afterwards
-    return BEAGLE_ERROR_NO_IMPLEMENTATION;
+    return BEAGLE_SUCCESS;
 }
 
 ///-------------------------------- Factory -------------------------------------///	

@@ -41,6 +41,7 @@
 #include <cuda_runtime_api.h> // cudaMalloc, cudaMemcpy, etc.
 #include <cusparse.h>         // cusparseSpMV
 #include <cublas_v2.h>
+#include "cuda_ops.h"
 
 using std::vector;
 using std::tuple;
@@ -91,26 +92,15 @@ tuple<double,int> ArgNormP1(const T& matrix)
 }
 
 template <typename T>
-double normPInf(const T& matrix) {
+auto normPInf(const T& matrix) {
     return matrix.template lpNorm<Eigen::Infinity>();
 }
 
 template <typename Real>
-Real normPInf(Real* matrix, int nRows, int nCols, cublasHandle_t cublasH) {
-    int index;
-    Real result;
-    if constexpr (std::is_same<Real, float>::value) {
-        CUBLAS_CHECK(cublasIsamax(cublasH, nRows * nCols, matrix, 1, &index));
-    } else {
-        CUBLAS_CHECK(cublasIdamax(cublasH, nRows * nCols, matrix, 1, &index));
-    }
-    cudaDeviceSynchronize();
-    CHECK_CUDA(cudaMemcpy(&result, matrix + index - 1, sizeof(Real), cudaMemcpyDeviceToHost))
-    return std::abs(result);
+auto normPInf(Real* matrix, int nRows, int nCols)
+{
+    return cuda_max_abs(matrix, nRows * nCols);
 }
-
-
-
 
 template <typename Real>
 using SpMatrix = Eigen::SparseMatrix<Real, Eigen::StorageOptions::RowMajor>;
@@ -123,6 +113,245 @@ using DnMatrix = Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>;
 
 template <typename Real>
 using DnVector = Eigen::Matrix<Real, Eigen::Dynamic, 1>;
+
+template <typename T> cusparseIndexType_t IndexType;
+template <> cusparseIndexType_t IndexType<int32_t> = CUSPARSE_INDEX_32I;
+template <> cusparseIndexType_t IndexType<int64_t> = CUSPARSE_INDEX_64I;
+
+template <typename T> cudaDataType DataType;
+template <> cudaDataType DataType<float> = CUDA_R_32F;
+template <> cudaDataType DataType<double> = CUDA_R_64F;
+
+template <typename Real>
+struct DnMatrixDevice
+{
+    cublasHandle_t cublasHandle = nullptr;
+    // Lets assume any cusparseHandle_t comes from a sparse matrix.
+    cusparseDnMatDescr_t descr = nullptr;
+    Real* ptr = nullptr;
+    size_t size1 = 0;
+    size_t size2 = 0;
+    cusparseOrder_t order = CUSPARSE_ORDER_COL;
+    size_t size() const {return size1*size2;}
+    size_t byte_size() const {return size()*sizeof(Real);}
+
+    void copyFrom(const DnMatrixDevice<Real>& D)
+    {
+	assert(order == D.order);
+	assert(size1 == D.size1);
+	assert(size2 == D.size2);
+	MemcpyDeviceToDevice(ptr, D.ptr, size());
+    }
+
+    // Disallow copying -- only one object can "own" the descriptor.
+    DnMatrixDevice<Real>& operator=(const DnMatrixDevice<Real>&) = delete;
+    // Allow moving.
+    DnMatrixDevice<Real>& operator=(DnMatrixDevice<Real>&& D) noexcept
+    {
+	std::swap(cublasHandle, D.cublasHandle);
+	std::swap(descr, D.descr);
+	std::swap(ptr, D.ptr);
+	std::swap(size1, D.size1);
+	std::swap(size2, D.size2);
+	std::swap(order, D.order);
+	return *this;
+    }
+
+    DnMatrixDevice<Real>& operator*=(Real d)
+    {
+        cublasStatus_t status;
+        if constexpr (std::is_same<Real, float>::value) {
+            status = cublasSscal(cublasHandle, size(), &d, ptr, 1);
+        } else {
+            status = cublasDscal(cublasHandle, size(), &d, ptr, 1);
+        }
+
+        if (status != CUBLAS_STATUS_SUCCESS)
+        {
+            std::cerr<<"cublas error "<<status<<" in DnMatrix<>::operator*=\n";
+            exit(1);
+        }
+        return *this;
+    }
+
+    DnMatrixDevice<Real>& operator+=(const DnMatrixDevice<Real>& D)
+    {
+        cublasStatus_t status;
+        assert(D.size1 == size1);
+        assert(D.size2 == size2);
+        assert(D.cublasHandle == cublasHandle);
+        Real one = 1;
+        if constexpr (std::is_same<Real, float>::value) {
+            status = cublasSaxpy(cublasHandle, size(), &one, D.ptr, 1, ptr, 1);
+        } else {
+            status = cublasDaxpy(cublasHandle, size(), &one, D.ptr, 1, ptr, 1);
+        }
+
+        if (status != CUBLAS_STATUS_SUCCESS)
+        {
+            std::cerr<<"cublas error "<<status<<" in DnMatrix<>::operator+=\n";
+            exit(1);
+        }
+        return *this;
+    }
+
+    // Disallow copying.
+    DnMatrixDevice(const DnMatrixDevice<Real>&) = delete;
+    // Allow moving.
+    DnMatrixDevice(DnMatrixDevice<Real>&& D) noexcept
+    {
+	operator=(std::move(D));
+    }
+
+    DnMatrixDevice() = default;
+    DnMatrixDevice(cublasHandle_t cb, Real* p, size_t s1, size_t s2, cusparseOrder_t o = CUSPARSE_ORDER_COL)
+	:cublasHandle(cb), ptr(p), size1(s1), size2(s2), order(o)
+    {
+	auto status = (order == CUSPARSE_ORDER_COL)
+	    ? cusparseCreateDnMat(&descr, size1, size2, size1, ptr, DataType<Real>, CUSPARSE_ORDER_COL)
+	    : cusparseCreateDnMat(&descr, size1, size2, size2, ptr, DataType<Real>, CUSPARSE_ORDER_ROW);
+
+	if (status != CUSPARSE_STATUS_SUCCESS)
+	{
+	    std::cerr<<"cusparseCreateDnMat( ) failed!";
+	    std::exit(1);
+	}
+    }
+
+    ~DnMatrixDevice()
+     {
+	 // This class does not own the memory, so does not call cudaFree.
+	 if (descr)
+	 {
+	     cusparseDestroyDnMat(descr);
+	     descr = nullptr;
+	 }
+     }
+};
+
+enum class sparseFormat { none, csr, csc };
+
+template <typename Real>
+struct SpMatrixDevice
+{
+    cublasHandle_t cublasHandle = nullptr;
+    cusparseHandle_t cusparseHandle = nullptr;
+    cusparseSpMatDescr_t descr = nullptr;
+    int size1 = 0; // rows
+    int size2 = 0; // columns
+    int num_non_zeros = 0;
+    Real* values = nullptr;
+    int* inner = nullptr;
+    int* offsets = nullptr;
+    sparseFormat format = sparseFormat::none;
+
+    int outer_dim_size() const
+    {
+	// With CSR, we return the number of row.
+	if (format == sparseFormat::csr)
+	    return size1;
+	// With CSC, we return the number of columns;
+	else if (format == sparseFormat::csc)
+	    return size2;
+	else
+	    std::abort();
+    }
+
+    // Disallow copying -- only one object can "own" the descriptor.
+    SpMatrixDevice<Real>& operator=(const SpMatrixDevice<Real>&) = delete;
+    // Allow moving.
+    SpMatrixDevice<Real>& operator=(SpMatrixDevice<Real>&& D) noexcept
+    {
+	std::swap(cublasHandle, D.cublasHandle);
+	std::swap(cusparseHandle, D.cusparseHandle);
+	std::swap(descr, D.descr);
+	std::swap(size1, D.size1);
+	std::swap(size2, D.size2);
+	std::swap(num_non_zeros, D.num_non_zeros);
+	std::swap(values, D.values);
+	std::swap(inner, D.inner);
+	std::swap(offsets, D.offsets);
+	std::swap(format, D.format);
+	return *this;
+    }
+
+    SpMatrixDevice<Real>& operator*=(Real d)
+    {
+        cublasStatus_t status;
+        if constexpr (std::is_same<Real, float>::value) {
+            status = cublasSscal(cublasHandle, num_non_zeros, &d, values, 1);
+        } else {
+            status = cublasDscal(cublasHandle, num_non_zeros, &d, values, 1);
+        }
+
+        if (status != CUBLAS_STATUS_SUCCESS)
+        {
+            std::cerr<<"cublas error "<<status<<" in SpMatrix<>::operator*=\n";
+            exit(1);
+        }
+        return *this;
+    }
+
+   // Disallow copying.
+    SpMatrixDevice(const SpMatrixDevice<Real>&) = delete;
+    // Allow moving.
+    SpMatrixDevice(SpMatrixDevice<Real>&& D) noexcept
+    {
+	operator=(std::move(D));
+    }
+
+    SpMatrixDevice() = default;
+    SpMatrixDevice(cublasHandle_t h1, cusparseHandle_t h2, int s1, int s2, int n, Real* v, int* c, int* o, sparseFormat f)
+	:cublasHandle(h1), cusparseHandle(h2), size1(s1), size2(s2), num_non_zeros(n), values(v), inner(c), offsets(o), format(f)
+    {
+	cusparseStatus_t status;
+	if (format == sparseFormat::csc)
+	{
+	    status = cusparseCreateCsc(&descr, s1, s2, num_non_zeros, offsets, inner, values,
+				       IndexType<int>, IndexType<int>, CUSPARSE_INDEX_BASE_ZERO, DataType<Real>);
+	}
+	else
+	{
+	    status = cusparseCreateCsr(&descr, s1, s2, num_non_zeros, offsets, inner, values,
+				       IndexType<int>, IndexType<int>, CUSPARSE_INDEX_BASE_ZERO, DataType<Real>);
+	}
+
+	if (status != CUSPARSE_STATUS_SUCCESS)
+	{
+	    std::cerr<<"cusparseCreateSpMat( ) failed!";
+	    std::exit(1);
+	}
+    }
+
+    ~SpMatrixDevice()
+    {
+	if (descr)
+	{
+	    cusparseDestroySpMat(descr);
+	    descr = nullptr;
+	}
+    }
+};
+
+template <typename Real>
+void dotProduct(Real* out, cublasHandle_t handle, int n, Real* v1, Real* v2)
+{
+    if constexpr (std::is_same<Real, float>::value)
+    {
+	cublasSdot(handle, n, v1, 1, v2, 1, out);
+    }
+    else
+    {
+	cublasDdot(handle, n, v1, 1, v2, 1, out);
+    }
+};
+
+template <typename Real>
+auto normPInf(const DnMatrixDevice<Real>& M)
+{
+    return normPInf(M.ptr, M.size1, M.size2);
+}
+
 
 //template <typename Real>
 //using MapType = DnMatrix<Real>;
@@ -165,6 +394,9 @@ public:
     int setTipPartials(int tipIndex,
                        const Real* inPartials);
 
+    int setPartials(int bufferIndex,
+                    const Real* inPartials);
+
     int setSparseMatrix(int matrixIndex,
                         const int* rowIndices,
                         const int* colIndices,
@@ -174,6 +406,8 @@ public:
     int updatePartials(const int* operations,
                        int operationCount,
                        int cumulativeScalingIndex);
+
+    void rescalePartials(Real* partials, Real* scalingFactors, Real* cumulativeScalingBuffer, int streamIndex);
 
 protected:
 
@@ -228,22 +462,15 @@ protected:
     };
 
 //    std::vector<cusparseSpMatDescr_t> dInstantaneousMatrices;
-    std::vector<cusparseDnMatDescr_t> dPartialsWrapper;
-    std::vector<cusparseDnMatDescr_t> dFLeft;
-    std::vector<cusparseDnMatDescr_t> dFRight;
-    std::vector<cusparseDnMatDescr_t> dIntegrationTmpLeft;
-    std::vector<cusparseDnMatDescr_t> dIntegrationTmpRight;
-    std::vector<cusparseSpMatDescr_t> dAs;
-    std::vector<Real*> dPartialCache;
-    std::vector<Real*> dFLeftCache;
-    std::vector<Real*> dFRightCache;
-    std::vector<Real*> dIntegrationTmpLeftCache;
-    std::vector<Real*> dIntegrationTmpRightCache;
+    std::vector<DnMatrixDevice<Real>> dPartialsWrapper;
+    std::vector<DnMatrixDevice<Real>> dFLeft;
+    std::vector<DnMatrixDevice<Real>> dFRight;
+    std::vector<DnMatrixDevice<Real>> dIntegrationTmpLeft;
+    std::vector<DnMatrixDevice<Real>> dIntegrationTmpRight;
+    std::vector<SpMatrixDevice<Real>> dAs;
     std::vector<size_t> integrationLeftBufferSize;
-    std::vector<size_t> integrationLeftStoredBufferSize;
     std::vector<void*> dIntegrationLeftBuffer;
     std::vector<size_t> integrationRightBufferSize;
-    std::vector<size_t> integrationRightStoredBufferSize;
     std::vector<void*> dIntegrationRightBuffer;
 
     std::vector<int *> dBsCsrOffsetsCache;
@@ -284,7 +511,21 @@ protected:
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPartialsOrigin;
     using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hCategoryRates;
 
-
+    // For calculateRootLogLikelihoods
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dAccumulatedScalingFactors;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIntegrationTmp;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dWeights;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dFrequencies;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dSumLogLikelihood;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPatternWeights;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hLogLikelihoodsCache;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kSumSitesBlockCount;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kPatternCount;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::kScaleBufferSize;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dPtrQueue;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::hPtrQueue;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dMaxScalingFactors;
+    using BeagleGPUImpl<BEAGLE_GPU_GENERIC>::dIndexMaxScalingFactors;
 
     int upPartials(bool byPartition,
 		   const int *operations,
@@ -295,6 +536,13 @@ protected:
 		      const int *operations,
 		      int operationCount,
 		      int cumulativeScalingIndex);
+
+    int calculateRootLogLikelihoods(const int* bufferIndices,
+                                    const int* categoryWeightsIndices,
+                                    const int* stateFrequenciesIndices,
+                                    const int* cumulativeScaleIndices,
+                                    int count,
+                                    double* outSumLogLikelihood);
 
     ~BeagleGPUActionImpl();
 
@@ -313,13 +561,17 @@ private:
 
     int getPartialCacheIndex(int nodeIndex, int categoryIndex);
 
+    DnMatrixDevice<Real>& getPartialsWrapper(int nodeIndex, int categoryIndex);
+
+    DnMatrixDevice<Real>& getPartialsCacheWrapper(int nodeIndex, int categoryIndex);
+
     void calcPartialsPartials(int destPIndex,
                               int partials1Index,
                               int edgeIndex1,
                               int partials2Index,
                               int edgeIndex2);
 
-    int simpleAction2(int destPIndex, int partialsIndex, int edgeIndex, int category, int matrixIndex, bool left, bool transpose);
+    int simpleAction2(DnMatrixDevice<Real>& destP, const DnMatrixDevice<Real>& inPartials, int edgeIndex, int category, int matrixIndex, bool left, bool transpose);
 
     int simpleAction3(int partialsIndex1, int edgeIndex1,
                       int partialsIndex2, int edgeIndex2);

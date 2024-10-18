@@ -10,6 +10,9 @@ link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib
         ${CUDA_TOOLKIT_ROOT_DIR}/lib64
 )
 
+enable_language(CUDA)
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -Wno-deprecated-gpu-targets --extended-lambda -std=c++17")
+
 if(WIN32)
     set(NVCC "nvcc.exe")
     set(NVCCFLAGS "-O3 -Wno-deprecated-gpu-targets")
@@ -45,6 +48,7 @@ add_library(hmsbeagle-action-cuda SHARED
         ../KernelResource.h
         ../ActionCUDAPlugin.cpp
         ../ActionCUDAPlugin.h
+        ../cuda_ops.cu
         ../Precision.h
 )
 
