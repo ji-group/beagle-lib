@@ -1,29 +1,19 @@
 /**
  * @file beagle.h
  *
- * Copyright 2009-2013 Phylogenetic Likelihood Working Group
+ * Copyright 2009-2024 Phylogenetic Likelihood Working Group
  *
  * This file is part of BEAGLE.
  *
- * BEAGLE is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, either version 3 of
- * the License, or (at your option) any later version.
- *
- * BEAGLE is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with BEAGLE.  If not, see
- * <http://www.gnu.org/licenses/>.
+ * Use of this source code is governed by an MIT-style
+ * license that can be found in the LICENSE file or at
+ * https://opensource.org/licenses/MIT.
  *
  * @brief This file documents the API as well as header for the
  * Broad-platform Evolutionary Analysis General Likelihood Evaluator
  *
  * KEY CONCEPTS
- * 
+ *
  * The key to BEAGLE performance lies in delivering fine-scale
  * parallelization while minimizing data transfer and memory copy overhead.
  * To accomplish this, the library lacks the concept of data structure for
@@ -42,9 +32,9 @@
  * calls can be asynchronous, allowing the calling program to implement
  * other coarse-scale parallelization schemes such as evaluating
  * independent genes or running concurrent Markov chains.
- * 
+ *
  * USAGE
- * 
+ *
  * To use the library, a client program first creates an instance of BEAGLE
  * by calling beagleCreateInstance; multiple instances per client are
  * possible and encouraged. All additional functions are called with a
@@ -61,7 +51,7 @@
  * can then be specified, including the equilibrium state frequencies, the
  * rates for one or more substitution rate categories and their weights,
  * and finally, the eigen decomposition for the substitution process.
- * 
+ *
  * In order to calculate the likelihood of a particular tree, the client
  * program then specifies a series of integration operations that
  * correspond to steps in Felsenstein’s algorithm. Finite-time transition
@@ -77,7 +67,7 @@
  * software to keep track of these dependencies. The final step in
  * evaluating the phylogenetic model is done using an API call that yields
  * a single log likelihood for the model given the data.
- * 
+ *
  * Aspects of the BEAGLE API design support both maximum likelihood (ML)
  * and Bayesian phylogenetic tree inference. For ML inference, API calls
  * can calculate first and second derivatives of the likelihood with
@@ -102,7 +92,7 @@
  * @author Marc Suchard
  * @author David Swofford
  * @author Derrick Zwickl
- * 
+ *
  */
 
 #ifndef __beagle__
@@ -213,6 +203,7 @@ enum BeagleBenchmarkFlags {
 enum BeagleOpCodes {
     BEAGLE_OP_COUNT              = 7, /**< Total number of integers per beagleUpdatePartials operation */
     BEAGLE_PARTITION_OP_COUNT    = 9, /**< Total number of integers per beagleUpdatePartialsByPartition operation */
+    BEAGLE_BASTA_OP_COUNT        = 8,
     BEAGLE_OP_NONE               = -1 /**< Specify no use for indexed buffer */
 };
 
@@ -320,7 +311,7 @@ BEAGLE_DLLEXPORT BeagleResourceList* beagleGetResourceList(void);
  * benchmark times and CPU performance ratios for each resource. Resources are benchmarked
  * with the given analysis parameters and the array is ordered from fastest to slowest.
  * If there is an error the function returns NULL.
- * 
+ *
  * @param tipCount              Number of tip data elements (input)
  * @param compactBufferCount    Number of compact state representation tips (input)
  * @param stateCount            Number of states in the continuous-time Markov chain (input)
@@ -333,14 +324,14 @@ BEAGLE_DLLEXPORT BeagleResourceList* beagleGetResourceList(void);
  *                               see BeagleFlags (input)
  * @param requirementFlags      Bit-flags indicating required implementation characteristics,
  *                               see BeagleFlags (input)
- * @param eigenModelCount       Number of full-alignment rate matrix eigen-decomposition models (input) 
+ * @param eigenModelCount       Number of full-alignment rate matrix eigen-decomposition models (input)
  * @param partitionCount        Number of partitions (input)
  * @param calculateDerivatives  Indicates if calculation of derivatives are required (input)
  * @param benchmarkFlags        Bit-flags indicating benchmarking preferences (input)
  *
- * @return An ordered (fastest to slowest) list of hardware resources available to the library as a 
+ * @return An ordered (fastest to slowest) list of hardware resources available to the library as a
  * BeagleBenchmarkedResourceList for the specified analysis parameters
- * 
+ *
  */
 BEAGLE_DLLEXPORT BeagleBenchmarkedResourceList* beagleGetBenchmarkedResourceList(int tipCount,
                                                     int compactBufferCount,
@@ -430,7 +421,7 @@ BEAGLE_DLLEXPORT int beagleFinalize(void);
  * implementation. It should only be called after beagleCreateInstance and requires the
  * BEAGLE_FLAG_THREADING_CPP flag to be set. It has no effect on GPU-based
  * implementations. It has no effect with the default BEAGLE_FLAG_THREADING_NONE setting.
- * If BEAGLE_FLAG_THREADING_CPP is set and this function is not called BEAGLE will use 
+ * If BEAGLE_FLAG_THREADING_CPP is set and this function is not called BEAGLE will use
  * a heuristic to set an appropriate number of threads.
  *
  * @param instance             Instance number (input)
@@ -499,7 +490,7 @@ BEAGLE_DLLEXPORT int beagleSetRootPrePartials(const int instance,
  * @brief Set an instance partials buffer
  *
  * This function copies an array of partials into an instance buffer. The inPartials array should
- * be stateCount * patternCount * categoryCount in length. 
+ * be stateCount * patternCount * categoryCount in length.
  *
  * @param instance      Instance number in which to set a partialsBuffer (input)
  * @param bufferIndex   Index of destination partialsBuffer (input)
@@ -583,8 +574,8 @@ BEAGLE_DLLEXPORT int beagleSetSparseMatrix(int instance,
  */
 BEAGLE_DLLEXPORT int beagleSetStateFrequencies(int instance,
                                          int stateFrequenciesIndex,
-                                         const double* inStateFrequencies);    
-    
+                                         const double* inStateFrequencies);
+
 /**
  * @brief Set a category weights buffer
  *
@@ -640,7 +631,7 @@ BEAGLE_DLLEXPORT int beagleSetCategoryRatesWithIndex(int instance,
  */
 BEAGLE_DLLEXPORT int beagleSetPatternWeights(int instance,
                                        const double* inPatternWeights);
-   
+
 /**
  * @brief Set pattern partition assignments
  *
@@ -683,11 +674,11 @@ BEAGLE_DLLEXPORT int beagleSetPatternPartitions(int instance,
  * This function convolves two lists of transition probability matrices.
  *
  * @param instance                  Instance number (input)
- * @param firstIndices              List of indices of the first transition probability matrices 
+ * @param firstIndices              List of indices of the first transition probability matrices
  *                                   to convolve (input)
  * @param secondIndices             List of indices of the second transition probability matrices
  *                                   to convolve (input)
- * @param resultIndices             List of indices of resulting transition probability matrices 
+ * @param resultIndices             List of indices of resulting transition probability matrices
  *                                   (input)
  * @param matrixCount               Length of lists
  */
@@ -753,6 +744,12 @@ BEAGLE_DLLEXPORT int beagleTransposeTransitionMatrices(int instance,
  *
  * @return error code
  */
+
+BEAGLE_DLLEXPORT int beagleUpdateTransitionMatricesGrad(int instance,
+                                   const int* probabilityIndices,
+                                   const double* edgeLengths,
+                                   int count);
+
 BEAGLE_DLLEXPORT int beagleUpdateTransitionMatrices(int instance,
                                    int eigenIndex,
                                    const int* probabilityIndices,
@@ -762,7 +759,7 @@ BEAGLE_DLLEXPORT int beagleUpdateTransitionMatrices(int instance,
                                    int count);
 
 /**
- * @brief Calculate a list of transition probability matrices with 
+ * @brief Calculate a list of transition probability matrices with
  *         each category using a different eigen decompsition
  *
  * This function calculates a list of transition probabilities matrices and their first and
@@ -780,7 +777,7 @@ BEAGLE_DLLEXPORT int beagleUpdateTransitionMatrices(int instance,
  *                                   (input, NULL implies no calculation)
  * @param edgeLengths               List of edge lengths with which to perform calculations (input)
  * @param count                     Length of lists (except for eigenIndices list)
- * 
+ *
  * @return error code
  */
 BEAGLE_DLLEXPORT int beagleUpdateTransitionMatricesWithModelCategories(int instance,
@@ -873,7 +870,7 @@ BEAGLE_DLLEXPORT int beagleSetDifferentialMatrix(int instance,
 BEAGLE_DLLEXPORT int beagleGetTransitionMatrix(int instance,
                                 int matrixIndex,
                                 double* outMatrix);
-    
+
 /**
  * @brief Set multiple transition matrices
  *
@@ -896,7 +893,7 @@ BEAGLE_DLLEXPORT int beagleSetTransitionMatrices(int instance,
                                                  const double* paddedValues,
                                                  int count);
 
-    
+
 /**
  * @brief A list of integer indices which specify a partial likelihoods operation.
  */
@@ -1127,7 +1124,7 @@ BEAGLE_DLLEXPORT int beagleResetScaleFactorsByPartition(int instance,
 BEAGLE_DLLEXPORT int beagleCopyScaleFactors(int instance,
                                             int destScalingIndex,
                                             int srcScalingIndex);
-                                            
+
 /**
  * @brief Get scale factors
  *
@@ -1137,10 +1134,10 @@ BEAGLE_DLLEXPORT int beagleCopyScaleFactors(int instance,
  * @param srcScalingIndex           Source scaleBuffer (input)
  * @param outScaleFactors           Pointer to which to receive scaleFactors (output)
  */
-BEAGLE_DLLEXPORT int beagleGetScaleFactors(int instance,                                            
+BEAGLE_DLLEXPORT int beagleGetScaleFactors(int instance,
                                            int srcScalingIndex,
-                                           double* outScaleFactors);     
-                                                                                                                                                                                                   
+                                           double* outScaleFactors);
+
 /**
  * @brief Calculate site log likelihoods at a root node
  *
@@ -1187,8 +1184,8 @@ BEAGLE_DLLEXPORT int beagleCalculateRootLogLikelihoods(int instance,
  * @param cumulativeScaleIndices   List of scaleBuffers containing accumulated factors to apply to
  *                                  each partialsBuffer (input). There should be one index for each
  *                                  of bufferIndices
- * @param partitionIndices         List of partition indices indicating which sites in each 
- *                                  partialsBuffer should be used (input). There should be one 
+ * @param partitionIndices         List of partition indices indicating which sites in each
+ *                                  partialsBuffer should be used (input). There should be one
  *                                  index for each of bufferIndices
  * @param partitionCount           Number of distinct partitionIndices (input)
  * @param count                    Number of sets of partitions to integrate across (input)
@@ -1310,7 +1307,7 @@ BEAGLE_DLLEXPORT int beagleCalculateEdgeLogLikelihoods(int instance,
                                       double* outSumSecondDerivative);
 
 /**
- * @brief Calculate multiple site log likelihoods and derivatives along an edge with 
+ * @brief Calculate multiple site log likelihoods and derivatives along an edge with
  *         per partition buffers
  *
  * This function integrates lists of partials at a parent and child node with respect
@@ -1330,8 +1327,8 @@ BEAGLE_DLLEXPORT int beagleCalculateEdgeLogLikelihoods(int instance,
  * @param cumulativeScaleIndices    List of scaleBuffers containing accumulated factors to apply to
  *                                   each partialsBuffer (input). There should be one index for each
  *                                   of parentBufferIndices
- * @param partitionIndices          List of partition indices indicating which sites in each 
- *                                   partialsBuffer should be used (input). There should be one 
+ * @param partitionIndices          List of partition indices indicating which sites in each
+ *                                   partialsBuffer should be used (input). There should be one
  *                                   index for each of parentBufferIndices
  * @param partitionCount            Number of distinct partitionIndices (input)
  * @param count                     Number of sets of partitions to integrate across (input)
@@ -1401,12 +1398,12 @@ BEAGLE_DLLEXPORT int beagleGetLogLikelihood(int instance,
 BEAGLE_DLLEXPORT int beagleGetDerivatives(int instance,
                                           double* outSumFirstDerivative,
                                           double* outSumSecondDerivative);
-                                          
+
 /**
  * @brief Get site log likelihoods for last beagleCalculateRootLogLikelihoods or
  *         beagleCalculateEdgeLogLikelihoods call
  *
- * This function returns the log likelihoods for each site 
+ * This function returns the log likelihoods for each site
  *
  * @param instance               Instance number (input)
  * @param outLogLikelihoods      Pointer to destination for resulting log likelihoods (output)
@@ -1419,7 +1416,7 @@ BEAGLE_DLLEXPORT int beagleGetSiteLogLikelihoods(int instance,
 /**
  * @brief Get site derivatives for last beagleCalculateEdgeLogLikelihoods call
  *
- * This function returns the derivatives for each site 
+ * This function returns the derivatives for each site
  *
  * @param instance               Instance number (input)
  * @param outFirstDerivatives    Pointer to destination for resulting first derivatives (output)
@@ -1429,8 +1426,67 @@ BEAGLE_DLLEXPORT int beagleGetSiteLogLikelihoods(int instance,
  */
 BEAGLE_DLLEXPORT int beagleGetSiteDerivatives(int instance,
                                     double* outFirstDerivatives,
-                                    double* outSecondDerivatives);    
-    
+                                    double* outSecondDerivatives);
+                                    
+// START OF BASTA                                    
+                                    
+typedef struct {
+    int destinationPartials;    /**< index of destination, or parent, partials buffer  */
+    int child1Partials;         /**< index of first child partials buffer */
+    int child1TransitionMatrix; /**< index of transition matrix of first partials child buffer  */
+    int child2Partials;         /**< index of second child partials buffer */
+    int child2TransitionMatrix; /**< index of transition matrix of second partials child buffer */
+    int accumulation1Partials;
+    int accumulation2Partials2;
+    int intervalNumber;
+} BastaOperation;                                    
+                                                                
+BEAGLE_DLLEXPORT int beagleUpdateBastaPartials(const int instance,
+                                               const BastaOperation* operations,
+                                               int operationCount,
+                                               const int* intervalStarts,
+                                               int intervalCount,
+                                               int populationSizeIndex,
+                                               int coalescentIndex);
+
+BEAGLE_DLLEXPORT int beagleUpdateBastaPartialsGrad(const int instance,
+                                               const BastaOperation* operations,
+                                               int operationCount,
+                                               const int* intervalStarts,
+                                               int intervalCount,
+                                               int populationSizeIndex,
+                                               int coalescentIndex);
+
+BEAGLE_DLLEXPORT int beagleAccumulateBastaPartials(const int instance,
+                                                   const BastaOperation* operations,
+                                                   int operationCount,
+                                                   const int* intervalStarts,
+                                                   int intervalCount,
+                                                   const double* intervalLengths,
+                                                   const int populationSizesIndex,
+                                                   int coalescentIndex,
+                                                   double* out);
+
+BEAGLE_DLLEXPORT int beagleAccumulateBastaPartialsGrad(const int instance,
+                                                   const BastaOperation* operations,
+                                                   int operationCount,
+                                                   const int* intervalStarts,
+                                                   int intervalCount,
+                                                   const double* intervalLengths,
+                                                   const int populationSizesIndex,
+                                                   int coalescentIndex,
+                                                   double* out);
+
+BEAGLE_DLLEXPORT int beagleAllocateBastaBuffers(const int instance,
+                                                const int bufferCount,
+                                                const int bufferLength);
+
+BEAGLE_DLLEXPORT int beagleGetBastaBuffer(const int instance,
+                                          const int bufferIndex,
+                                          double* out);
+
+// END OF BASTA
+
 /* using C calling conventions so that C programs can successfully link the beagle library
  * (closing brace)
  */
