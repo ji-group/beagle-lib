@@ -137,10 +137,10 @@ struct DnMatrixDevice
 
     void copyFrom(const DnMatrixDevice<Real>& D)
     {
-	assert(order == D.order);
-	assert(size1 == D.size1);
-	assert(size2 == D.size2);
-	MemcpyDeviceToDevice(ptr, D.ptr, size());
+        assert(order == D.order);
+        assert(size1 == D.size1);
+        assert(size2 == D.size2);
+        MemcpyDeviceToDevice(ptr, D.ptr, size());
     }
 
     // Disallow copying -- only one object can "own" the descriptor.
@@ -148,13 +148,13 @@ struct DnMatrixDevice
     // Allow moving.
     DnMatrixDevice<Real>& operator=(DnMatrixDevice<Real>&& D) noexcept
     {
-	std::swap(cublasHandle, D.cublasHandle);
-	std::swap(descr, D.descr);
-	std::swap(ptr, D.ptr);
-	std::swap(size1, D.size1);
-	std::swap(size2, D.size2);
-	std::swap(order, D.order);
-	return *this;
+        std::swap(cublasHandle, D.cublasHandle);
+        std::swap(descr, D.descr);
+        std::swap(ptr, D.ptr);
+        std::swap(size1, D.size1);
+        std::swap(size2, D.size2);
+        std::swap(order, D.order);
+        return *this;
     }
 
     DnMatrixDevice<Real>& operator*=(Real d)
@@ -200,32 +200,32 @@ struct DnMatrixDevice
     // Allow moving.
     DnMatrixDevice(DnMatrixDevice<Real>&& D) noexcept
     {
-	operator=(std::move(D));
+        operator=(std::move(D));
     }
 
     DnMatrixDevice() = default;
     DnMatrixDevice(cublasHandle_t cb, Real* p, size_t s1, size_t s2, cusparseOrder_t o = CUSPARSE_ORDER_COL)
-	:cublasHandle(cb), ptr(p), size1(s1), size2(s2), order(o)
+        :cublasHandle(cb), ptr(p), size1(s1), size2(s2), order(o)
     {
-	auto status = (order == CUSPARSE_ORDER_COL)
-	    ? cusparseCreateDnMat(&descr, size1, size2, size1, ptr, DataType<Real>, CUSPARSE_ORDER_COL)
-	    : cusparseCreateDnMat(&descr, size1, size2, size2, ptr, DataType<Real>, CUSPARSE_ORDER_ROW);
+        auto status = (order == CUSPARSE_ORDER_COL)
+            ? cusparseCreateDnMat(&descr, size1, size2, size1, ptr, DataType<Real>, CUSPARSE_ORDER_COL)
+            : cusparseCreateDnMat(&descr, size1, size2, size2, ptr, DataType<Real>, CUSPARSE_ORDER_ROW);
 
-	if (status != CUSPARSE_STATUS_SUCCESS)
-	{
-	    std::cerr<<"cusparseCreateDnMat( ) failed!";
-	    std::exit(1);
-	}
+        if (status != CUSPARSE_STATUS_SUCCESS)
+        {
+            std::cerr<<"cusparseCreateDnMat( ) failed!";
+            std::exit(1);
+        }
     }
 
     ~DnMatrixDevice()
      {
-	 // This class does not own the memory, so does not call cudaFree.
-	 if (descr)
-	 {
-	     cusparseDestroyDnMat(descr);
-	     descr = nullptr;
-	 }
+         // This class does not own the memory, so does not call cudaFree.
+         if (descr)
+         {
+             cusparseDestroyDnMat(descr);
+             descr = nullptr;
+         }
      }
 };
 
@@ -256,6 +256,9 @@ struct SpMatrixDevice
 	else
 	    std::abort();
     }
+
+    int rows() const {return size1;}
+    int cols() const {return size2;}
 
     // Disallow copying -- only one object can "own" the descriptor.
     SpMatrixDevice<Real>& operator=(const SpMatrixDevice<Real>&) = delete;
@@ -338,11 +341,11 @@ void dotProduct(Real* out, cublasHandle_t handle, int n, Real* v1, Real* v2)
 {
     if constexpr (std::is_same<Real, float>::value)
     {
-	cublasSdot(handle, n, v1, 1, v2, 1, out);
+        cublasSdot(handle, n, v1, 1, v2, 1, out);
     }
     else
     {
-	cublasDdot(handle, n, v1, 1, v2, 1, out);
+        cublasDdot(handle, n, v1, 1, v2, 1, out);
     }
 };
 
