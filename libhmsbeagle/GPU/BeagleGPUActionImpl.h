@@ -217,6 +217,10 @@ struct DnMatrixDevice
             std::exit(1);
         }
     }
+    DnMatrixDevice(cublasHandle_t cb, size_t s1, size_t s2, cusparseOrder_t o = CUSPARSE_ORDER_COL)
+        :DnMatrixDevice(cb, cudaDeviceNew<Real>(s1*s2), s1, s2, o)
+    {
+    }
 
     ~DnMatrixDevice()
      {
@@ -355,6 +359,88 @@ auto normPInf(const DnMatrixDevice<Real>& M)
     return normPInf(M.ptr, M.size1, M.size2);
 }
 
+template <typename Real>
+int spMM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSpMatDescr_t A, cusparseDnMatDescr_t B, Real beta, void*& buffer, size_t& buffersize)
+{
+    size_t new_buffersize;
+    CHECK_CUSPARSE(cusparseSpMM_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                           &alpha, A, B, &beta, C, DataType<Real>,
+                                           CUSPARSE_SPMM_ALG_DEFAULT, &new_buffersize));
+
+    if(new_buffersize > buffersize)
+    {
+        CHECK_CUDA(cudaFree(buffer));
+        CHECK_CUDA(cudaMalloc(&buffer, buffersize));
+        buffersize = new_buffersize;
+    }
+
+    // integrationTmp = alpha * A * destP
+    CHECK_CUSPARSE(cusparseSpMM(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                &alpha, A, B, &beta, C, DataType<Real>,
+                                CUSPARSE_SPMM_ALG_DEFAULT, buffer)); //row-major layout provides higher performance (?)
+    return 0;
+}
+
+template <typename Real>
+int spMM(DnMatrixDevice<Real>& C, Real alpha, const SpMatrixDevice<Real>& A, const DnMatrixDevice<Real>& B, Real beta, void*& buffer, size_t& buffersize)
+{
+    return spMM<Real>(A.cusparseHandle, C.descr, alpha, A.descr, B.descr, beta, buffer, buffersize);
+}
+
+// Make the temporary variables part of a data structure that represents to normest1 problem.
+// We don't want to allocate memory on the GPU every time we run this.
+template <typename Real>
+struct GPUnormest1
+{
+    int p = 0;
+    int n = 0;
+    int t = 0;
+    int itmax = 0;
+    DnMatrixDevice<Real> X;
+    DnMatrixDevice<Real> Y;
+    void* buffer = nullptr;
+    size_t buffer_size = 0;
+    
+    Real operator()(const SpMatrixDevice<Real>& A)
+    {
+        std::cerr<<"n = "<<n<<"\n";
+        std::cerr<<"A.rows() = "<<A.rows()<<"\n";
+        // A is (n,n);
+        assert(A.rows() == A.cols());
+        assert(A.cols() == n);
+
+        for(int k=1; k<=itmax; k++)
+        {
+            // std::cerr<<"iter "<<k<<"\n";
+
+            for(int i=0;i<p;i++)
+            {
+                // Y = A*X; // Y is (n,t) = (n,n) * (n,t)
+                spMM<Real>(Y, 1, A, X, 0, buffer, buffer_size);
+                // X = Y
+                X.copyFrom(Y);
+            }
+        }
+
+        return 0;
+    }
+
+    GPUnormest1(cublasHandle_t cb, int p_, int n_, int t_=2, int itmax_=5)
+        :p(p_), n(n_), t(t_), itmax(itmax_), X(cb,n,t), Y(cb,n,t)
+    {
+        assert(p >= 0);
+        assert(t != 0); // negative means t = n
+        assert(itmax >= 1);
+
+        // Handle t too large
+        t = std::min(n,t);
+
+        // Interpret negative t as t == n
+        if (t < 0) t = n;
+    }
+};
+
+
 
 //template <typename Real>
 //using MapType = DnMatrix<Real>;
@@ -471,6 +557,7 @@ protected:
     std::vector<DnMatrixDevice<Real>> dIntegrationTmpLeft;
     std::vector<DnMatrixDevice<Real>> dIntegrationTmpRight;
     std::vector<SpMatrixDevice<Real>> dAs;
+    std::vector<GPUnormest1<Real>> L1normForPower;
     std::vector<size_t> integrationLeftBufferSize;
     std::vector<void*> dIntegrationLeftBuffer;
     std::vector<size_t> integrationRightBufferSize;

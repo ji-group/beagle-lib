@@ -519,6 +519,12 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     dBsCsrValuesCache.resize(kEigenDecompCount);
     dACscValuesCache.resize(kEigenDecompCount * kCategoryCount * 2);
     dAs = std::vector<SpMatrixDevice<Real>>(kEigenDecompCount * kCategoryCount * 2);
+    for(int p=0; p<=getPMax()+1; p++)
+    {
+        int t = 5;
+        L1normForPower.push_back(GPUnormest1<Real>(cublasHandle, p, kStateCount, t));
+    }
+
     currentCacheNNZs = std::vector<int>(kEigenDecompCount, kPaddedStateCount);
     for (int i = 0; i < kEigenDecompCount; i++) {
         dBsCsrOffsetsCache[i] = cudaDeviceNew<int>(kPaddedStateCount + 1);
@@ -1289,26 +1295,26 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
 
         MemcpyDeviceToDevice(dACscValuesCache[matrixIndex1], dBsCsrValuesCache[hEigenMaps[edgeIndex1]], currentCacheNNZs[hEigenMaps[edgeIndex1]]);
         MemcpyDeviceToDevice(dACscValuesCache[matrixIndex2], dBsCsrValuesCache[hEigenMaps[edgeIndex2]], currentCacheNNZs[hEigenMaps[edgeIndex2]]);
-	auto format = transpose ? sparseFormat::csc : sparseFormat::csr;
+        auto format = transpose ? sparseFormat::csc : sparseFormat::csr;
 
-	dAs[matrixIndex1] = SpMatrixDevice<Real>(cublasHandle, cusparseHandle,
-						 kPaddedStateCount, kPaddedStateCount,
-						 currentCacheNNZs[hEigenMaps[edgeIndex1]],
-						 dACscValuesCache[matrixIndex1],
-						 dBsCsrColumnsCache[hEigenMaps[edgeIndex1]],
-						 dBsCsrOffsetsCache[hEigenMaps[edgeIndex1]],
-						 format);
+        dAs[matrixIndex1] = SpMatrixDevice<Real>(cublasHandle, cusparseHandle,
+                                                 kPaddedStateCount, kPaddedStateCount,
+                                                 currentCacheNNZs[hEigenMaps[edgeIndex1]],
+                                                 dACscValuesCache[matrixIndex1],
+                                                 dBsCsrColumnsCache[hEigenMaps[edgeIndex1]],
+                                                 dBsCsrOffsetsCache[hEigenMaps[edgeIndex1]],
+                                                 format);
 
-	dAs[matrixIndex2] = SpMatrixDevice<Real>(cublasHandle, cusparseHandle,
-						 kPaddedStateCount, kPaddedStateCount,
-						 currentCacheNNZs[hEigenMaps[edgeIndex2]],
-						 dACscValuesCache[matrixIndex2],
-						 dBsCsrColumnsCache[hEigenMaps[edgeIndex2]],
-						 dBsCsrOffsetsCache[hEigenMaps[edgeIndex2]],
-						 format);
+        dAs[matrixIndex2] = SpMatrixDevice<Real>(cublasHandle, cusparseHandle,
+                                                 kPaddedStateCount, kPaddedStateCount,
+                                                 currentCacheNNZs[hEigenMaps[edgeIndex2]],
+                                                 dACscValuesCache[matrixIndex2],
+                                                 dBsCsrColumnsCache[hEigenMaps[edgeIndex2]],
+                                                 dBsCsrOffsetsCache[hEigenMaps[edgeIndex2]],
+                                                 format);
 
-	dAs[matrixIndex1] *= edgeMultiplier1; //Check if this is asynchronous with the following
-	dAs[matrixIndex2] *= edgeMultiplier2;
+        dAs[matrixIndex1] *= edgeMultiplier1; //Check if this is asynchronous with the following
+        dAs[matrixIndex2] *= edgeMultiplier2;
 
 #ifdef BEAGLE_DEBUG_FLOW
         std::cerr<<"category = "<<category<<std::endl;
@@ -1317,39 +1323,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::cacheAMatrices(int edgeIndex1, int 
         std::cerr<<"edgeMultiplierIndex1 = "<<edgeMultiplierIndex1<<std::endl;
         std::cerr<<"edgeMultiplier1 = "<<edgeMultiplier1<<std::endl;
         std::cerr<<"hEigenMaps[edgeIndex1] = "<<hEigenMaps[edgeIndex1]<<std::endl;
-	std::cerr<<"dAs["<<matrixIndex1<<"] = \n"<<dAs[matrixIndex1]<<"\n";
+        std::cerr<<"dAs["<<matrixIndex1<<"] = \n"<<dAs[matrixIndex1]<<"\n";
 #endif
     }
 
     return BEAGLE_SUCCESS;
-}
-
-template <typename Real>
-int spMM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSpMatDescr_t A, cusparseDnMatDescr_t B, Real beta, void*& buffer, size_t& buffersize)
-{
-    size_t new_buffersize;
-    CHECK_CUSPARSE(cusparseSpMM_bufferSize(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                           &alpha, A, B, &beta, C, DataType<Real>,
-                                           CUSPARSE_SPMM_ALG_DEFAULT, &new_buffersize));
-
-    if(new_buffersize > buffersize)
-    {
-        CHECK_CUDA(cudaFree(buffer));
-        CHECK_CUDA(cudaMalloc(&buffer, buffersize));
-        buffersize = new_buffersize;
-    }
-
-    // integrationTmp = alpha * A * destP
-    CHECK_CUSPARSE(cusparseSpMM(handle, CUSPARSE_OPERATION_NON_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                &alpha, A, B, &beta, C, DataType<Real>,
-                                CUSPARSE_SPMM_ALG_DEFAULT, buffer)); //row-major layout provides higher performance (?)
-    return 0;
-}
-
-template <typename Real>
-int spMM(DnMatrixDevice<Real>& C, Real alpha, const SpMatrixDevice<Real>& A, const DnMatrixDevice<Real>& B, Real beta, void*& buffer, size_t& buffersize)
-{
-    return spMM<Real>(A.cusparseHandle, C.descr, alpha, A.descr, B.descr, beta, buffer, buffersize);
 }
 
 BEAGLE_GPU_TEMPLATE
