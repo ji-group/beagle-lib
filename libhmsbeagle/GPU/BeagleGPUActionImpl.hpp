@@ -100,7 +100,7 @@ Real normest1(const SpMatrix<Real>& A, int p, int t=2, int itmax=5)
     for(int k=1; k<=itmax; k++)
     {
         // std::cerr<<"iter "<<k<<"\n";
-        Y = A*X; // Y is (n,n) * (n,t) = (n,t)
+        Y = A*X; // Y is (n,t) = (n,n) * (n,t)
         for(int i=1;i<p;i++)
             Y = A*Y;
 
