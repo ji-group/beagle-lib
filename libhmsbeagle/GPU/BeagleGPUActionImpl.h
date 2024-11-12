@@ -42,6 +42,7 @@
 #include <cusparse.h>         // cusparseSpMV
 #include <cublas_v2.h>
 #include "cuda_ops.h"
+#include <iostream>
 
 using std::vector;
 using std::tuple;

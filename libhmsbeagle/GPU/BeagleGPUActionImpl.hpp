@@ -1662,6 +1662,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
     int pMax = getPMax();
     for(int p=0;p <= pMax+1; p++)
     {
+        L1normForPower[p]( dAs[matrixIndex] );
+        std::cerr<<"p = "<<p<<"\n";
+
         int t = 5;
         Real approx_norm = normest1( hBs[matrixIndex], p, t);
 
