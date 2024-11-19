@@ -11,7 +11,7 @@ T* cudaDeviceNew(int n)
     T* result;
     auto status = cudaMalloc((void**)&result, n*sizeof(T));
     if (status != cudaSuccess)
-	throw std::runtime_error("cudaMalloc: failed!");
+	throw std::runtime_error(std::string("cudaMalloc: ") + std::string(cudaGetErrorString(status)));
     return result;
 }
 
@@ -20,7 +20,7 @@ void MemcpyHostToDevice(T* dptr, const T* hptr, int n)
 {
     auto status = cudaMemcpy(dptr, hptr, n*sizeof(T), cudaMemcpyHostToDevice);
     if (status != cudaSuccess)
-	throw std::runtime_error("cudaMemcpy(Host->Device): failed!");
+	throw std::runtime_error("cudaMemcpy(Host->Device): " + std::string(cudaGetErrorString(status)));
 }
 
 template <typename T>
@@ -28,7 +28,7 @@ void MemcpyDeviceToDevice(T* dptr, const T* hptr, int n)
 {
     auto status = cudaMemcpy(dptr, hptr, n*sizeof(T), cudaMemcpyDeviceToDevice);
     if (status != cudaSuccess)
-	throw std::runtime_error("cudaMemcpy(Device->Device): failed!");
+	throw std::runtime_error("cudaMemcpy(Device->Device): " + std::string(cudaGetErrorString(status)));
 }
 
 template <typename T>
@@ -36,7 +36,7 @@ void MemcpyDeviceToHost(T* hptr, const T* dptr, int n)
 {
     auto status = cudaMemcpy(hptr, dptr, n*sizeof(T), cudaMemcpyDeviceToHost);
     if (status != cudaSuccess)
-	throw std::runtime_error("cudaMemcpy(Device->Host): failed!");
+	throw std::runtime_error(std::string("cudaMemcpy(Device->Host): ") + std::string(cudaGetErrorString(status)));
 }
 
 template <typename T>
