@@ -1659,11 +1659,20 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
 
     hds[matrixIndex].clear();
 
+    auto dB = SpMatrixDevice<Real>(cublasHandle, cusparseHandle,
+                                   kPaddedStateCount, kPaddedStateCount,
+                                   currentNNZ,
+                                   dBsCsrValuesCache[matrixIndex],
+                                   dBsCsrColumnsCache[matrixIndex],
+                                   dBsCsrOffsetsCache[matrixIndex],
+                                   sparseFormat::csr);
+
     int pMax = getPMax();
     for(int p=0;p <= pMax+1; p++)
     {
-        L1normForPower[p]( dAs[matrixIndex] );
-        std::cerr<<"p = "<<p<<"\n";
+        std::cerr<<"START: p = "<<p<<"\n";
+        L1normForPower[p]( dB );
+        std::cerr<<"      OK\n";
 
         int t = 5;
         Real approx_norm = normest1( hBs[matrixIndex], p, t);
@@ -1671,6 +1680,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
         // equation 3.7 in Al-Mohy and Higham
         hds[matrixIndex].push_back(pow(approx_norm, 1.0 / Real(p) ) );
     }
+    std::cerr<<"Finished: pMax = "<<pMax<<"\n";
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"Setting host matrix: "<<matrixIndex<<std::endl<<hInstantaneousMatrices[matrixIndex]<<std::endl
