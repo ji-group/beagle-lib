@@ -29,6 +29,8 @@
 #ifndef BEAGLE_BEAGLEGPUACTIONIMPL_H
 #define BEAGLE_BEAGLEGPUACTIONIMPL_H
 
+#define EIGEN_NO_CUDA
+
 #ifdef HAVE_CONFIG_H
 #include "libhmsbeagle/config.h"
 #endif

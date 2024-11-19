@@ -46,7 +46,7 @@ add_library(hmsbeagle-action-cuda SHARED
         ../KernelLauncher.h
         ../KernelResource.cpp
         ../KernelResource.h
-        ../ActionCUDAPlugin.cpp
+        ../ActionCUDAPlugin.cu
         ../ActionCUDAPlugin.h
         ../cuda_ops.cu
         ../Precision.h
