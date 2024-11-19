@@ -28,7 +28,7 @@ void MemcpyDeviceToDevice(T* dptr, const T* hptr, int n)
 {
     auto status = cudaMemcpy(dptr, hptr, n*sizeof(T), cudaMemcpyDeviceToDevice);
     if (status != cudaSuccess)
-	throw std::runtime_error("cudaMemcpy(Host->Device): failed!");
+	throw std::runtime_error("cudaMemcpy(Device->Device): failed!");
 }
 
 template <typename T>
