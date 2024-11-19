@@ -371,7 +371,7 @@ int spMM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSp
     if(new_buffersize > buffersize)
     {
         CHECK_CUDA(cudaFree(buffer));
-        CHECK_CUDA(cudaMalloc(&buffer, buffersize));
+        CHECK_CUDA(cudaMalloc(&buffer, new_buffersize));
         buffersize = new_buffersize;
     }
 
