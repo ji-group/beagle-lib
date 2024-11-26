@@ -401,7 +401,10 @@ struct GPUnormest1
     DnMatrixDevice<Real> Y;
     void* buffer = nullptr;
     size_t buffer_size = 0;
-    
+
+    // Temporary storage for cuda_max_l1_norm
+    Real* buffer2 = nullptr;
+
     Real operator()(const SpMatrixDevice<Real>& A)
     {
         std::cerr<<"n = "<<n<<"\n";
@@ -414,6 +417,7 @@ struct GPUnormest1
         // X[i][j] = if (uniform(0,1)<0.5) +1 else -1
         initialize_norm_x_matrix(X.ptr, n, t);
 
+        double norm = 0;
         for(int k=1; k<=itmax; k++)
         {
             // std::cerr<<"iter "<<k<<"\n";
@@ -426,12 +430,14 @@ struct GPUnormest1
                 X.copyFrom(Y);
             }
 
-            // get maximum coefficient
+            // get largest L1 norm
+            norm = cuda_max_l1_norm(X.ptr, n, t, buffer2);
 
             // S[i][j] = sign(x[i][j])
+            cuda_sign_div_vector(X.ptr, n, t);
         }
 
-        return 0;
+        return norm;
     }
 
     GPUnormest1(cublasHandle_t cb, int p_, int n_, int t_=2, int itmax_=5)
@@ -446,6 +452,8 @@ struct GPUnormest1
 
         // Interpret negative t as t == n
         if (t < 0) t = n;
+
+        buffer2 = cudaDeviceNew<Real>(t);
     }
 };
 
