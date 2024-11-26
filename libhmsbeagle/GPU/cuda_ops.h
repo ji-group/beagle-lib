@@ -67,4 +67,9 @@ void sumRootLikelihoods(float* siteProbs, // OUT
 void sumRootLikelihoods(double* siteProbs, // OUT
 			double* partials, double* weights, double* frequencies, // INT
 			int nStates, int nPatterns, int nCategories);
+
+
+void initialize_norm_x_matrix(float* data, int n, int m);
+void initialize_norm_x_matrix(double* data, int n, int m);
+
 #endif
