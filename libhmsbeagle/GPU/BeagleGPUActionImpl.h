@@ -407,7 +407,7 @@ struct GPUnormest1
 
     Real operator()(const SpMatrixDevice<Real>& A)
     {
-        std::cerr<<"n = "<<n<<"\n";
+        std::cerr<<"n = "<<n<<"   t = "<<t<<"\n";
         std::cerr<<"A.rows() = "<<A.rows()<<"\n";
         // A is (n,n);
         assert(A.rows() == A.cols());
