@@ -52,6 +52,9 @@ std::vector<T> MemcpyDeviceToHostVector(const T* dptr, int n)
 void cuda_log_vector(double* v, int length);
 void cuda_log_vector(float* v, int length);
 
+void cuda_sign_div_vector(double* v, int n, int t);
+void cuda_sign_div_vector(float* v, int n, int t);
+
 double cuda_max_abs(double* v, int length);
 float cuda_max_abs(float* v, int length);
 

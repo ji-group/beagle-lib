@@ -27,6 +27,22 @@ void cuda_log_vector(float* v, int length)
     thrust::transform(vdptr, vdptr + length, vdptr, [] __device__ (float x) {return log(x);});
 }
 
+void cuda_sign_div_vector(double* v, int n, int t)
+{
+    thrust::device_ptr<double> vdptr = thrust::device_pointer_cast<double>(v);
+
+    // In-place update is accomplished by making the output iterator the same the starting input iterator.
+    thrust::transform(vdptr, vdptr + n*t, vdptr, [n] __device__ (double x) -> double {return (x<0)?-1.0/n:1.0/n;});
+}
+
+void cuda_sign_div_vector(float* v, int n, int t)
+{
+    thrust::device_ptr<float> vdptr = thrust::device_pointer_cast<float>(v);
+
+    // In-place update is accomplished by making the output iterator the same the starting input iterator.
+    thrust::transform(vdptr, vdptr + n*t, vdptr, [n] __device__ (float x) ->float {return (x<0)?-1.0/n:1.0/n;});
+}
+
 double cuda_max_abs(double* values, int length)
 {
     thrust::device_ptr<double> values_ptr = thrust::device_pointer_cast<double>(values);
