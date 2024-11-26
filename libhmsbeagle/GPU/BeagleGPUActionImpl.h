@@ -410,6 +410,10 @@ struct GPUnormest1
         assert(A.rows() == A.cols());
         assert(A.cols() == n);
 
+        // X[0][j] = 1
+        // X[i][j] = if (uniform(0,1)<0.5) +1 else -1
+        initialize_norm_x_matrix(X.ptr, n, t);
+
         for(int k=1; k<=itmax; k++)
         {
             // std::cerr<<"iter "<<k<<"\n";
@@ -421,6 +425,10 @@ struct GPUnormest1
                 // X = Y
                 X.copyFrom(Y);
             }
+
+            // get maximum coefficient
+
+            // S[i][j] = sign(x[i][j])
         }
 
         return 0;
