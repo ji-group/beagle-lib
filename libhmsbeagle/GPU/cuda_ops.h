@@ -72,4 +72,7 @@ void sumRootLikelihoods(double* siteProbs, // OUT
 void initialize_norm_x_matrix(float* data, int n, int m);
 void initialize_norm_x_matrix(double* data, int n, int m);
 
+float cuda_max_l1_norm(float* values, int n, int t, float* buffer_);
+double cuda_max_l1_norm(double* values, int n, int t, double* buffer_);
+
 #endif
