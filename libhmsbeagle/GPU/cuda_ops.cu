@@ -539,7 +539,7 @@ void initialize_norm_x_matrix(float* data, int n, int m)
         thrust::default_random_engine rng;
         thrust::uniform_real_distribution<float> dist(0, 1);
 
-        if (n==0) return 1.0/n;
+        if (i<n) return 1.0/n;
         rng.discard(i);
         if (dist(rng) > 0.5)
             return 1.0/n;
@@ -561,7 +561,7 @@ void initialize_norm_x_matrix(double* data, int n, int m)
         thrust::default_random_engine rng;
         thrust::uniform_real_distribution<float> dist(0, 1);
 
-        if (n==0) return 1.0/n;
+        if (i<n) return 1.0/n;
         rng.discard(i);
         if (dist(rng) > 0.5)
             return 1.0/n;
