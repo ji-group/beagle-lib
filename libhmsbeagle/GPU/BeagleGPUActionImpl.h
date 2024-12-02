@@ -635,11 +635,11 @@ struct GPUnormest1
         // X[i][j] = if (uniform(0,1)<0.5) +1 else -1
         initialize_norm_x_matrix(X.ptr, n, t);
 
-        std::cerr<<"X0 = "<<byRow(X)<<"\n";
         double norm = 0;
         for(int k=1; k<=itmax; k++)
         {
             std::cerr<<"iter "<<k<<"\n";
+            std::cerr<<"X0 = "<<byRow(X)<<"\n";
 
             for(int i=0;i<p;i++)
             {
@@ -651,7 +651,7 @@ struct GPUnormest1
 
             // get largest L1 norm
             norm = cuda_max_l1_norm(X.ptr, n, t, buffer2);
-            std::cerr<<"X0 = "<<byRow(X)<<"   norm = "<<norm<<"\n";
+            std::cerr<<"A^p*X = "<<byRow(X)<<"   norm = "<<norm<<"\n";
 
             // S[i][j] = sign(x[i][j])
             cuda_sign_div_vector(X.ptr, n, t);
