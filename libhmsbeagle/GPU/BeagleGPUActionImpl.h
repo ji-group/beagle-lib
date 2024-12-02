@@ -382,6 +382,223 @@ int spMM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSp
     return 0;
 }
 
+// Create an io-manipulator so that we can write std::cerr<<byRow(D)<<"\n";
+template <typename Real>
+class byRowDense
+{
+    const DnMatrixDevice<Real>& D;
+    bool multiline = false;
+public:
+
+    friend std::ostream& operator<<(std::ostream& o, const byRowDense<Real>& pr)
+    {
+        auto& D = pr.D;
+	bool multiline = pr.multiline;
+
+        auto hPtr = MemcpyDeviceToHostVector(D.ptr, D.size());
+
+        if (not multiline) o<<"Rows [";
+        for(int row=0;row<D.size1;row++)
+        {
+            if (not multiline) o<<" ";
+            for(int col=0;col<D.size2;col++)
+            {
+                if (D.order == CUSPARSE_ORDER_COL)
+                    o<<hPtr[col*D.size1 + row]<<", ";
+                else
+                    o<<hPtr[row*D.size2 + col]<<", ";
+            }
+	    if (not multiline)
+		o<<"; ";
+	    else if (row+1 != D.size1)
+		o<<"\n";
+        }
+        if (not multiline) o<<"]";
+
+	if (D.order == CUSPARSE_ORDER_COL)
+	    o<<" (column-major)";
+	else
+	    o<<" (row-major)";
+
+	if (multiline) o<<"\n";
+        return o;
+    }
+
+    // Initialize the forwarding struct from the matrix that we want to print.
+    byRowDense(const DnMatrixDevice<Real>& d, bool m=false):D(d),multiline(m) {}
+};
+
+// Create an io-manipulator so that we can write std::cerr<<byCol(D)<<"\n";
+template <typename Real>
+class byColDense
+{
+    const DnMatrixDevice<Real>& D;
+public:
+
+    friend std::ostream& operator<<(std::ostream& o, const byColDense<Real>& pr)
+    {
+	auto& D = pr.D;
+
+        auto hPtr = MemcpyDeviceToHostVector(D.ptr, D.size());
+
+        o<<"Cols[ ";
+        for(int col=0;col<D.size2;col++)
+        {
+            o<<"[ ";
+            for(int row=0;row<D.size1;row++)
+            {
+                if (D.order == CUSPARSE_ORDER_COL)
+                    o<<hPtr[col*D.size1 + row]<<", ";
+                else
+                    o<<hPtr[row*D.size2 + col]<<", ";
+            }
+            o<<"] ";
+        }
+        o<<"]";
+
+	if (D.order == CUSPARSE_ORDER_COL)
+	    o<<" (column-major)";
+	else
+	    o<<" (row-major)";
+
+        return o;
+    }
+
+    // Initialize the forwarding struct from the matrix that we want to print.
+    byColDense(const DnMatrixDevice<Real>& d):D(d) {}
+};
+
+std::ostream& operator<<(std::ostream& o, sparseFormat f)
+{
+    if (f == sparseFormat::csr)
+	o<<"csr";
+    else if (f == sparseFormat::csc)
+	o<<"csc";
+    else
+	o<<"sparseFormat=unknown";
+    return o;
+}
+	
+// Create an io-manipulator so that we can write std::cerr<<byRow(D)<<"\n";
+template <typename Real>
+class byRowSparse
+{
+    const SpMatrixDevice<Real>& S;
+    bool multiline = false;
+public:
+
+    friend std::ostream& operator<<(std::ostream& o, const byRowSparse<Real>& pr)
+    {
+        auto& S = pr.S;
+	bool multiline = pr.multiline;
+
+	auto values = MemcpyDeviceToHostVector(S.values, S.num_non_zeros);
+	auto inner = MemcpyDeviceToHostVector(S.inner, S.num_non_zeros);
+	auto offsets = MemcpyDeviceToHostVector(S.offsets, S.outer_dim_size() + 1);
+	
+	std::vector< std::vector<Real> > D(S.size1, std::vector<Real>(S.size2, 0));
+        for(int o=0; o< S.outer_dim_size();o++)
+        {
+            for(int index=offsets[o];index<offsets[o+1];index++)
+            {
+                if (S.format == sparseFormat::csr)
+		    D[o][inner[index]] = values[index];
+		else
+		    D[inner[index]][o] = values[index];
+            }
+        }
+
+        if (not multiline) o<<"Rows [";
+	for(int row=0;row<D.size();row++)
+	{
+            if (not multiline) o<<" ";
+	    for(int col=0;col<D[row].size();col++)
+	    {
+		o<<D[row][col]<<", ";
+            }
+            if (not multiline)
+		o<<"; ";
+	    else if (row+1 != D.size())
+		o<<"\n";
+        }
+        if (not multiline) o<<"]";
+
+	o<<" ("<<S.format<<")";
+	if (multiline) o<<"\n";
+
+        return o;
+    }
+
+    // Initialize the forwarding struct from the matrix that we want to print.
+    byRowSparse(const SpMatrixDevice<Real>& s, bool m = false):S(s),multiline(m) {}
+};
+
+template <typename Real>
+byRowDense<Real> byRow(const DnMatrixDevice<Real>& D, bool m = false)
+{
+    return byRowDense<Real>(D, m);
+}
+
+template <typename Real>
+byRowSparse<Real> byRow(const SpMatrixDevice<Real>& D, bool m = false)
+{
+    return byRowSparse<Real>(D, m);
+}
+
+template <typename Real>
+byColDense<Real> byCol(const DnMatrixDevice<Real>& D)
+{
+    return byColDense<Real>(D);
+}
+
+template <typename Real>
+std::ostream& operator<<(std::ostream& o, const DnMatrixDevice<Real>& D)
+{
+    return o<<byRow(D, true);
+}
+
+template <typename Real>
+std::ostream& operator<<(std::ostream& o, const SpMatrixDevice<Real>& D)
+{
+    return o<<byRow(D, true);
+}
+
+
+template <typename Real>
+struct asDeviceVec
+{
+    const Real* data;
+    int length;
+
+    asDeviceVec(const Real* d, int l):data(d),length(l) { }
+};
+
+template <typename Real>
+std::ostream& operator<<(std::ostream& o, const asDeviceVec<Real>& D)
+{
+    auto H = MemcpyDeviceToHostVector(D.data, D.length);
+
+    o<<"[ ";
+    for(auto& h: H)
+	o<<h<<" ";
+    o<<"]";
+
+    return o;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& o, const std::vector<T>& H)
+{
+    o<<"[ ";
+    for(auto& h: H)
+	o<<h<<" ";
+    o<<"]";
+
+    return o;
+}
+
+
+
 template <typename Real>
 int spMM(DnMatrixDevice<Real>& C, Real alpha, const SpMatrixDevice<Real>& A, const DnMatrixDevice<Real>& B, Real beta, void*& buffer, size_t& buffersize)
 {
@@ -412,15 +629,17 @@ struct GPUnormest1
         // A is (n,n);
         assert(A.rows() == A.cols());
         assert(A.cols() == n);
+        std::cerr<<"A = "<<byRow(A)<<"\n";
 
         // X[0][j] = 1
         // X[i][j] = if (uniform(0,1)<0.5) +1 else -1
         initialize_norm_x_matrix(X.ptr, n, t);
 
+        std::cerr<<"X0 = "<<byRow(X)<<"\n";
         double norm = 0;
         for(int k=1; k<=itmax; k++)
         {
-            // std::cerr<<"iter "<<k<<"\n";
+            std::cerr<<"iter "<<k<<"\n";
 
             for(int i=0;i<p;i++)
             {
@@ -432,6 +651,7 @@ struct GPUnormest1
 
             // get largest L1 norm
             norm = cuda_max_l1_norm(X.ptr, n, t, buffer2);
+            std::cerr<<"X0 = "<<byRow(X)<<"   norm = "<<norm<<"\n";
 
             // S[i][j] = sign(x[i][j])
             cuda_sign_div_vector(X.ptr, n, t);
@@ -446,9 +666,6 @@ struct GPUnormest1
         assert(p >= 0);
         assert(t != 0); // negative means t = n
         assert(itmax >= 1);
-
-        // Handle t too large
-        t = std::min(n,t);
 
         // Interpret negative t as t == n
         if (t < 0) t = n;
