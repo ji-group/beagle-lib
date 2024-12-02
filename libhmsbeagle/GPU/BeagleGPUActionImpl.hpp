@@ -1451,14 +1451,20 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
                                    sparseFormat::csr);
 
     int pMax = getPMax();
+    auto tmp = hBs[matrixIndex];
+    tmp.setIdentity();
     for(int p=0;p <= pMax+1; p++)
     {
         std::cerr<<"START: p = "<<p<<"\n";
-        L1normForPower[p]( dB );
-        std::cerr<<"      OK\n";
+        Real approx_norm_GPU = L1normForPower[p]( dB );
+        std::cerr<<"  GPU_value = "<<approx_norm_GPU;
 
         int t = 5;
         Real approx_norm = normest1( hBs[matrixIndex], p, t);
+        std::cerr<<"  CPU_value = "<<approx_norm;
+        std::cerr<<"  value = "<<normP1(tmp);
+        std::cerr<<"\n";
+        tmp = tmp * hBs[matrixIndex];
 
         // equation 3.7 in Al-Mohy and Higham
         hds[matrixIndex].push_back(pow(approx_norm, 1.0 / Real(p) ) );
