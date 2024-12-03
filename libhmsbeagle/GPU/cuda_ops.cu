@@ -200,6 +200,27 @@ void cuda_sort_indices_by_vector(const double* values_ptr, int n, int* indices_p
     thrust::sort(indices, indices+n, [values] __host__ __device__ (int idx1, int idx2) {return values[idx1] > values[idx2];});
 }
 
+void cuda_set_indices(float* x_ptr, int n, int t, const int* indices_ptr)
+{
+    // 1. Initialize the indices to [0, n-1]
+    thrust::counting_iterator<int> iter(0);
+    auto x = thrust::device_pointer_cast(x_ptr);
+    auto indices = thrust::device_pointer_cast(indices_ptr);
+
+    thrust::for_each(iter, iter+t, [=] __host__ __device__ (int i) { x[n*i + indices[i]] = 1.0; });
+}
+
+// Set X(i,indices[i]) = 1 for i in [0,t-1]
+void cuda_set_indices(double* x_ptr, int n, int t, const int* indices_ptr)
+{
+    // 1. Initialize the indices to [0, n-1]
+    thrust::counting_iterator<int> iter(0);
+    auto x = thrust::device_pointer_cast(x_ptr);
+    auto indices = thrust::device_pointer_cast(indices_ptr);
+
+    thrust::for_each(iter, iter+t, [=] __host__ __device__ (int i) { x[n*i + indices[i]] = 1.0; });
+}
+
 
 // FIXME: It would be nice to merge the code for the <float> and <double> versions of
 //        rescalePartialsDevice, but this was somehow causing the program to crash.

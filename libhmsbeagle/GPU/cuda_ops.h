@@ -84,6 +84,9 @@ double cuda_max_l1_norm(double* values, int n, int t, double* buffer_);
 void cuda_sort_indices_by_vector(const float* values_ptr, int n, int* indices_ptr);
 void cuda_sort_indices_by_vector(const double* values_ptr, int n, int* indices_ptr);
 
+void cuda_set_indices(float* x, int n, int t, const int* indices);
+void cuda_set_indices(double* x, int n, int t, const int* indices);
+
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
 		       float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex);
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,

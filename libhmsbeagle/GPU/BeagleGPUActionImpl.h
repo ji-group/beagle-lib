@@ -732,6 +732,9 @@ struct GPUnormest1
 
             // Zero the X matrix.
             cuda_fill_vector(X.ptr, n*t, 0);  // (n,t) -> (n,t)
+
+            // Set X(i,indices[i]) = 1 for i in [0,t-1]
+            cuda_set_indices(X.ptr, n, t, indices);
         }
 
         return norm;
@@ -745,14 +748,14 @@ struct GPUnormest1
     GPUnormest1(const GPUnormest1&) = delete;
 
     GPUnormest1(cublasHandle_t cb, int p_, int n_, int t_=2, int itmax_=5)
-        :p(p_), n(n_), t(t_), itmax(itmax_), X(cb,n,t), Y(cb,n,t), h(cb,n,1)
+        :p(p_), n(n_), t(std::min(t_,n)), itmax(itmax_), X(cb,n,t), Y(cb,n,t), h(cb,n,1)
     {
         assert(p >= 0);
-        assert(t != 0); // negative means t = n
+        assert(t > 0); // negative means t = n
         assert(itmax >= 1);
 
         // Interpret negative t as t == n
-        if (t < 0) t = n;
+        // if (t < 0) t = n;
 
         buffer2 = cudaDeviceNew<Real>(t);
 
