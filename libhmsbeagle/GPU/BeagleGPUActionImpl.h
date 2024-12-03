@@ -643,10 +643,12 @@ struct GPUnormest1
     int n = 0;
     int t = 0;
     int itmax = 0;
-    DnMatrixDevice<Real> X;
-    DnMatrixDevice<Real> Y;
+    DnMatrixDevice<Real> X;  // (n,t)
+    DnMatrixDevice<Real> Y;  // (n,t)
+    DnMatrixDevice<Real> h;  // (n,1)
     void* buffer = nullptr;
     size_t buffer_size = 0;
+    int* indices = nullptr;
 
     // Temporary storage for cuda_max_l1_norm
     Real* buffer2 = nullptr;
@@ -692,6 +694,16 @@ struct GPUnormest1
             // (3) of Algorithm 2.4
             // Z = A^T * S
             spMTM<Real>(Y, 1, A, X, 0, buffer, buffer_size);
+
+            // h[0,j] = max(i) abs(Z(i,j))
+            cuda_rowwise_max_abs(Y.ptr, t, t, h.ptr);
+
+            // (4) of Algorithm 2.4 - If we don't find a new best dimension, exit early.
+            // We don't do this, because finding a different reason to exit
+            // seems to provide greater accuracy.
+
+            // 
+            // cuda_get_sorted_indices(h.ptr, t, indices);
             
         }
 
@@ -699,7 +711,7 @@ struct GPUnormest1
     }
 
     GPUnormest1(cublasHandle_t cb, int p_, int n_, int t_=2, int itmax_=5)
-        :p(p_), n(n_), t(t_), itmax(itmax_), X(cb,n,t), Y(cb,n,t)
+        :p(p_), n(n_), t(t_), itmax(itmax_), X(cb,n,t), Y(cb,n,t), h(cb,n,1)
     {
         assert(p >= 0);
         assert(t != 0); // negative means t = n
@@ -709,6 +721,8 @@ struct GPUnormest1
         if (t < 0) t = n;
 
         buffer2 = cudaDeviceNew<Real>(t);
+
+        indices = cudaDeviceNew<int>(t);
     }
 };
 
