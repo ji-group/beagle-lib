@@ -99,12 +99,15 @@ Real normest1(const SpMatrix<Real>& A, int p, int t=2, int itmax=5)
 
     for(int k=1; k<=itmax; k++)
     {
-        // std::cerr<<"iter "<<k<<"\n";
+        std::cerr<<"iter "<<k<<"  X = "<<X<<"\n";
         Y = A*X; // Y is (n,t) = (n,n) * (n,t)
         for(int i=1;i<p;i++)
             Y = A*Y;
+        std::cerr<<"                 Y = "<<X<<"\n";
 
         auto [est, j] = ArgNormP1(Y);
+
+        std::cerr<<"                 est = "<<est<<"       est_old = "<<est_old<<"\n";
 
         if (est > est_old or k == 2)
         {

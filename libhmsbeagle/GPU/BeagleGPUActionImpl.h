@@ -382,6 +382,40 @@ int spMM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSp
     return 0;
 }
 
+template <typename Real>
+int spMM(DnMatrixDevice<Real>& C, Real alpha, const SpMatrixDevice<Real>& A, const DnMatrixDevice<Real>& B, Real beta, void*& buffer, size_t& buffersize)
+{
+    return spMM<Real>(A.cusparseHandle, C.descr, alpha, A.descr, B.descr, beta, buffer, buffersize);
+}
+
+template <typename Real>
+int spMTM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSpMatDescr_t A, cusparseDnMatDescr_t B, Real beta, void*& buffer, size_t& buffersize)
+{
+    size_t new_buffersize;
+    CHECK_CUSPARSE(cusparseSpMM_bufferSize(handle, CUSPARSE_OPERATION_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                           &alpha, A, B, &beta, C, DataType<Real>,
+                                           CUSPARSE_SPMM_ALG_DEFAULT, &new_buffersize));
+
+    if(new_buffersize > buffersize)
+    {
+        CHECK_CUDA(cudaFree(buffer));
+        CHECK_CUDA(cudaMalloc(&buffer, new_buffersize));
+        buffersize = new_buffersize;
+    }
+
+    // integrationTmp = alpha * A * destP
+    CHECK_CUSPARSE(cusparseSpMM(handle, CUSPARSE_OPERATION_TRANSPOSE, CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                &alpha, A, B, &beta, C, DataType<Real>,
+                                CUSPARSE_SPMM_ALG_DEFAULT, buffer)); //row-major layout provides higher performance (?)
+    return 0;
+}
+
+template <typename Real>
+int spMTM(DnMatrixDevice<Real>& C, Real alpha, const SpMatrixDevice<Real>& A, const DnMatrixDevice<Real>& B, Real beta, void*& buffer, size_t& buffersize)
+{
+    return spMTM<Real>(A.cusparseHandle, C.descr, alpha, A.descr, B.descr, beta, buffer, buffersize);
+}
+
 // Create an io-manipulator so that we can write std::cerr<<byRow(D)<<"\n";
 template <typename Real>
 class byRowDense
@@ -599,11 +633,6 @@ std::ostream& operator<<(std::ostream& o, const std::vector<T>& H)
 
 
 
-template <typename Real>
-int spMM(DnMatrixDevice<Real>& C, Real alpha, const SpMatrixDevice<Real>& A, const DnMatrixDevice<Real>& B, Real beta, void*& buffer, size_t& buffersize)
-{
-    return spMM<Real>(A.cusparseHandle, C.descr, alpha, A.descr, B.descr, beta, buffer, buffersize);
-}
 
 // Make the temporary variables part of a data structure that represents to normest1 problem.
 // We don't want to allocate memory on the GPU every time we run this.
@@ -653,8 +682,17 @@ struct GPUnormest1
             norm = cuda_max_l1_norm(X.ptr, n, t, buffer2);
             std::cerr<<"A^p*X = "<<byRow(X)<<"   norm = "<<norm<<"\n";
 
-            // S[i][j] = sign(x[i][j])
-            cuda_sign_div_vector(X.ptr, n, t);
+            // S = sign(X)
+            cuda_sign_vector(X.ptr, n, t);
+
+            // (2) Replace parallel entries with random +1/-1 entries.
+            // Skipping this part for now because it involves a lot of branching logic
+            //  and might be slow for the GPU.
+
+            // (3) of Algorithm 2.4
+            // Z = A^T * S
+            spMTM<Real>(Y, 1, A, X, 0, buffer, buffer_size);
+            
         }
 
         return norm;
