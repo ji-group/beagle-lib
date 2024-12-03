@@ -72,6 +72,16 @@ float cuda_max_abs(float* v, int length);
 void cuda_rowwise_max_abs(float* values_ptr, int n, int t, float* out_ptr);
 void cuda_rowwise_max_abs(double* values_ptr, int n, int t, double* out_ptr);
 
+
+void initialize_norm_x_matrix(float* data, int n, int m);
+void initialize_norm_x_matrix(double* data, int n, int m);
+
+float cuda_max_l1_norm(float* values, int n, int t, float* buffer_);
+double cuda_max_l1_norm(double* values, int n, int t, double* buffer_);
+
+void cuda_sort_indices_by_vector(const float* values_ptr, int n, int* indices_ptr);
+void cuda_sort_indices_by_vector(const double* values_ptr, int n, int* indices_ptr);
+
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
 		       float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex);
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
@@ -84,12 +94,4 @@ void sumRootLikelihoods(float* siteProbs, // OUT
 void sumRootLikelihoods(double* siteProbs, // OUT
 			double* partials, double* weights, double* frequencies, // INT
 			int nStates, int nPatterns, int nCategories);
-
-
-void initialize_norm_x_matrix(float* data, int n, int m);
-void initialize_norm_x_matrix(double* data, int n, int m);
-
-float cuda_max_l1_norm(float* values, int n, int t, float* buffer_);
-double cuda_max_l1_norm(double* values, int n, int t, double* buffer_);
-
 #endif

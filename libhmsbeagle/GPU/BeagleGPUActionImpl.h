@@ -726,7 +726,7 @@ struct GPUnormest1
             // We don't do this, because finding a different reason to exit
             // seems to provide greater accuracy.
 
-            // cuda_get_sorted_indices(h.ptr, n, indices);
+            cuda_sort_indices_by_vector(h.ptr, n, indices);
         }
 
         return norm;
