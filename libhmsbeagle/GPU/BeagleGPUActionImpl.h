@@ -663,6 +663,7 @@ struct GPUnormest1
         std::swap(p, g.p);
         std::swap(n, g.n);
         std::swap(t, g.t);
+        std::swap(itmax, g.itmax);
         std::swap(X, g.X);
         std::swap(Y, g.Y);
         std::swap(h, g.h);
