@@ -52,11 +52,17 @@ std::vector<T> MemcpyDeviceToHostVector(const T* dptr, int n)
 void cuda_log_vector(double* v, int length);
 void cuda_log_vector(float* v, int length);
 
+// (n,t) -> (n,t)
 void cuda_sign_vector(double* v, int n, int t);
 void cuda_sign_vector(float* v, int n, int t);
 
+// sum.abs over (n,t) -> (1,t), then max over (1,t) -> (1,1).  Matrix assumed to be column-major.
 double cuda_max_abs(double* v, int length);
 float cuda_max_abs(float* v, int length);
+
+// max over (n,t) -> (n,1).  Matrix assumed to be column-major.
+void cuda_rowwise_max_abs(float* values_ptr, int n, int t, float* out_ptr);
+void cuda_rowwise_max_abs(double* values_ptr, int n, int t, double* out_ptr);
 
 void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternCount, int kPaddedStateCount,
 		       float* partials, float* scalingFactors, float* cumulativeScalingBuffer, int streamIndex);

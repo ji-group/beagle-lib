@@ -116,6 +116,52 @@ double cuda_max_l1_norm(double* values, int n, int t, double* buffer_)
     return thrust::reduce(buffer, buffer+t, 0.0, thrust::maximum<double>());
 }
 
+void cuda_rowwise_max_abs(float* values_ptr, int n, int t, float* out_ptr)
+{
+    using namespace thrust::placeholders;
+    //    We assume that the matrix has dimensions (n,t) and is column-major.
+
+    // 1. First sum the absolute values in each column and place the results into buffer
+    //    Using _1 % n here should group by row, yielding 0 1 2 3 ...(n-1) 0 1 2 3 ... (n-1) ...
+    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int)0), (_1 % n));
+
+    auto in_values_start = thrust::transform_iterator(thrust::device_pointer_cast(values_ptr),
+                                                      [] __host__ __device__ (float x) {return std::abs(x);} );
+
+    auto out = thrust::device_pointer_cast(out_ptr);
+
+    thrust::reduce_by_key(in_keys_start, in_keys_start + n*t,    // key indices (group by column)
+                          in_values_start,                       // values to reduce (with abs applied)
+                          thrust::make_discard_iterator(),       // key values out
+                          out,                                   // reduced values out
+                          thrust::equal_to<int>(),               // compare-keys operation
+                          thrust::maximum<float>()                  // summation is the default operation.
+        );
+}
+
+void cuda_rowwise_max_abs(double* values_ptr, int n, int t, double* out_ptr)
+{
+    using namespace thrust::placeholders;
+    //    We assume that the matrix has dimensions (n,t) and is column-major.
+
+    // 1. First sum the absolute values in each column and place the results into buffer
+    //    Using _1 % n here should group by row, yielding 0 1 2 3 ...(n-1) 0 1 2 3 ... (n-1) ...
+    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int)0), (_1 % n));
+
+    auto in_values_start = thrust::transform_iterator(thrust::device_pointer_cast(values_ptr),
+                                                      [] __host__ __device__ (double x) {return std::abs(x);} );
+
+    auto out = thrust::device_pointer_cast(out_ptr);
+
+    thrust::reduce_by_key(in_keys_start, in_keys_start + n*t,    // key indices (group by column)
+                          in_values_start,                       // values to reduce (with abs applied)
+                          thrust::make_discard_iterator(),       // key values out
+                          out,                                   // reduced values out
+                          thrust::equal_to<int>(),               // compare-keys operation
+                          thrust::maximum<double>()                  // summation is the default operation.
+        );
+}
+
 // FIXME: It would be nice to merge the code for the <float> and <double> versions of
 //        rescalePartialsDevice, but this was somehow causing the program to crash.
 
