@@ -726,7 +726,11 @@ struct GPUnormest1
             // We don't do this, because finding a different reason to exit
             // seems to provide greater accuracy.
 
+            // Rank the dimensions by the size of their approximate norm in h, in decreasing order.
             cuda_sort_indices_by_vector(h.ptr, n, indices);
+
+            // Zero the X matrix.
+            cuda_fill_vector(X.ptr, n*t, 0);  // (n,t) -> (n,t)
         }
 
         return norm;

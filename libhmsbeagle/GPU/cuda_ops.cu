@@ -163,6 +163,16 @@ void cuda_rowwise_max_abs(double* values_ptr, int n, int t, double* out_ptr)
         );
 }
 
+void cuda_fill_vector(float* buffer, int n, double x)
+{
+    thrust::fill_n(thrust::device_pointer_cast(buffer), n, x);
+}
+
+void cuda_fill_vector(double* buffer, int n, double x)
+{
+    thrust::fill_n(thrust::device_pointer_cast(buffer), n, x);
+}
+
 void cuda_sort_indices_by_vector(const float* values_ptr, int n, int* indices_ptr)
 {
     auto indices = thrust::device_pointer_cast(indices_ptr);

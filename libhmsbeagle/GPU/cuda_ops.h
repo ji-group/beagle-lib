@@ -72,6 +72,8 @@ float cuda_max_abs(float* v, int length);
 void cuda_rowwise_max_abs(float* values_ptr, int n, int t, float* out_ptr);
 void cuda_rowwise_max_abs(double* values_ptr, int n, int t, double* out_ptr);
 
+void cuda_fill_vector(float* buffer, int n, double x);
+void cuda_fill_vector(double* buffer, int n, double x);
 
 void initialize_norm_x_matrix(float* data, int n, int m);
 void initialize_norm_x_matrix(double* data, int n, int m);
