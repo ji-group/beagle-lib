@@ -756,9 +756,9 @@ struct GPUnormest1
 
     ~GPUnormest1()
     {
-        cudaFree(buffer);
-        cudaFree(buffer2);
-        cudaFree(indices);
+        cudaDeviceDelete(buffer);
+        cudaDeviceDelete(buffer2);
+        cudaDeviceDelete(indices);
     }
 };
 
