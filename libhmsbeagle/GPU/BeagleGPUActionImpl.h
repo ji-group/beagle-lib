@@ -680,12 +680,12 @@ struct GPUnormest1
 
     Real operator()(const SpMatrixDevice<Real>& A)
     {
-        std::cerr<<"n = "<<n<<"   t = "<<t<<"\n";
-        std::cerr<<"A.rows() = "<<A.rows()<<"\n";
+        // std::cerr<<"n = "<<n<<"   t = "<<t<<"\n";
+        // std::cerr<<"A.rows() = "<<A.rows()<<"\n";
         // A is (n,n);
         assert(A.rows() == A.cols());
         assert(A.cols() == n);
-        std::cerr<<"A = "<<byRow(A)<<"\n";
+        //std::cerr<<"A = "<<byRow(A)<<"\n";
 
         // X[0][j] = 1
         // X[i][j] = if (uniform(0,1)<0.5) +1 else -1
@@ -694,8 +694,8 @@ struct GPUnormest1
         double norm = 0;
         for(int k=1; k<=itmax; k++)
         {
-            std::cerr<<"iter "<<k<<"\n";
-            std::cerr<<"X0 = "<<byRow(X)<<"\n";
+            // std::cerr<<"iter "<<k<<"\n";
+            // std::cerr<<"X0 = "<<byRow(X)<<"\n\n";
 
             for(int i=0;i<p;i++)
             {
@@ -707,7 +707,7 @@ struct GPUnormest1
 
             // get largest L1 norm
             norm = cuda_max_l1_norm(X.ptr, n, t, buffer2);
-            std::cerr<<"A^p*X = "<<byRow(X)<<"   norm = "<<norm<<"\n";
+            // std::cerr<<"A^p*X = "<<byRow(X)<<"   norm = "<<norm<<"\n\n";
 
             // S = sign(X)
             cuda_sign_vector(X.ptr, n, t);   // (n,n) -> (n,n)
@@ -722,7 +722,7 @@ struct GPUnormest1
 
             // h[0,j] = max(i) abs(Z(i,j))
             cuda_rowwise_max_abs(Y.ptr, t, t, h.ptr);  // (n,t) -> (n,1)
-
+            
             // (4) of Algorithm 2.4 - If we don't find a new best dimension, exit early.
             // We don't do this, because finding a different reason to exit
             // seems to provide greater accuracy.
