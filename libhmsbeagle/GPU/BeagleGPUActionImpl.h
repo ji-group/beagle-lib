@@ -672,6 +672,8 @@ struct GPUnormest1
         std::swap(buffer_size, g.buffer_size);
         std::swap(indices, g.indices);
         std::swap(buffer2, g.buffer2);
+
+        return *this;
     }
 
 
