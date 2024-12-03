@@ -646,12 +646,34 @@ struct GPUnormest1
     DnMatrixDevice<Real> X;  // (n,t)
     DnMatrixDevice<Real> Y;  // (n,t)
     DnMatrixDevice<Real> h;  // (n,1)
+
+    // Sorted matrix dimensions by approximate norm.
+    int* indices = nullptr;  // (n)
+
+    // Used for spMM
     void* buffer = nullptr;
     size_t buffer_size = 0;
-    int* indices = nullptr;
 
     // Temporary storage for cuda_max_l1_norm
     Real* buffer2 = nullptr;
+
+    GPUnormest1& operator=(const GPUnormest1&) = delete;
+    GPUnormest1& operator=(GPUnormest1&& g)
+    {
+        std::swap(p, g.p);
+        std::swap(n, g.n);
+        std::swap(t, g.t);
+        std::swap(X, g.X);
+        std::swap(Y, g.Y);
+        std::swap(h, g.h);
+
+        // ensure that (*this) and (g) don't both own the buffers!
+        std::swap(buffer, g.buffer);
+        std::swap(buffer_size, g.buffer_size);
+        std::swap(indices, g.indices);
+        std::swap(buffer2, g.buffer2);
+    }
+
 
     Real operator()(const SpMatrixDevice<Real>& A)
     {
@@ -685,7 +707,7 @@ struct GPUnormest1
             std::cerr<<"A^p*X = "<<byRow(X)<<"   norm = "<<norm<<"\n";
 
             // S = sign(X)
-            cuda_sign_vector(X.ptr, n, t);
+            cuda_sign_vector(X.ptr, n, t);   // (n,n) -> (n,n)
 
             // (2) Replace parallel entries with random +1/-1 entries.
             // Skipping this part for now because it involves a lot of branching logic
@@ -693,22 +715,27 @@ struct GPUnormest1
 
             // (3) of Algorithm 2.4
             // Z = A^T * S
-            spMTM<Real>(Y, 1, A, X, 0, buffer, buffer_size);
+            spMTM<Real>(Y, 1, A, X, 0, buffer, buffer_size);  // (n,n) * (n,t) -> (n,t)
 
             // h[0,j] = max(i) abs(Z(i,j))
-            cuda_rowwise_max_abs(Y.ptr, t, t, h.ptr);
+            cuda_rowwise_max_abs(Y.ptr, t, t, h.ptr);  // (n,t) -> (n,1)
 
             // (4) of Algorithm 2.4 - If we don't find a new best dimension, exit early.
             // We don't do this, because finding a different reason to exit
             // seems to provide greater accuracy.
 
-            // 
-            // cuda_get_sorted_indices(h.ptr, t, indices);
-            
+            // cuda_get_sorted_indices(h.ptr, n, indices);
         }
 
         return norm;
     }
+
+    GPUnormest1(GPUnormest1&& g)
+    {
+        operator=(std::move(g));
+    }
+
+    GPUnormest1(const GPUnormest1&) = delete;
 
     GPUnormest1(cublasHandle_t cb, int p_, int n_, int t_=2, int itmax_=5)
         :p(p_), n(n_), t(t_), itmax(itmax_), X(cb,n,t), Y(cb,n,t), h(cb,n,1)
@@ -722,7 +749,14 @@ struct GPUnormest1
 
         buffer2 = cudaDeviceNew<Real>(t);
 
-        indices = cudaDeviceNew<int>(t);
+        indices = cudaDeviceNew<int>(n);
+    }
+
+    ~GPUnormest1()
+    {
+        cudaFree(buffer);
+        cudaFree(buffer2);
+        cudaFree(indices);
     }
 };
 
