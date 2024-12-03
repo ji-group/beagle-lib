@@ -16,6 +16,14 @@ T* cudaDeviceNew(int n)
 }
 
 template <typename T>
+void cudaDeviceDelete(T* buffer)
+{
+    auto status = cudaFree(buffer);
+    if (status != cudaSuccess)
+	throw std::runtime_error(std::string("cudaFree: ") + std::string(cudaGetErrorString(status)));
+}
+
+template <typename T>
 void MemcpyHostToDevice(T* dptr, const T* hptr, int n)
 {
     auto status = cudaMemcpy(dptr, hptr, n*sizeof(T), cudaMemcpyHostToDevice);
