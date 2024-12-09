@@ -309,7 +309,7 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     for(int p=0; p<=getPMax()+1; p++)
     {
         int t = 5;
-        L1normForPower.push_back(GPUnormest1<Real>(cublasHandle, p, kStateCount, t));
+        L1normForPower.push_back(GPUnormest1<Real>(cublasHandle, p, kPaddedStateCount, t));
     }
 
     currentCacheNNZs = std::vector<int>(kEigenDecompCount, kPaddedStateCount);
