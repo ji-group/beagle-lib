@@ -1458,19 +1458,16 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::setSparseMatrix(int matrixIndex,
     auto tmp = hBs[matrixIndex];
     for(int p=0;p <= pMax+1; p++)
     {
-        std::cerr<<"START: p = "<<p<<"\n";
-        Real approx_norm_GPU = L1normForPower[p]( dB );
-        std::cerr<<"  GPU_value = "<<approx_norm_GPU;
+        // GPU Norm
+        Real approx_norm = L1normForPower[p]( dB );
 
-        int t = 5;
-        Real approx_norm = normest1( hBs[matrixIndex], p, t);
-        std::cerr<<"  CPU_value = "<<approx_norm;
-        std::cerr<<"\n";
+//        // CPU Norm
+//        int t = 5;
+//        Real approx_norm_CPU = normest1( hBs[matrixIndex], p, t);
 
         // equation 3.7 in Al-Mohy and Higham
         hds[matrixIndex].push_back(pow(approx_norm, 1.0 / Real(p) ) );
     }
-    std::cerr<<"Finished: pMax = "<<pMax<<"\n";
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //    std::cerr<<"Setting host matrix: "<<matrixIndex<<std::endl<<hInstantaneousMatrices[matrixIndex]<<std::endl
