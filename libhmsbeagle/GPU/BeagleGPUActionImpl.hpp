@@ -1164,7 +1164,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
     const Real one = 1;
     for (int i = 0; i < s; i++) {
 
+#ifdef ACTION_EARLY_EXIT_NORM
         Real c1 = normPInf(destP);
+#endif
 
         for (int j = 1; j < m + 1; j++) {
 //#ifdef BEAGLE_DEBUG_FLOW
@@ -1177,9 +1179,11 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::simpleAction2(DnMatrixDevice<Real>&
 
             F += destP;
 
+#ifdef ACTION_EARLY_EXIT_NORM
             Real c2 = normPInf(destP);
             if (c1 + c2 <= tol * normPInf(F)) break;
             c1 = c2;
+#endif
         }
 
         F *= eta;
