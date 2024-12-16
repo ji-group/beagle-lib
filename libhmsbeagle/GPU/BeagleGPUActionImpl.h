@@ -706,7 +706,11 @@ struct GPUnormest1
             }
 
             // get largest L1 norm
-            norm = cuda_max_l1_norm(X.ptr, n, t, buffer2);
+            double new_norm = cuda_max_l1_norm(X.ptr, n, t, buffer2);
+            if (new_norm <= norm and k >= 2)
+                break;
+
+            norm = std::max(norm,new_norm);
             // std::cerr<<"A^p*X = "<<byRow(X)<<"   norm = "<<norm<<"\n\n";
 
             // S = sign(X)
@@ -722,7 +726,7 @@ struct GPUnormest1
 
             // h[0,j] = max(i) abs(Z(i,j))
             cuda_rowwise_max_abs(Y.ptr, t, t, h.ptr);  // (n,t) -> (n,1)
-            
+
             // (4) of Algorithm 2.4 - If we don't find a new best dimension, exit early.
             // We don't do this, because finding a different reason to exit
             // seems to provide greater accuracy.
