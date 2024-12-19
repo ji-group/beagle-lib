@@ -685,7 +685,6 @@ struct GPUnormest1
         return *this;
     }
 
-
     Real operator()(const SpMatrixDevice<Real>& A)
     {
         // std::cerr<<"n = "<<n<<"   t = "<<t<<"\n";
@@ -779,6 +778,95 @@ struct GPUnormest1
         cudaDeviceDelete(buffer);
         cudaDeviceDelete(buffer2);
         cudaDeviceDelete(indices);
+    }
+};
+
+// Make the temporary variables part of a data structure that represents to normest1 problem.
+// We don't want to allocate memory on the GPU every time we run this.
+template <typename Real>
+struct GPUnormest2
+{
+    int p = 0;
+    int n = 0;
+    Real const one = Real(1);
+    DnMatrixDevice<Real> Y;
+
+    DnMatrixDevice<Real> Ones;  // (n,1)
+
+    SpMatrixDevice<Real> Aabs; // abs(A)
+
+    // Used for spMM
+    void* buffer = nullptr;
+    size_t buffer_size = 0;
+
+
+    GPUnormest2& operator=(const GPUnormest2&) = delete;
+    GPUnormest2& operator=(GPUnormest2&& g)
+    {
+        std::swap(p, g.p);
+        std::swap(n, g.n);
+        std::swap(Ones, g.Ones);
+        std::swap(Aabs, g.Aabs);
+
+        // ensure that (*this) and (g) don't both own the buffers!
+        std::swap(buffer, g.buffer);
+        std::swap(buffer_size, g.buffer_size);
+
+        return *this;
+    }
+
+    Real operator()(const SpMatrixDevice<Real>& A)
+    {
+        // std::cerr<<"n = "<<n<<"   t = "<<t<<"\n";
+        // std::cerr<<"A.rows() = "<<A.rows()<<"\n";
+        // A is (n,n);
+        assert(A.rows() == A.cols());
+        assert(A.cols() == n);
+        //std::cerr<<"A = "<<byRow(A)<<"\n";
+
+        // Step 1, Aabs = abs(A)
+        Aabs.num_non_zeros = A.num_non_zeros;
+        cuda_vec_abs(A.values, Aabs.num_non_zeros, Aabs.values);
+
+        // Step 2, calculate column sum
+
+        spMTM<Real>(Y, one, Aabs, Ones, 0, buffer, buffer_size);
+
+        // Step 3, find max
+        int index = 0;
+        double norm;
+
+        CUBLAS_CHECK(cublasIdamax(A.cublasHandle, n, Y.ptr, one, &index));
+
+        cudaMemcpy(&norm, Y.ptr + index -1, sizeof(Real), cudaMemcpyDeviceToHost);
+        return norm;
+    }
+
+
+    GPUnormest2(GPUnormest2&& g)
+    {
+        operator=(std::move(g));
+    }
+
+    GPUnormest2(const GPUnormest2&) = delete;
+
+    // SpMatrixDevice(cublasHandle_t h1, cusparseHandle_t h2, int s1, int s2, int n, Real* v, int* c, int* o, sparseFormat f)
+
+    GPUnormest2(cublasHandle_t cb, cusparseHandle_t cs, int p_, int n_)
+        :p(p_), n(n_), Y(cb, n, 1), Aabs(cb, cs, n, n, 0, cudaDeviceNew<Real>(n * n), cudaDeviceNew<int>(n * n), cudaDeviceNew<int>(n + 1), sparseFormat::csr), Ones(cb, n, 1, CUSPARSE_ORDER_COL)
+    {
+        assert(p >= 0);
+
+        cudaMemset(Ones.ptr, Real(1), Ones.size1*Ones.size2*sizeof(Real));
+
+        buffer = cudaDeviceNew<Real>(n * n);
+        buffer_size = n * n;
+
+    }
+
+    ~GPUnormest2()
+    {
+        cudaDeviceDelete(buffer);
     }
 };
 
@@ -899,7 +987,7 @@ protected:
     std::vector<DnMatrixDevice<Real>> dIntegrationTmpLeft;
     std::vector<DnMatrixDevice<Real>> dIntegrationTmpRight;
     std::vector<SpMatrixDevice<Real>> dAs;
-    std::vector<GPUnormest1<Real>> L1normForPower;
+    std::vector<GPUnormest2<Real>> L1normForPower;
     std::vector<size_t> integrationLeftBufferSize;
     std::vector<void*> dIntegrationLeftBuffer;
     std::vector<size_t> integrationRightBufferSize;

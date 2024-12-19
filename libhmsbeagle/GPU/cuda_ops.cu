@@ -11,6 +11,7 @@
 #include <thrust/async/for_each.h>
 #include <thrust/random.h>
 #include <thrust/sort.h>
+#include <thrust/complex.h>
 
 void cuda_log_vector(double* v, int length)
 {
@@ -115,6 +116,24 @@ double cuda_max_l1_norm(double* values, int n, int t, double* buffer_)
 
     // 2. Second maximize over the column sums and return the highest.
     return thrust::reduce(buffer, buffer+t, 0.0, thrust::maximum<double>());
+}
+
+float cuda_vec_abs(float *values, int n, float *results)
+{
+	using namespace thrust::placeholders;
+
+	thrust::transform(values, values + n, results, [] __host__ __device__ (float x) {return std::abs(x);});
+
+	return 0;
+}
+
+double cuda_vec_abs(double* values, int n, double* results)
+{
+	using namespace thrust::placeholders;
+
+	thrust::transform(values, values + n, results, [] __host__ __device__ (double x) {return std::abs(x);});
+
+	return 0;
 }
 
 void cuda_rowwise_max_abs(float* values_ptr, int n, int t, float* out_ptr)

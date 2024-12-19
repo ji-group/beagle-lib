@@ -308,8 +308,9 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     dAs = std::vector<SpMatrixDevice<Real>>(kEigenDecompCount * kCategoryCount * 2);
     for(int p=0; p<=getPMax()+1; p++)
     {
-        int t = 5;
-        L1normForPower.push_back(GPUnormest1<Real>(cublasHandle, p, kPaddedStateCount, t));
+        // int t = 5;
+        // L1normForPower.push_back(GPUnormest1<Real>(cublasHandle, p, kPaddedStateCount, t));
+        L1normForPower.push_back(GPUnormest2<Real>(cublasHandle, cusparseHandle, p, kPaddedStateCount));
     }
 
     currentCacheNNZs = std::vector<int>(kEigenDecompCount, kPaddedStateCount);
@@ -1010,6 +1011,8 @@ std::tuple<int,int> BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getStatistics2(doub
     assert( nCol >= 0);
     assert( edgeMultiplier >= 0 );
     assert( eigenIndex >= 0);
+
+    std::cerr<<"Calculating statistics\n";
 
     if (t * hB1Norms[eigenIndex] == 0.0)
         return {0, 1};
