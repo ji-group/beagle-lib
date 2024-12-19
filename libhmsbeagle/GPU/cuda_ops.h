@@ -40,6 +40,15 @@ void MemcpyDeviceToDevice(T* dptr, const T* hptr, int n)
 }
 
 template <typename T>
+void MemcpyDeviceToDeviceAsync(T* dptr, const T* hptr, int n)
+{
+	auto status = cudaMemcpyAsync(dptr, hptr, n*sizeof(T), cudaMemcpyDeviceToDevice);
+	if (status != cudaSuccess)
+		throw std::runtime_error("cudaMemcpyAsync(Device->Device): " + std::string(cudaGetErrorString(status)));
+}
+
+
+template <typename T>
 void MemcpyDeviceToHost(T* hptr, const T* dptr, int n)
 {
     auto status = cudaMemcpy(hptr, dptr, n*sizeof(T), cudaMemcpyDeviceToHost);

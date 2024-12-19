@@ -144,6 +144,14 @@ struct DnMatrixDevice
         MemcpyDeviceToDevice(ptr, D.ptr, size());
     }
 
+    void copyFromAsync(const DnMatrixDevice<Real>& D)
+    {
+        assert(order == D.order);
+        assert(size1 == D.size1);
+        assert(size2 == D.size2);
+        MemcpyDeviceToDevice(ptr, D.ptr, size());
+    }
+
     // Disallow copying -- only one object can "own" the descriptor.
     DnMatrixDevice<Real>& operator=(const DnMatrixDevice<Real>&) = delete;
     // Allow moving.
