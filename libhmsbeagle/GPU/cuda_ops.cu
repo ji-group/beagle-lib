@@ -11,7 +11,6 @@
 #include <thrust/async/for_each.h>
 #include <thrust/random.h>
 #include <thrust/sort.h>
-#include <thrust/complex.h>
 
 void cuda_log_vector(double* v, int length)
 {
@@ -118,11 +117,37 @@ double cuda_max_l1_norm(double* values, int n, int t, double* buffer_)
     return thrust::reduce(buffer, buffer+t, 0.0, thrust::maximum<double>());
 }
 
+float cuda_vec_fill(float* values, int length, float fill) {
+	using namespace thrust::placeholders;
+
+	thrust::device_ptr<float> valuesPtr = thrust::device_pointer_cast<float>(values);
+	thrust::fill(valuesPtr, valuesPtr + length, fill);
+
+	return 0;
+}
+
+double cuda_vec_fill(double* values, int length, double fill) {
+	using namespace thrust::placeholders;
+
+	thrust::device_ptr<double> valuesPtr = thrust::device_pointer_cast<double>(values);
+	thrust::fill(valuesPtr, valuesPtr + length, fill);
+
+	return 0;
+}
+
+
 float cuda_vec_abs(float *values, int n, float *results)
 {
 	using namespace thrust::placeholders;
 
-	thrust::transform(values, values + n, results, [] __host__ __device__ (float x) {return std::abs(x);});
+
+	thrust::device_ptr<float> valuesPtr = thrust::device_pointer_cast<float>(values);
+	thrust::device_ptr<float> resultsPtr = thrust::device_pointer_cast<float>(results);
+
+	thrust::transform(valuesPtr, valuesPtr + n, resultsPtr, [] __device__ (float x) {return abs(x);});
+
+
+	// thrust::transform(values, values + n, results, [] __host__ __device__ (float x) {return std::abs(x);});
 
 	return 0;
 }
@@ -131,7 +156,12 @@ double cuda_vec_abs(double* values, int n, double* results)
 {
 	using namespace thrust::placeholders;
 
-	thrust::transform(values, values + n, results, [] __host__ __device__ (double x) {return std::abs(x);});
+	// thrust::transform(values, values + n, results, [] __host__ __device__ (double x) {return std::abs(x);});
+
+	thrust::device_ptr<double> valuesPtr = thrust::device_pointer_cast<double>(values);
+	thrust::device_ptr<double> resultsPtr = thrust::device_pointer_cast<double>(results);
+
+	thrust::transform(valuesPtr, valuesPtr + n, resultsPtr, [] __device__  (double x) {return abs(x);});
 
 	return 0;
 }

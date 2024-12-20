@@ -1012,8 +1012,6 @@ std::tuple<int,int> BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::getStatistics2(doub
     assert( edgeMultiplier >= 0 );
     assert( eigenIndex >= 0);
 
-    std::cerr<<"Calculating statistics\n";
-
     if (t * hB1Norms[eigenIndex] == 0.0)
         return {0, 1};
 

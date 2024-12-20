@@ -20,8 +20,10 @@ else(WIN32)
     set(NVCCFLAGS "-O3 -Wno-deprecated-gpu-targets -ccbin ${CMAKE_CXX_COMPILER} -m64 -D_POSIX_C_SOURCE -std=c++11")
     set(NVCC_INC "-I${CMAKE_SOURCE_DIR}")
     set(CMD_NAME make_cuda_kernels.sh)
+#    set(CMAKE_CUDA_COMPILER ${NVCC})
 endif(WIN32)
 
+#set(CMAKE_CUDA_ARCHITECTURES "native")
 enable_language(CUDA)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -Wno-deprecated-gpu-targets --extended-lambda -std=c++17")
 

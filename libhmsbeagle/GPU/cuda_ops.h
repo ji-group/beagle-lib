@@ -90,6 +90,9 @@ void initialize_norm_x_matrix(double* data, int n, int m);
 float cuda_max_l1_norm(float* values, int n, int t, float* buffer_);
 double cuda_max_l1_norm(double* values, int n, int t, double* buffer_);
 
+float cuda_vec_fill(float* values, int length, float fill);
+double cuda_vec_fill(double* values, int length, double fill);
+
 float cuda_vec_abs(float *values, int n, float *results);
 double cuda_vec_abs(double* values, int n, double *results);
 
