@@ -1004,7 +1004,7 @@ protected:
     std::vector<DnMatrixDevice<Real>> dIntegrationTmpLeft;
     std::vector<DnMatrixDevice<Real>> dIntegrationTmpRight;
     std::vector<SpMatrixDevice<Real>> dAs;
-    std::vector<GPUnormest2<Real>> L1normForPower;
+    std::vector<GPUnormest1<Real>> L1normForPower;
     std::vector<size_t> integrationLeftBufferSize;
     std::vector<void*> dIntegrationLeftBuffer;
     std::vector<size_t> integrationRightBufferSize;
