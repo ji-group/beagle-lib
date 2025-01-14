@@ -1,6 +1,7 @@
 #include "cuda_ops.h"
 
 #include <thrust/device_vector.h>
+#include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
 #include <thrust/iterator/permutation_iterator.h>
@@ -115,6 +116,38 @@ double cuda_max_l1_norm(double* values, int n, int t, double* buffer_)
 
     // 2. Second maximize over the column sums and return the highest.
     return thrust::reduce(buffer, buffer+t, 0.0, thrust::maximum<double>());
+}
+
+void cuda_max_l1_norm_to_device(double* values, int n, int t, double* buffer_, double* out_)
+{
+    using namespace thrust::placeholders;
+
+    // 1. First sum the absolute values in each column and place the results into buffer
+    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int)0), (_1 / n));
+
+    auto in_values_start = thrust::transform_iterator(thrust::device_pointer_cast(values),
+                                                      [] __host__ __device__ (double x) {return std::abs(x);} );
+
+    auto buffer = thrust::device_pointer_cast(buffer_);
+
+    thrust::reduce_by_key(in_keys_start, in_keys_start + n*t,    // key indices (group by column)
+                          in_values_start,                       // values to reduce (with abs applied)
+                          thrust::make_discard_iterator(),       // key values out
+                          buffer,                                // reduced values out
+                          thrust::equal_to<int>()                // compare-keys operation
+        );                                                       // summation is the default operation.
+
+    // 2. Second maximize over the column sums and return the highest.
+    auto out = thrust::device_pointer_cast(buffer);
+
+    auto same_keys_start = thrust::make_constant_iterator(0);
+
+    thrust::reduce_by_key(same_keys_start, same_keys_start + t,  // key indices (all same group)
+                          buffer,                                // values to maximize
+                          thrust::make_discard_iterator(),       // key values out
+                          out,                                   // maximized value out
+                          thrust::equal_to<int>(),               // compare-keys operation
+                          thrust::maximum<double>());            // maximize, not sum
 }
 
 float cuda_vec_fill(float* values, int length, float fill) {
