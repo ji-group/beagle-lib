@@ -304,11 +304,8 @@ void cuda_set_indices(double* x_ptr, int n, int t, const int* indices_ptr)
     thrust::for_each(iter, iter+t, [=] __host__ __device__ (int i) { x[n*i + indices[i]] = 1.0; });
 }
 
-
-// FIXME: It would be nice to merge the code for the <float> and <double> versions of
-//        rescalePartialsDevice, but this was somehow causing the program to crash.
-
-void justMaximize(float* partials, float* scalingFactors,
+template <typename T>
+void justMaximize(device_ptr<T> partials, device_ptr<T> scalingFactors,
 		  int nStates, int nPatterns, int nCategories)
 {
     using namespace thrust::placeholders;
@@ -349,7 +346,7 @@ void justMaximize(float* partials, float* scalingFactors,
     // We need to compute j as a function of i:
     //   j(i) = (i % nStates) + nStates*(i/(nStates * nCategories)) + (nStates*nPatterns)*((i/nStates) % nCategories)
     auto in_values_start = thrust::make_permutation_iterator(
-	thrust::device_pointer_cast<float>(partials),
+        partials,
 	thrust::make_transform_iterator( thrust::make_counting_iterator((int)0),
 					 (_1 % nStates) + nStates*(_1/(nStates*nCategories)) + nStates*nPatterns*((_1/nStates)%nCategories))
 	);
@@ -360,68 +357,26 @@ void justMaximize(float* partials, float* scalingFactors,
 	in_keys_start + partials_size,                 // key indices end
 	in_values_start,                               // values to reduce (category, pattern, state)
 	thrust::make_discard_iterator(),               // key values out
-	thrust::device_pointer_cast<float>(scalingFactors), // reduced values out
+	scalingFactors,                                // reduced values out
 	thrust::equal_to<int>(),                       // compare keys operation
-	thrust::maximum<float>()                      // reduction operation
+	thrust::maximum<float>()                       // reduction operation
     );
+}
+
+void justMaximize(float* partials, float* scalingFactors,
+		  int nStates, int nPatterns, int nCategories)
+{
+    justMaximize(device_pointer_cast(partials),
+                 device_pointer_cast(scalingFactors),
+                 nStates, nPatterns, nCategories);
 }
 
 void justMaximize(double* partials, double* scalingFactors,
 		  int nStates, int nPatterns, int nCategories)
 {
-    using namespace thrust::placeholders;
-
-    // 1. Surprisingly, cuBLAS has no operations that reduce (sum,maximize,minimize,etc.) rows or columns.
-    //    It can only reduce an entire dense matrix to a single value.
-
-    // 2. thrust::reduce_by_key is able to reduce regions of a vector down to MULTIPLE values.
-    //    We assign each value a "key" that decides which group it is in.
-    //    Adjacent values with the same key end up in the same group.
-    //    However, non-adjacent values with the same key end up in different groups.
-    //    thrust::reduce_by_key performs the reduction operation on each group.
-
-    // 3. Thrust can maximize over states (adjacent memory_ and categories (non-adjacent) in one operation
-    //    by changing the order in which entries of the input matrix are visited.  All the entries in the
-    //    same group need to be visited sequentially.  We can do this using a permutation iterator.
-
-    // Implementation notes:
-    // * the library MatX (https://github.com/NVIDIA/MatX) offers much nicer syntax, but thrust is older
-    //   and more stable (in 2024)
-
-    // The size of a partials buffer
-    size_t partials_size = nStates * nPatterns * nCategories;
-
-
-    // OK, so we can convert the input index i=[0...partials_size] to (p,c,s) as follows:
-    //   s = i % nStates
-    //   c = (i / nStates) % nCategories
-    //   p = (i / nStates * nCategories)
-
-    // The linear index into the input matrix is:
-    //   j = s + nStates *p + (nStates*nPatterns)*c
-
-    // A list of 00000..111111..222222........(P-1)(P-1)(P-1)(P-1) that groups values by state and categories.
-    // There should be nPatterns groups.
-    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int) 0), (_1 / (nStates * nCategories)));
-
-    // We need to compute j as a function of i:
-    //   j(i) = (i % nStates) + nStates*(i/(nStates * nCategories)) + (nStates*nPatterns)*((i/nStates) % nCategories)
-    auto in_values_start = thrust::make_permutation_iterator(
-	thrust::device_pointer_cast<double>(partials),
-	thrust::make_transform_iterator( thrust::make_counting_iterator((int)0),
-					 (_1 % nStates) + nStates*(_1/(nStates*nCategories)) + nStates*nPatterns*((_1/nStates)%nCategories))
-	);
-
-    thrust::reduce_by_key(
-	// add execution policy thrust::cuda::par_nosync?
-	in_keys_start,                                 // key indices start (group by pattern)
-	in_keys_start + partials_size,                 // key indices end
-	in_values_start,                               // values to reduce (category, pattern, state)
-	thrust::make_discard_iterator(),               // key values out
-	thrust::device_pointer_cast<double>(scalingFactors), // reduced values out
-	thrust::equal_to<int>(),                       // compare keys operation
-	thrust::maximum<double>()                      // reduction operation
-    );
+    justMaximize(device_pointer_cast(partials),
+                 device_pointer_cast(scalingFactors),
+                 nStates, nPatterns, nCategories);
 }
 
 template <typename T>
