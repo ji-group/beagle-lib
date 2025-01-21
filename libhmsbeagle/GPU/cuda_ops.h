@@ -77,6 +77,9 @@ void cuda_sign_vector(float* v, int n, int t);
 double cuda_max_abs(double* v, int length);
 float cuda_max_abs(float* v, int length);
 
+void cuda_max(double* v, int length, double* out);
+void cuda_max(float* v, int length, float* out);
+
 // max over (n,t) -> (n,1).  Matrix assumed to be column-major.
 void cuda_rowwise_max_abs(float* values_ptr, int n, int t, float* out_ptr);
 void cuda_rowwise_max_abs(double* values_ptr, int n, int t, double* out_ptr);
@@ -89,6 +92,9 @@ void initialize_norm_x_matrix(double* data, int n, int m);
 
 float cuda_max_l1_norm(float* values, int n, int t, float* buffer_);
 double cuda_max_l1_norm(double* values, int n, int t, double* buffer_);
+
+void cuda_max_l1_norm(float* values, int n, int t, float* buffer, double* out);
+void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out);
 
 float cuda_vec_fill(float* values, int length, float fill);
 double cuda_vec_fill(double* values, int length, double fill);

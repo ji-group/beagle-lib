@@ -13,67 +13,92 @@
 #include <thrust/random.h>
 #include <thrust/sort.h>
 
-void cuda_log_vector(double* v, int length)
-{
-    thrust::device_ptr<double> vdptr = thrust::device_pointer_cast<double>(v);
+using thrust::device_ptr;
+using thrust::device_pointer_cast;
 
-    // In-place update is accomplished by making the output iterator the same the starting input iterator.
-    thrust::transform(vdptr, vdptr + length, vdptr, [] __device__ (double x) {return log(x);});
+template <typename T>
+void cuda_log_vector(device_ptr<T> v, int length)
+{
+    thrust::transform(v, v + length, v, [] __device__ (T x) {return log(x);});
 }
 
 void cuda_log_vector(float* v, int length)
 {
-    thrust::device_ptr<float> vdptr = thrust::device_pointer_cast<float>(v);
+    cuda_log_vector(device_pointer_cast(v), length);
+}
 
+void cuda_log_vector(double* v, int length)
+{
+    cuda_log_vector(device_pointer_cast(v), length);
+}
+
+
+template <typename T>
+void cuda_sign_vector(device_ptr<T> v, int n, int t)
+{
     // In-place update is accomplished by making the output iterator the same the starting input iterator.
-    thrust::transform(vdptr, vdptr + length, vdptr, [] __device__ (float x) {return log(x);});
+    thrust::transform(v, v + n*t, v, [n] __device__ (T x) -> T {return (x<0)?-1.0/n:1.0/n;});
 }
 
 void cuda_sign_vector(double* v, int n, int t)
 {
-    thrust::device_ptr<double> vdptr = thrust::device_pointer_cast<double>(v);
-
-    // In-place update is accomplished by making the output iterator the same the starting input iterator.
-    thrust::transform(vdptr, vdptr + n*t, vdptr, [n] __device__ (double x) -> double {return (x<0)?-1.0/n:1.0/n;});
+    cuda_sign_vector(device_pointer_cast(v), n, t);
 }
 
 void cuda_sign_vector(float* v, int n, int t)
 {
-    thrust::device_ptr<float> vdptr = thrust::device_pointer_cast<float>(v);
+    cuda_sign_vector(device_pointer_cast(v), n, t);
+}
 
-    // In-place update is accomplished by making the output iterator the same the starting input iterator.
-    thrust::transform(vdptr, vdptr + n*t, vdptr, [n] __device__ (float x) ->float {return (x<0)?-1.0/n:1.0/n;});
+template <typename T>
+// This seems to be slow because it inserts cudaStreamSynchronize()
+T cuda_max_abs(device_ptr<T> values, int length)
+{
+    auto in_ptr = thrust::transform_iterator(values, [] __host__ __device__ (T x) {return std::abs(x);});
+
+    // Don't use `*(thrust::max_element(....))` -- it is slower than thrust::reduce.
+
+    // thrust::reduce is similar in speed to cublasI{s,d}amax.
+    // using  thrust::reduce requires a device-to-host-memcpy, so it is slow!
+    return thrust::reduce(in_ptr, in_ptr + length, 0.0, thrust::maximum<T>());
+}
+
+float cuda_max_abs(float* values, int length)
+{
+    return cuda_max_abs(device_pointer_cast(values), length);
 }
 
 double cuda_max_abs(double* values, int length)
 {
-    thrust::device_ptr<double> values_ptr = thrust::device_pointer_cast<double>(values);
-
-    auto in_ptr = thrust::transform_iterator(values_ptr, [] __host__ __device__ (double x) {return std::abs(x);});
-
-    // Don't use `*(thrust::max_element(....))` -- it is slower than thrust::reduce.
-
-    // thrust::reduce is similar in speed to cublasI{s,d}amax.
-    return thrust::reduce(in_ptr, in_ptr + length, 0.0, thrust::maximum<double>());
+    return cuda_max_abs(device_pointer_cast(values), length);
 }
 
-// This seems to be slow because it inserts cudaStreamSynchronize()
-float cuda_max_abs(float* values, int length)
+template <typename T>
+void cuda_max(device_ptr<T> values, int length, device_ptr<T> out)
 {
-    thrust::device_ptr<float> values_ptr = thrust::device_pointer_cast<float>(values);
+    auto same_keys_start = thrust::make_constant_iterator(0);
 
-    auto in_ptr = thrust::transform_iterator(values_ptr, [] __host__ __device__ (float x) {return std::abs(x);});
+    thrust::reduce_by_key(same_keys_start, same_keys_start + length,  // key indices (all same group)
+                          values,                                     // values to maximize
+                          thrust::make_discard_iterator(),            // key values out
+                          out,                                        // maximized value out
+                          thrust::equal_to<int>(),                    // compare-keys operation
+                          thrust::maximum<T>());                 // maximize, not sum
+}
 
-    // Don't use `*(thrust::max_element(....))` -- it is slower than thrust::reduce.
+void cuda_max(float* values, int length, float* out)
+{
+    cuda_max(thrust::device_pointer_cast(values), length, thrust::device_pointer_cast(out));
+}
 
-    // thrust::reduce is similar in speed to cublasI{s,d}amax.
-    return thrust::reduce(in_ptr, in_ptr + length, 0.0, thrust::maximum<float>());
+void cuda_max(double* values, int length, double* out)
+{
+    cuda_max(thrust::device_pointer_cast(values), length, thrust::device_pointer_cast(out));
 }
 
 float cuda_max_l1_norm(float* values, int n, int t, float* buffer_)
 {
     using namespace thrust::placeholders;
-
 
     // 1. First sum the absolute values in each column and place the results into buffer
     auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int)0), (_1 / n));
@@ -118,7 +143,12 @@ double cuda_max_l1_norm(double* values, int n, int t, double* buffer_)
     return thrust::reduce(buffer, buffer+t, 0.0, thrust::maximum<double>());
 }
 
-void cuda_max_l1_norm_to_device(double* values, int n, int t, double* buffer_, double* out_)
+template <typename T>
+void cuda_max_l1_norm(device_ptr<T> values,
+                      int n,
+                      int t,
+                      device_ptr<T> buffer,
+                      device_ptr<T> out)
 {
     using namespace thrust::placeholders;
 
@@ -126,9 +156,7 @@ void cuda_max_l1_norm_to_device(double* values, int n, int t, double* buffer_, d
     auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int)0), (_1 / n));
 
     auto in_values_start = thrust::transform_iterator(thrust::device_pointer_cast(values),
-                                                      [] __host__ __device__ (double x) {return std::abs(x);} );
-
-    auto buffer = thrust::device_pointer_cast(buffer_);
+                                                      [] __host__ __device__ (T x) {return std::abs(x);} );
 
     thrust::reduce_by_key(in_keys_start, in_keys_start + n*t,    // key indices (group by column)
                           in_values_start,                       // values to reduce (with abs applied)
@@ -138,16 +166,21 @@ void cuda_max_l1_norm_to_device(double* values, int n, int t, double* buffer_, d
         );                                                       // summation is the default operation.
 
     // 2. Second maximize over the column sums and return the highest.
-    auto out = thrust::device_pointer_cast(buffer);
+    cuda_max(buffer, t, out);
+}
 
-    auto same_keys_start = thrust::make_constant_iterator(0);
+void cuda_max_l1_norm(float* values, int n, int t, float* buffer, float* out)
+{
+    using namespace thrust;
 
-    thrust::reduce_by_key(same_keys_start, same_keys_start + t,  // key indices (all same group)
-                          buffer,                                // values to maximize
-                          thrust::make_discard_iterator(),       // key values out
-                          out,                                   // maximized value out
-                          thrust::equal_to<int>(),               // compare-keys operation
-                          thrust::maximum<double>());            // maximize, not sum
+    cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer), device_pointer_cast(out));
+}
+
+void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out)
+{
+    using namespace thrust;
+
+    cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer), device_pointer_cast(out));
 }
 
 float cuda_vec_fill(float* values, int length, float fill) {
