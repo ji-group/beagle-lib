@@ -168,53 +168,36 @@ void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out)
     cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer), device_pointer_cast(out));
 }
 
-float cuda_vec_fill(float* values, int length, float fill) {
+
+template <typename T>
+void cuda_vec_fill(device_ptr<T> values, int length, T fill) {
 	using namespace thrust::placeholders;
 
-	thrust::device_ptr<float> valuesPtr = thrust::device_pointer_cast<float>(values);
-	thrust::fill(valuesPtr, valuesPtr + length, fill);
-
-	return 0;
+	thrust::fill(values, values + length, fill);
 }
 
-double cuda_vec_fill(double* values, int length, double fill) {
-	using namespace thrust::placeholders;
-
-	thrust::device_ptr<double> valuesPtr = thrust::device_pointer_cast<double>(values);
-	thrust::fill(valuesPtr, valuesPtr + length, fill);
-
-	return 0;
+void cuda_vec_fill(float* values, int length, float fill) {
+    cuda_vec_fill(device_pointer_cast(values), length, fill);
 }
 
+void cuda_vec_fill(double* values, int length, double fill) {
+    cuda_vec_fill(device_pointer_cast(values), length, fill);
+}
 
-float cuda_vec_abs(float *values, int n, float *results)
+template <typename T>
+void cuda_vec_abs(device_ptr<T> values, int n, device_ptr<T> results)
 {
-	using namespace thrust::placeholders;
-
-
-	thrust::device_ptr<float> valuesPtr = thrust::device_pointer_cast<float>(values);
-	thrust::device_ptr<float> resultsPtr = thrust::device_pointer_cast<float>(results);
-
-	thrust::transform(valuesPtr, valuesPtr + n, resultsPtr, [] __device__ (float x) {return abs(x);});
-
-
-	// thrust::transform(values, values + n, results, [] __host__ __device__ (float x) {return std::abs(x);});
-
-	return 0;
+    thrust::transform(values, values + n, results, [] __device__ (T x) {return abs(x);});
 }
 
-double cuda_vec_abs(double* values, int n, double* results)
+void cuda_vec_abs(float* values, int n, float* results)
 {
-	using namespace thrust::placeholders;
+    cuda_vec_abs(device_pointer_cast(values), n, device_pointer_cast(results));
+}
 
-	// thrust::transform(values, values + n, results, [] __host__ __device__ (double x) {return std::abs(x);});
-
-	thrust::device_ptr<double> valuesPtr = thrust::device_pointer_cast<double>(values);
-	thrust::device_ptr<double> resultsPtr = thrust::device_pointer_cast<double>(results);
-
-	thrust::transform(valuesPtr, valuesPtr + n, resultsPtr, [] __device__  (double x) {return abs(x);});
-
-	return 0;
+void cuda_vec_abs(double* values, int n, double* results)
+{
+    cuda_vec_abs(device_pointer_cast(values), n, device_pointer_cast(results));
 }
 
 void cuda_rowwise_max_abs(float* values_ptr, int n, int t, float* out_ptr)
