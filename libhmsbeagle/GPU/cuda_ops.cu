@@ -719,14 +719,15 @@ void  rescalePartials2(bool scalers_log, int kCategoryCount, int kPaddedPatternC
     }
 }
 
-void initialize_norm_x_matrix(float* data, int n, int m)
+
+template <typename T>
+void initialize_norm_x_matrix(device_ptr<T> out_ptr, int n, int m)
 {
-    auto out_ptr = thrust::device_pointer_cast(data);
     auto indices = thrust::counting_iterator<unsigned int>(0);
     auto initialize = [n,m] __host__ __device__ (int i)
     {
         thrust::default_random_engine rng;
-        thrust::uniform_real_distribution<float> dist(0, 1);
+        thrust::uniform_real_distribution<T> dist(0, 1);
 
         if (i<n) return 1.0/n;
         rng.discard(i);
@@ -741,24 +742,12 @@ void initialize_norm_x_matrix(float* data, int n, int m)
                       initialize);
 }
 
+void initialize_norm_x_matrix(float* data, int n, int m)
+{
+    initialize_norm_x_matrix(device_pointer_cast(data), n, m);
+}
+
 void initialize_norm_x_matrix(double* data, int n, int m)
 {
-    auto out_ptr = thrust::device_pointer_cast(data);
-    auto indices = thrust::counting_iterator<unsigned int>(0);
-    auto initialize = [n,m] __host__ __device__ (int i)
-    {
-        thrust::default_random_engine rng;
-        thrust::uniform_real_distribution<float> dist(0, 1);
-
-        if (i<n) return 1.0/n;
-        rng.discard(i);
-        if (dist(rng) > 0.5)
-            return 1.0/n;
-        else
-            return -1.0/n;
-    };
-
-    thrust::transform(indices, indices + n*m, // in
-                      out_ptr,                // out
-                      initialize);
+    initialize_norm_x_matrix(device_pointer_cast(data), n, m);
 }
