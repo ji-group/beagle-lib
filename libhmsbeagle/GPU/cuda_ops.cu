@@ -96,7 +96,8 @@ void cuda_max(double* values, int length, double* out)
     cuda_max(thrust::device_pointer_cast(values), length, thrust::device_pointer_cast(out));
 }
 
-float cuda_max_l1_norm(float* values, int n, int t, float* buffer_)
+template <typename T>
+T cuda_max_l1_norm(device_ptr<T> values, int n, int t, device_ptr<T> buffer)
 {
     using namespace thrust::placeholders;
 
@@ -104,9 +105,7 @@ float cuda_max_l1_norm(float* values, int n, int t, float* buffer_)
     auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int)0), (_1 / n));
 
     auto in_values_start = thrust::transform_iterator(thrust::device_pointer_cast(values),
-                                                      [] __host__ __device__ (float x) {return std::abs(x);} );
-
-    auto buffer = thrust::device_pointer_cast(buffer_);
+                                                      [] __host__ __device__ (T x) {return std::abs(x);} );
 
     thrust::reduce_by_key(in_keys_start, in_keys_start + n*t,    // key indices (group by column)
                           in_values_start,                       // values to reduce (with abs applied)
@@ -119,28 +118,14 @@ float cuda_max_l1_norm(float* values, int n, int t, float* buffer_)
     return thrust::reduce(buffer, buffer+t, 0.0, thrust::maximum<float>());
 }
 
-double cuda_max_l1_norm(double* values, int n, int t, double* buffer_)
+float cuda_max_l1_norm(float* values, int n, int t, float* buffer)
 {
-    using namespace thrust::placeholders;
+    return cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer));
+}
 
-
-    // 1. First sum the absolute values in each column and place the results into buffer
-    auto in_keys_start = thrust::make_transform_iterator(thrust::make_counting_iterator((int)0), (_1 / n));
-
-    auto in_values_start = thrust::transform_iterator(thrust::device_pointer_cast(values),
-                                                      [] __host__ __device__ (double x) {return std::abs(x);} );
-
-    auto buffer = thrust::device_pointer_cast(buffer_);
-
-    thrust::reduce_by_key(in_keys_start, in_keys_start + n*t,    // key indices (group by column)
-                          in_values_start,                       // values to reduce (with abs applied)
-                          thrust::make_discard_iterator(),       // key values out
-                          buffer,                                // reduced values out
-                          thrust::equal_to<int>()                // compare-keys operation
-        );                                                       // summation is the default operation.
-
-    // 2. Second maximize over the column sums and return the highest.
-    return thrust::reduce(buffer, buffer+t, 0.0, thrust::maximum<double>());
+double cuda_max_l1_norm(double* values, int n, int t, double* buffer)
+{
+    return cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer));
 }
 
 template <typename T>
