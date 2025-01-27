@@ -669,6 +669,12 @@ struct GPUnormest1
     // Temporary storage for cuda_max_l1_norm
     Real* buffer2 = nullptr;
 
+    // Space to store the norms for the different iterations.
+    Real* buffer3 = nullptr;
+
+    // Space to store a result
+    Real* buffer4 = nullptr;
+
     GPUnormest1& operator=(const GPUnormest1&) = delete;
     GPUnormest1& operator=(GPUnormest1&& g)
     {
@@ -685,6 +691,8 @@ struct GPUnormest1
         std::swap(buffer_size, g.buffer_size);
         std::swap(indices, g.indices);
         std::swap(buffer2, g.buffer2);
+        std::swap(buffer3, g.buffer3);
+        std::swap(buffer4, g.buffer4);
 
         return *this;
     }
@@ -774,6 +782,10 @@ struct GPUnormest1
 
         buffer2 = cudaDeviceNew<Real>(t);
 
+        buffer3 = cudaDeviceNew<Real>(itmax);
+
+        buffer4 = cudaDeviceNew<Real>(1);
+
         indices = cudaDeviceNew<int>(n);
     }
 
@@ -781,6 +793,8 @@ struct GPUnormest1
     {
         cudaDeviceDelete(buffer);
         cudaDeviceDelete(buffer2);
+        cudaDeviceDelete(buffer3);
+        cudaDeviceDelete(buffer4);
         cudaDeviceDelete(indices);
     }
 };
