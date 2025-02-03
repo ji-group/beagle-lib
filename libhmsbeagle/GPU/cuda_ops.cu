@@ -1,5 +1,7 @@
 #include "cuda_ops.h"
 
+#include <cub/cub.cuh>
+
 #include <thrust/device_vector.h>
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -73,17 +75,27 @@ double cuda_max_abs(double* values, int length)
     return cuda_max_abs(device_pointer_cast(values), length);
 }
 
+// QUESTION: Why do cub::DeviceReduce and thrust::reduce need to perform allocation?
+// That seems like a big problem.
 template <typename T>
 void cuda_max(device_ptr<T> values, int length, device_ptr<T> out)
 {
-    auto same_keys_start = thrust::make_constant_iterator(0);
+    auto values_ptr = thrust::raw_pointer_cast(values);
+    auto out_ptr = thrust::raw_pointer_cast(out);
 
-    thrust::reduce_by_key(same_keys_start, same_keys_start + length,  // key indices (all same group)
-                          values,                                     // values to maximize
-                          thrust::make_discard_iterator(),            // key values out
-                          out,                                        // maximized value out
-                          thrust::equal_to<int>(),                    // compare-keys operation
-                          thrust::maximum<T>());                 // maximize, not sum
+    // 1. Get size of temporary allocation, if any.
+    void* d_temp_storage = nullptr;
+    size_t temp_storage_bytes = 0;
+    cub::DeviceReduce::Max(d_temp_storage, temp_storage_bytes, values_ptr, out_ptr, length);
+
+    // 2. Do temporary allocation, if needed.
+
+    // Using a thrust::device_vector should ensure (i) no allocation for 0 butes and (ii) automatic deallocation if needed.
+    thrust::device_vector<std::uint8_t> temp_storage(temp_storage_bytes);
+    d_temp_storage = thrust::raw_pointer_cast(temp_storage.data());
+
+    // 3. Do the reduction.
+    cub::DeviceReduce::Max(d_temp_storage, temp_storage_bytes, values_ptr, out_ptr, length);
 }
 
 void cuda_max(float* values, int length, float* out)
