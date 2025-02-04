@@ -309,7 +309,8 @@ int BeagleGPUActionImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
     for(int p=0; p<=getPMax()+1; p++)
     {
         int t = 5;
-        L1normForPower.push_back(GPUnormest1<Real>(cublasHandle, p, kPaddedStateCount, t));
+        int itmax = 2;
+        L1normForPower.push_back({cublasHandle, p, kPaddedStateCount, t, 2});
 
 //        This is very fast, but computes |A| instead of |A^p|
 //        L1normForPower.push_back(GPUnormest2<Real>(cublasHandle, cusparseHandle, p, kPaddedStateCount));
