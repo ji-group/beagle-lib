@@ -5,14 +5,20 @@
 #include <cuda_runtime_api.h> // cudaMalloc, cudaMemcpy, etc.
 #include <stdexcept>          // for std::runtime_error
 
+
+inline void* cudaMallocWrapped(int n)
+{
+    void* result;
+    auto status = cudaMalloc((void**)&result, n);
+    if (status != cudaSuccess)
+        throw std::runtime_error(std::string("cudaMalloc: ") + std::string(cudaGetErrorString(status)));
+    return result;
+}
+
 template <typename T>
 T* cudaDeviceNew(int n)
 {
-    T* result;
-    auto status = cudaMalloc((void**)&result, n*sizeof(T));
-    if (status != cudaSuccess)
-	throw std::runtime_error(std::string("cudaMalloc: ") + std::string(cudaGetErrorString(status)));
-    return result;
+    return (T*)cudaMallocWrapped(n*sizeof(T));
 }
 
 template <typename T>
@@ -66,6 +72,17 @@ std::vector<T> MemcpyDeviceToHostVector(const T* dptr, int n)
     return host_vec;
 }
 
+struct cuda_scratch_space
+{
+    void* device_ptr = nullptr;
+    size_t size = 0;
+
+    void discard();
+    void fit(size_t n);
+
+    ~cuda_scratch_space();
+};
+
 void cuda_log_vector(double* v, int length);
 void cuda_log_vector(float* v, int length);
 
@@ -95,6 +112,9 @@ double cuda_max_l1_norm(double* values, int n, int t, double* buffer_);
 
 void cuda_max_l1_norm(float* values, int n, int t, float* buffer, double* out);
 void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out);
+
+void cuda_max_l1_norm(float* values, int n, int t, float* buffer, double* out, cuda_scratch_space& scratch);
+void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out, cuda_scratch_space& scratch);
 
 void cuda_vec_fill(float* values, int length, float fill);
 void cuda_vec_fill(double* values, int length, double fill);

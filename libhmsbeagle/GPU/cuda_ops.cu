@@ -108,6 +108,15 @@ void cuda_max(double* values, int length, double* out)
     cuda_max(thrust::device_pointer_cast(values), length, thrust::device_pointer_cast(out));
 }
 
+struct SumAbs
+{
+  template <typename T>
+  __device__ __forceinline__ T operator()(const T& a, const T& b) const
+  {
+      return std::abs(a) + std::abs(b);
+  }
+};
+
 template <typename T>
 T cuda_max_l1_norm(device_ptr<T> values, int n, int t, device_ptr<T> buffer)
 {
@@ -140,13 +149,93 @@ double cuda_max_l1_norm(double* values, int n, int t, double* buffer)
     return cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer));
 }
 
+
+void cuda_scratch_space::discard()
+{
+    if (device_ptr)
+    {
+        cudaDeviceDelete(device_ptr);
+        device_ptr = 0;
+        size = 0;
+    }
+    else
+    {
+        assert(device_ptr == nullptr);
+        assert(size == 0);
+    }
+}
+
+void cuda_scratch_space::fit(size_t n)
+{
+    if (n > size)
+    {
+        std::cerr<<"cuda_scratch_space::fit( ): reallocating from "<<size<<" to "<<n<<".\n";
+        discard();
+
+        size = n;
+        device_ptr = cudaMallocWrapped(size);
+    }
+    else
+    {
+        assert(device_ptr);
+    }
+}
+
+cuda_scratch_space::~cuda_scratch_space()
+{
+    discard();
+}
+
+
 template <typename T>
 void cuda_max_l1_norm(device_ptr<T> values,
                       int n,
                       int t,
                       device_ptr<T> buffer,
-                      device_ptr<T> out)
+                      device_ptr<T> out,
+                      cuda_scratch_space& scratch)
 {
+    // cudaStreamSynchronize();
+
+    // Run reduction
+    int num_segments                     = t;
+    thrust::device_vector<int> d_offsets = {0, n, 2*n}; // {0, n, 2n, 3n ,,,,}
+    auto d_offsets_it                    = thrust::raw_pointer_cast(d_offsets.data());
+
+    SumAbs sum_abs_op;
+    T initial_value = 0;
+
+    // Determine temporary device storage requirements
+    size_t temp_storage_bytes;
+
+    cub::DeviceSegmentedReduce::Reduce(
+        nullptr,
+        temp_storage_bytes,
+        values,
+        buffer,
+        num_segments,
+        d_offsets_it,
+        d_offsets_it + 1,
+        sum_abs_op,
+        initial_value);
+
+    std::cerr<<"cuda_max_l1_norm: wants "<<temp_storage_bytes<<" bytes of scratch space\n";
+    
+    scratch.fit(temp_storage_bytes);
+
+    // Run reduction
+    cub::DeviceSegmentedReduce::Reduce(
+        scratch.device_ptr,
+        scratch.size,
+        values,
+        buffer,
+        num_segments,
+        d_offsets_it,
+        d_offsets_it + 1,
+        sum_abs_op,
+        initial_value);
+
+/*
     using namespace thrust::placeholders;
 
     // 1. First sum the absolute values in each column and place the results into buffer
@@ -161,23 +250,42 @@ void cuda_max_l1_norm(device_ptr<T> values,
                           buffer,                                // reduced values out
                           thrust::equal_to<int>()                // compare-keys operation
         );                                                       // summation is the default operation.
+*/
+    // cudaStreamSynchronize();
 
     // 2. Second maximize over the column sums and return the highest.
     cuda_max(buffer, t, out);
+
+    // cudaStreamSynchronize();
 }
 
-void cuda_max_l1_norm(float* values, int n, int t, float* buffer, float* out)
+void cuda_max_l1_norm(float* values, int n, int t, float* buffer, float* out, cuda_scratch_space& scratch)
 {
     using namespace thrust;
 
-    cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer), device_pointer_cast(out));
+    cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer), device_pointer_cast(out), scratch);
+}
+
+void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out, cuda_scratch_space& scratch)
+{
+    using namespace thrust;
+
+    cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer), device_pointer_cast(out), scratch);
+}
+
+
+void cuda_max_l1_norm(float* values, int n, int t, float* buffer, float* out)
+{
+    cuda_scratch_space scratch;
+
+    cuda_max_l1_norm(values, n, t, buffer, out, scratch);
 }
 
 void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out)
 {
-    using namespace thrust;
+    cuda_scratch_space scratch;
 
-    cuda_max_l1_norm(device_pointer_cast(values), n, t, device_pointer_cast(buffer), device_pointer_cast(out));
+    cuda_max_l1_norm(values, n, t, buffer, out, scratch);
 }
 
 
