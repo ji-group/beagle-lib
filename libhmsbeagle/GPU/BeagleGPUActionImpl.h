@@ -901,6 +901,167 @@ struct GPUnormest2
     }
 };
 
+// Make the temporary variables part of a data structure that represents to normest1 problem.
+// We don't want to allocate memory on the GPU every time we run this.
+template <typename Real>
+struct GPUnormest3
+{
+    int p = 0;
+    int n = 0;
+    int t = 0;
+    int itmax = 0;
+    DnMatrixDevice<Real> X;  // (n,t)
+    DnMatrixDevice<Real> Y;  // (n,t)
+    DnMatrixDevice<Real> h;  // (n,1)
+
+    // Sorted matrix dimensions by approximate norm.
+    int* indices = nullptr;  // (n)
+
+    // Used for spMM
+    void* buffer = nullptr;
+    size_t buffer_size = 0;
+
+    // Temporary storage for cuda_max_l1_norm
+    Real* buffer2 = nullptr;
+
+    // Space to store the norms for the different iterations.
+    Real* buffer3 = nullptr;
+
+    // Space to store a result
+    Real* buffer4 = nullptr;
+
+    cuda_scratch_space scratch;
+
+    int* offsets = nullptr;
+
+    GPUnormest3& operator=(const GPUnormest3&) = delete;
+    GPUnormest3& operator=(GPUnormest3&& g)
+    {
+        std::swap(p, g.p);
+        std::swap(n, g.n);
+        std::swap(t, g.t);
+        std::swap(itmax, g.itmax);
+        std::swap(X, g.X);
+        std::swap(Y, g.Y);
+        std::swap(h, g.h);
+
+        // ensure that (*this) and (g) don't both own the buffers!
+        std::swap(buffer, g.buffer);
+        std::swap(buffer_size, g.buffer_size);
+        std::swap(indices, g.indices);
+        std::swap(buffer2, g.buffer2);
+        std::swap(buffer3, g.buffer3);
+        std::swap(buffer4, g.buffer4);
+        std::swap(scratch, g.scratch);
+        std::swap(offsets, g.offsets);
+
+        return *this;
+    }
+
+    Real operator()(const SpMatrixDevice<Real>& A)
+    {
+        // std::cerr<<"n = "<<n<<"   t = "<<t<<"\n";
+        // std::cerr<<"A.rows() = "<<A.rows()<<"\n";
+        // A is (n,n);
+        assert(A.rows() == A.cols());
+        assert(A.cols() == n);
+        //std::cerr<<"A = "<<byRow(A)<<"\n";
+
+        // X[0][j] = 1
+        // X[i][j] = if (uniform(0,1)<0.5) +1 else -1
+        initialize_norm_x_matrix(X.ptr, n, t);
+
+        for(int k=1; k<=itmax; k++)
+        {
+            // std::cerr<<"iter "<<k<<"\n";
+            // std::cerr<<"X0 = "<<byRow(X)<<"\n\n";
+
+            for(int i=0;i<p;i++)
+            {
+                // Y = A*X; // Y is (n,t) = (n,n) * (n,t)
+                spMM<Real>(Y, 1, A, X, 0, buffer, buffer_size);
+                // X = Y
+                X.copyFrom(Y);
+            }
+
+            // get the L1 norm for this iterations -> buffer3[k]
+            cuda_max_l1_norm(X.ptr, n, 1, buffer2, buffer3 + (k-1), scratch, offsets);
+
+            // S = sign(X)
+            cuda_sign_vector(X.ptr, n, t);   // (n,n) -> (n,n)
+
+            // (2) Replace parallel entries with random +1/-1 entries.
+            // Skipping this part for now because it involves a lot of branching logic
+            //  and might be slow for the GPU.
+
+            // (3) of Algorithm 2.4
+            // Z = A^T * S
+            spMTM<Real>(Y, 1, A, X, 0, buffer, buffer_size);  // (n,n) * (n,t) -> (n,t)
+
+            // h[0,j] = max(i) abs(Z(i,j))
+            cuda_rowwise_max_abs(Y.ptr, t, t, h.ptr);  // (n,t) -> (n,1)
+
+            // (4) of Algorithm 2.4 - If we don't find a new best dimension, exit early.
+            // We don't do this, because finding a different reason to exit
+            // seems to provide greater accuracy.
+
+            // Rank the dimensions by the size of their approximate norm in h, in decreasing order.
+            cuda_sort_indices_by_vector(h.ptr, n, indices);
+
+            // Zero the X matrix.
+            cuda_fill_vector(X.ptr, n*t, 0);  // (n,t) -> (n,t)
+
+            // Set X(i,indices[i]) = 1 for i in [0,t-1]
+            cuda_set_indices(X.ptr, n, t, indices);
+        }
+
+        return cuda_max_abs(buffer3, itmax);
+    }
+
+    GPUnormest3(GPUnormest3&& g)
+    {
+        operator=(std::move(g));
+    }
+
+    GPUnormest3(const GPUnormest3&) = delete;
+
+    GPUnormest3(cublasHandle_t cb, int p_, int n_, int t_=2, int itmax_=5)
+        :p(p_), n(n_), t(std::min(t_,n)), itmax(itmax_), X(cb,n,t), Y(cb,n,t), h(cb,n,1)
+    {
+        assert(p >= 0);
+        assert(t > 0); // negative means t = n
+        assert(itmax >= 1);
+
+        // Interpret negative t as t == n
+        // if (t < 0) t = n;
+
+        buffer2 = cudaDeviceNew<Real>(t);
+
+        buffer3 = cudaDeviceNew<Real>(itmax);
+
+        buffer4 = cudaDeviceNew<Real>(1);
+
+        indices = cudaDeviceNew<int>(n);
+
+        offsets = cudaDeviceNew<int>(t+1);
+
+        std::vector<int> h_offsets(t+1);
+        for(int i=0;i<t+1;i++)
+            h_offsets[i] = i*n;
+        MemcpyHostToDevice(offsets, h_offsets.data(), h_offsets.size());
+    }
+
+    ~GPUnormest3()
+    {
+        cudaDeviceDelete(buffer);
+        cudaDeviceDelete(buffer2);
+        cudaDeviceDelete(buffer3);
+        cudaDeviceDelete(buffer4);
+        cudaDeviceDelete(indices);
+        cudaDeviceDelete(offsets);
+    }
+};
+
 
 
 //template <typename Real>
