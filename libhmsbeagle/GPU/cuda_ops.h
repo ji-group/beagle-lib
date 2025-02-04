@@ -110,11 +110,8 @@ void initialize_norm_x_matrix(double* data, int n, int m);
 float cuda_max_l1_norm(float* values, int n, int t, float* buffer_);
 double cuda_max_l1_norm(double* values, int n, int t, double* buffer_);
 
-void cuda_max_l1_norm(float* values, int n, int t, float* buffer, double* out);
-void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out);
-
-void cuda_max_l1_norm(float* values, int n, int t, float* buffer, double* out, cuda_scratch_space& scratch);
-void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out, cuda_scratch_space& scratch);
+void cuda_max_l1_norm(float* values, int n, int t, float* buffer, double* out, cuda_scratch_space& scratch, int* offsets);
+void cuda_max_l1_norm(double* values, int n, int t, double* buffer, double* out, cuda_scratch_space& scratch, int* offsets);
 
 void cuda_vec_fill(float* values, int length, float fill);
 void cuda_vec_fill(double* values, int length, double fill);
