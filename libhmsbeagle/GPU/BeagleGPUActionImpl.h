@@ -382,8 +382,8 @@ int spMM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseSp
 
     if(new_buffersize > buffersize)
     {
-        CHECK_CUDA(cudaFree(buffer));
-        CHECK_CUDA(cudaMalloc(&buffer, new_buffersize));
+        cudaDeviceDelete(buffer);
+        buffer = cudaMallocWrapped(new_buffersize);
         buffersize = new_buffersize;
     }
 
@@ -410,8 +410,8 @@ int spMTM(cusparseHandle_t handle, cusparseDnMatDescr_t C, Real alpha, cusparseS
 
     if(new_buffersize > buffersize)
     {
-        CHECK_CUDA(cudaFree(buffer));
-        CHECK_CUDA(cudaMalloc(&buffer, new_buffersize));
+        cudaDeviceDelete(buffer);
+        buffer = cudaMallocWrapped(new_buffersize);
         buffersize = new_buffersize;
     }
 
