@@ -24,9 +24,12 @@ T* cudaDeviceNew(int n)
 template <typename T>
 void cudaDeviceDelete(T* buffer)
 {
-    auto status = cudaFree(buffer);
-    if (status != cudaSuccess)
-	throw std::runtime_error(std::string("cudaFree: ") + std::string(cudaGetErrorString(status)));
+    if (buffer)
+    {
+        auto status = cudaFree(buffer);
+        if (status != cudaSuccess)
+            throw std::runtime_error(std::string("cudaFree: ") + std::string(cudaGetErrorString(status)));
+    }
 }
 
 template <typename T>
