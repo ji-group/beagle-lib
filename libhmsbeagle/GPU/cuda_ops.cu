@@ -78,7 +78,7 @@ double cuda_max_abs(double* values, int length)
 // QUESTION: Why do cub::DeviceReduce and thrust::reduce need to perform allocation?
 // That seems like a big problem.
 template <typename T>
-void cuda_max(device_ptr<T> values, int length, device_ptr<T> out)
+void cuda_max(device_ptr<T> values, int length, device_ptr<T> out, cuda_scratch_space& scratch)
 {
     auto values_ptr = thrust::raw_pointer_cast(values);
     auto out_ptr = thrust::raw_pointer_cast(out);
@@ -86,26 +86,23 @@ void cuda_max(device_ptr<T> values, int length, device_ptr<T> out)
     // 1. Get size of temporary allocation, if any.
     void* d_temp_storage = nullptr;
     size_t temp_storage_bytes = 0;
-    cub::DeviceReduce::Max(d_temp_storage, temp_storage_bytes, values_ptr, out_ptr, length);
+    cub::DeviceReduce::Max(nullptr, temp_storage_bytes, values_ptr, out_ptr, length);
 
     // 2. Do temporary allocation, if needed.
-
-    // Using a thrust::device_vector should ensure (i) no allocation for 0 butes and (ii) automatic deallocation if needed.
-    thrust::device_vector<std::uint8_t> temp_storage(temp_storage_bytes);
-    d_temp_storage = thrust::raw_pointer_cast(temp_storage.data());
+    scratch.fit(temp_storage_bytes);
 
     // 3. Do the reduction.
-    cub::DeviceReduce::Max(d_temp_storage, temp_storage_bytes, values_ptr, out_ptr, length);
+    cub::DeviceReduce::Max(scratch.device_ptr, temp_storage_bytes, values_ptr, out_ptr, length);
 }
 
-void cuda_max(float* values, int length, float* out)
+void cuda_max(float* values, int length, float* out, cuda_scratch_space& scratch)
 {
-    cuda_max(thrust::device_pointer_cast(values), length, thrust::device_pointer_cast(out));
+    cuda_max(thrust::device_pointer_cast(values), length, thrust::device_pointer_cast(out), scratch);
 }
 
-void cuda_max(double* values, int length, double* out)
+void cuda_max(double* values, int length, double* out, cuda_scratch_space& scratch)
 {
-    cuda_max(thrust::device_pointer_cast(values), length, thrust::device_pointer_cast(out));
+    cuda_max(thrust::device_pointer_cast(values), length, thrust::device_pointer_cast(out), scratch);
 }
 
 struct SumAbs
@@ -254,7 +251,7 @@ void cuda_max_l1_norm(device_ptr<T> values,
     // cudaStreamSynchronize();
 
     // 2. Second maximize over the column sums and return the highest.
-    cuda_max(buffer, t, out);
+    cuda_max(buffer, t, out, scratch);
 
     // cudaStreamSynchronize();
 }

@@ -94,8 +94,8 @@ void cuda_sign_vector(float* v, int n, int t);
 double cuda_max_abs(double* v, int length);
 float cuda_max_abs(float* v, int length);
 
-void cuda_max(double* v, int length, double* out);
-void cuda_max(float* v, int length, float* out);
+void cuda_max(double* v, int length, double* out, cuda_scratch_space& scratch);
+void cuda_max(float* v, int length, float* out, cuda_scratch_space& scratch);
 
 // max over (n,t) -> (n,1).  Matrix assumed to be column-major.
 void cuda_rowwise_max_abs(float* values_ptr, int n, int t, float* out_ptr);
