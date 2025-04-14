@@ -5851,6 +5851,7 @@ void* BeagleCPUImpl<BEAGLE_CPU_GENERIC>::mallocAligned(size_t size) {
     int res;
     res = posix_memalign(&ptr, align, size);
     if (res != 0) {
+        std::cerr<<"Aligned malloc for "<<size<<" bytes failed\n";
         assert(0);
     }
 #endif
