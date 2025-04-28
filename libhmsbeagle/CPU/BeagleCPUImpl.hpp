@@ -133,6 +133,7 @@ BeagleCPUImpl<BEAGLE_CPU_GENERIC>::~BeagleCPUImpl() {
     }
     free(gTransitionMatrices);
 
+#ifdef BEAGLE_BASTA
     for (int i = 0; i < kStateCount; i++) {
         for (int j = 0; j < kStateCount; j++) {
             for (int k = 0; k < kMatrixCount; k++) {
@@ -176,6 +177,7 @@ BeagleCPUImpl<BEAGLE_CPU_GENERIC>::~BeagleCPUImpl() {
         if (tempGrad[i] != NULL)
             free(tempGrad[i]);
     }
+#endif /* BEAGLE_BASTA */
 
     for(unsigned int i=0; i<kBufferCount; i++) {
 #ifndef BEAGLE_CACHE_FRIENDLY
@@ -398,6 +400,7 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::createInstance(int tipCount,
     if (gPartials == NULL)
      throw std::bad_alloc();
 
+#ifdef BEAGLE_BASTA
     // TODO: deconstrucor should free all of these
     gPartialsGrad = (REALTYPE****) malloc(sizeof(REALTYPE***) * kStateCount);
     for (int i = 0; i < kStateCount; i++) {
@@ -453,6 +456,7 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::createInstance(int tipCount,
         if (tempGrad[i] == NULL)
             throw std::bad_alloc();
     }
+#endif /* BEAGLE_BASTA */
 
     gStateFrequencies = (REALTYPE**) calloc(sizeof(REALTYPE*), kEigenDecompCount);
     if (gStateFrequencies == NULL)
@@ -533,6 +537,7 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::createInstance(int tipCount,
             throw std::bad_alloc();
     }
 
+#ifdef BEAGLE_BASTA
     // TODO: deconstrucor should free all of these
     gTransitionMatricesGrad = (REALTYPE****) malloc(sizeof(REALTYPE***) * kStateCount);
     for (int i = 0; i < kStateCount; i++) {
@@ -550,6 +555,7 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::createInstance(int tipCount,
             }
         }
     }
+#endif
 
     integrationTmp = (REALTYPE*) mallocAligned(sizeof(REALTYPE) * kPatternCount * kStateCount);
     firstDerivTmp = (REALTYPE*) malloc(sizeof(REALTYPE) * kPatternCount * kStateCount);

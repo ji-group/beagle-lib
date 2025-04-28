@@ -154,6 +154,14 @@ if(BUILD_ACTION)
 #	add_definitions(-DBEAGLE_DEBUG_FLOW)
 endif(BUILD_ACTION)
 
+if (BUILD_BASTA)
+    IF(BEAGLE_DEBUG_KERNELS)
+       add_subdirectory(tests/basta)
+    ENDIF(BEAGLE_DEBUG_KERNELS)
+
+    add_definitions(-DBEAGLE_BEASTA)
+endif(BUILD_BASTA)
+
 link_directories(
         ${PROJECT_SOURCE_DIR}/libhmsbeagle
         ${PROJECT_SOURCE_DIR}/libhmsbeagle/CPU
@@ -230,10 +238,6 @@ link_libraries(hmsbeagle)
 enable_testing()
 
 add_subdirectory(examples)
-
-IF(BEAGLE_DEBUG_KERNELS)
-	add_subdirectory(tests/basta)
-ENDIF(BEAGLE_DEBUG_KERNELS)
 
 set(CPACK_PACKAGE_VERSION "${BEAGLE_VERSION}")
 set(CPACK_PACKAGE_MAJOR "${BEAGLE_VERSION_MAJOR}")
