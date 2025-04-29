@@ -62,6 +62,10 @@ tuple<double,int> ArgNormP1(const T& matrix)
 
 template <typename T>
 double normPInf(const T& matrix) {
+//#ifdef BEAGLE_DEBUG_FLOW
+//    std::cerr<<"matrix =\n" << matrix<<std::endl;
+//    std::cerr<<"PInf norm = " <<matrix.template lpNorm<Eigen::Infinity>() <<"  or  " << matrix.rowwise().template lpNorm<1>().maxCoeff() << std::endl;
+//#endif
     return matrix.template lpNorm<Eigen::Infinity>();
 }
 
@@ -80,7 +84,10 @@ double random_plus_minus_1_func(double x)
 	return -1;
 }
 
+// Algorithm 2.4 from Higham and Tisseur (2000), A BLOCK ALGORITHM FOR MATRIX 1-NORM ESTIMATION,
+//    WITH AN APPLICATION TO 1-NORM PSEUDOSPECTRA.
 // See OneNormEst in https://eprints.maths.manchester.ac.uk/2195/1/thesis-main.pdf
+//    This seems to have a bug where it checks if columns in S are parallel to EVERY column of S_old.
 // See also https://github.com/gnu-octave/octave/blob/default/scripts/linear-algebra/normest1.m
 // See dlacn1.f
 double normest1(const SpMatrix& A, int p, int t=2, int itmax=5)
@@ -268,7 +275,9 @@ namespace beagle {
         BEAGLE_CPU_ACTION_TEMPLATE
 	MapType BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::partialsMap(int index, int category, int startPattern, int endPattern)
 	{
-	    double* start = gPartials[index] + category*kPaddedPatternCount*kStateCount;
+	    double* start = gPartials[index];
+	    assert(start);
+	    start += category*kPaddedPatternCount*kStateCount;
 	    start += startPattern*kStateCount;
 	    return MapType(start, kStateCount, endPattern - startPattern);
 	}
@@ -282,7 +291,9 @@ namespace beagle {
         BEAGLE_CPU_ACTION_TEMPLATE
 	MapType BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::partialsCacheMap(int index, int category, int startPattern, int endPattern)
 	{
-	    double* start = gPartials[index + kPartialsCacheOffset] + category*kPaddedPatternCount*kStateCount;
+	    double* start = gPartials[index + kPartialsCacheOffset];
+	    assert(start);
+	    start += category*kPaddedPatternCount*kStateCount;
 	    start += startPattern*kStateCount;
 	    return MapType(start, kStateCount, endPattern - startPattern);
 	}
@@ -363,59 +374,59 @@ namespace beagle {
         inline const char* getBeagleCPUActionName<float>(){ return "CPU-Action-Single"; };
 
 
-	BEAGLE_CPU_ACTION_TEMPLATE
+        BEAGLE_CPU_ACTION_TEMPLATE
         int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::upPartials(bool byPartition,
-								      const int *operations,
-								      int operationCount,
-								      int cumulativeScaleIndex) {
-	    double* cumulativeScaleBuffer = NULL;
+                                                                      const int *operations,
+                                                                      int operationCount,
+                                                                      int cumulativeScaleIndex) {
+            double *cumulativeScaleBuffer = NULL;
             if (cumulativeScaleIndex != BEAGLE_OP_NONE)
                 cumulativeScaleBuffer = gScaleBuffers[cumulativeScaleIndex];
 
             for (int op = 0; op < operationCount; op++) {
 
                 int numOps = BEAGLE_OP_COUNT;
-		if (byPartition)
-		    numOps = BEAGLE_PARTITION_OP_COUNT;
+                if (byPartition)
+                    numOps = BEAGLE_PARTITION_OP_COUNT;
 
-		if (DEBUGGING_OUTPUT) {
-		    fprintf(stderr, "op[%d] = ", op);
-		    for (int j = 0; j < numOps; j++) {
-			std::cerr << operations[op*numOps+j] << " ";
-		    }
-		    fprintf(stderr, "\n");
-		}
+                if (DEBUGGING_OUTPUT) {
+                    fprintf(stderr, "op[%d] = ", op);
+                    for (int j = 0; j < numOps; j++) {
+                        std::cerr << operations[op * numOps + j] << " ";
+                    }
+                    fprintf(stderr, "\n");
+                }
 
-		const int destinationPartialIndex = operations[op * numOps];
+                const int destinationPartialIndex = operations[op * numOps];
                 const int writeScalingIndex = operations[op * numOps + 1];
                 const int readScalingIndex = operations[op * numOps + 2];
                 const int firstChildPartialIndex = operations[op * numOps + 3];
                 const int firstChildSubstitutionMatrixIndex = operations[op * numOps + 4];
                 const int secondChildPartialIndex = operations[op * numOps + 5];
                 const int secondChildSubstitutionMatrixIndex = operations[op * numOps + 6];
-		int currentPartition = 0;
-		if (byPartition) {
-		    currentPartition = operations[op * numOps + 7];
-		    cumulativeScaleIndex = operations[op * numOps + 8];
-		    if (cumulativeScaleIndex != BEAGLE_OP_NONE)
-			cumulativeScaleBuffer = gScaleBuffers[cumulativeScaleIndex];
-		    else
-			cumulativeScaleBuffer = NULL;
-		}
+                int currentPartition = 0;
+                if (byPartition) {
+                    currentPartition = operations[op * numOps + 7];
+                    cumulativeScaleIndex = operations[op * numOps + 8];
+                    if (cumulativeScaleIndex != BEAGLE_OP_NONE)
+                        cumulativeScaleBuffer = gScaleBuffers[cumulativeScaleIndex];
+                    else
+                        cumulativeScaleBuffer = NULL;
+                }
 
-		int startPattern = 0;
-		int endPattern = kPatternCount;
-		if (byPartition) {
-		    startPattern = this->gPatternPartitionsStartPatterns[currentPartition];
-		    endPattern = this->gPatternPartitionsStartPatterns[currentPartition + 1];
+                int startPattern = 0;
+                int endPattern = kPatternCount;
+                if (byPartition) {
+                    startPattern = this->gPatternPartitionsStartPatterns[currentPartition];
+                    endPattern = this->gPatternPartitionsStartPatterns[currentPartition + 1];
 
-		    assert(startPattern >= 0 and startPattern <= kPatternCount);
-		    assert(endPattern >= 0 and endPattern <= kPatternCount);
-		    assert(startPattern <= endPattern);
-		}
+                    assert(startPattern >= 0 and startPattern <= kPatternCount);
+                    assert(endPattern >= 0 and endPattern <= kPatternCount);
+                    assert(startPattern <= endPattern);
+                }
 
                 int rescale = BEAGLE_OP_NONE;
-                double* scalingFactors = NULL;
+                double *scalingFactors = NULL;
                 if (writeScalingIndex >= 0) {
                     rescale = 1;
                     scalingFactors = gScaleBuffers[writeScalingIndex];
@@ -428,25 +439,26 @@ namespace beagle {
 
 
 #ifdef BEAGLE_DEBUG_FLOW
-                std::cerr<<"Updating partials for index: "<<destinationPartialIndex << std::endl;
+                std::cerr << "Updating partials for index: " << destinationPartialIndex << std::endl;
 #endif
 
 //                calcPartialsPartials(destP, partials1, matrices1, partials2, matrices2);
                 calcPartialsPartials2(destinationPartialIndex,
-				      firstChildPartialIndex,
-				      firstChildSubstitutionMatrixIndex,
-				      secondChildPartialIndex,
-				      secondChildSubstitutionMatrixIndex,
-				      startPattern,
-				      endPattern);
+                                      firstChildPartialIndex,
+                                      firstChildSubstitutionMatrixIndex,
+                                      secondChildPartialIndex,
+                                      secondChildSubstitutionMatrixIndex,
+                                      startPattern,
+                                      endPattern);
 
                 if (rescale == 1) {
-		    double* destPartials = gPartials[destinationPartialIndex];
-		    if (byPartition) {
-			this->rescalePartialsByPartition(destPartials,scalingFactors,cumulativeScaleBuffer,0, currentPartition);
-		    } else {
-			this->rescalePartials(destPartials,scalingFactors,cumulativeScaleBuffer,0);
-		    }
+                    double *destPartials = gPartials[destinationPartialIndex];
+                    if (byPartition) {
+                        this->rescalePartialsByPartition(destPartials, scalingFactors, cumulativeScaleBuffer, 0,
+                                                         currentPartition);
+                    } else {
+                        this->rescalePartials(destPartials, scalingFactors, cumulativeScaleBuffer, 0);
+                    }
                 }
             }
 
@@ -455,10 +467,10 @@ namespace beagle {
 
         BEAGLE_CPU_ACTION_TEMPLATE
         int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::upPrePartials(bool byPartition,
-									 const int *operations,
-									 int operationCount,
-									 int cumulativeScaleIndex) {
-            double* cumulativeScaleBuffer = NULL;
+                                                                         const int *operations,
+                                                                         int operationCount,
+                                                                         int cumulativeScaleIndex) {
+            double *cumulativeScaleBuffer = NULL;
             if (cumulativeScaleIndex != BEAGLE_OP_NONE)
                 cumulativeScaleBuffer = gScaleBuffers[cumulativeScaleIndex];
 
@@ -479,31 +491,31 @@ namespace beagle {
                 const int substitutionMatrixIndex = operations[op * numOps + 4];
                 const int siblingIndex = operations[op * numOps + 5];
                 const int siblingSubstitutionMatrixIndex = operations[op * numOps + 6];
-		int currentPartition = 0;
-		if (byPartition) {
-		    currentPartition = operations[op * numOps + 7];
-		    cumulativeScaleIndex = operations[op * numOps + 8];
+                int currentPartition = 0;
+                if (byPartition) {
+                    currentPartition = operations[op * numOps + 7];
+                    cumulativeScaleIndex = operations[op * numOps + 8];
 //                    if (cumulativeScaleIndex != BEAGLE_OP_NONE)
 //                        cumulativeScaleBuffer = gScaleBuffers[cumulativeScaleIndex];
 //                    else
 //                        cumulativeScaleBuffer = NULL;
-		}
+                }
 
-		double *destPartials = gPartials[destinationPartialIndex];
+                double *destPartials = gPartials[destinationPartialIndex];
 
-		int startPattern = 0;
-		int endPattern = kPatternCount;
-		if (byPartition) {
-		    startPattern = this->gPatternPartitionsStartPatterns[currentPartition];
-		    endPattern = this->gPatternPartitionsStartPatterns[currentPartition + 1];
+                int startPattern = 0;
+                int endPattern = kPatternCount;
+                if (byPartition) {
+                    startPattern = this->gPatternPartitionsStartPatterns[currentPartition];
+                    endPattern = this->gPatternPartitionsStartPatterns[currentPartition + 1];
 
-		    assert(startPattern >= 0 and startPattern <= kPatternCount);
-		    assert(endPattern >= 0 and endPattern <= kPatternCount);
-		    assert(startPattern <= endPattern);
-		}
+                    assert(startPattern >= 0 and startPattern <= kPatternCount);
+                    assert(endPattern >= 0 and endPattern <= kPatternCount);
+                    assert(startPattern <= endPattern);
+                }
 
                 int rescale = BEAGLE_OP_NONE;
-                double* scalingFactors = NULL;
+                double *scalingFactors = NULL;
                 if (writeScalingIndex >= 0) {
                     rescale = 1;
                     scalingFactors = gScaleBuffers[writeScalingIndex];
@@ -516,39 +528,54 @@ namespace beagle {
 
 
 #ifdef BEAGLE_DEBUG_FLOW
-                std::cerr<<"Updating preorder partials for index: "<<destinationPartialIndex << std::endl;
+                std::cerr << "Updating preorder partials for index: " << destinationPartialIndex << std::endl;
 #endif
 
 //                calcPrePartialsPartials(destP, partials1, matrices1, partials2, matrices2);
                 calcPrePartialsPartials2(destinationPartialIndex,
-					 parentIndex,
-					 substitutionMatrixIndex,
-					 siblingIndex,
+                                         parentIndex,
+                                         substitutionMatrixIndex,
+                                         siblingIndex,
                                          siblingSubstitutionMatrixIndex,
-					 startPattern,
-					 endPattern);
+                                         startPattern,
+                                         endPattern);
 
                 if (rescale == 1) {
-		    double* destPartials = gPartials[destinationPartialIndex];
-		    if (byPartition) {
-			this->rescalePartialsByPartition(destPartials,scalingFactors,cumulativeScaleBuffer,0, currentPartition);
-		    } else {
-			this->rescalePartials(destPartials,scalingFactors,cumulativeScaleBuffer,0);
-		    }
+                    double *destPartials = gPartials[destinationPartialIndex];
+                    if (byPartition) {
+                        this->rescalePartialsByPartition(destPartials, scalingFactors, cumulativeScaleBuffer, 0,
+                                                         currentPartition);
+                    } else {
+                        this->rescalePartials(destPartials, scalingFactors, cumulativeScaleBuffer, 0);
+                    }
                 }
 
-		if (DEBUGGING_OUTPUT) {
-		    if (scalingFactors != NULL && rescale == 0) {
-			for (int i = 0; i < kPatternCount; i++)
-			    fprintf(stderr, "old scaleFactor[%d] = %.5f\n", i, scalingFactors[i]);
-		    }
-		    fprintf(stderr, "Result partials:\n");
-		    for (int i = 0; i < this->kPartialsSize; i++)
-			fprintf(stderr, "destP[%d] = %.5f\n", i, destPartials[i]);
-		}
+                if (DEBUGGING_OUTPUT) {
+                    if (scalingFactors != NULL && rescale == 0) {
+                        for (int i = 0; i < kPatternCount; i++)
+                            fprintf(stderr, "old scaleFactor[%d] = %.5f\n", i, scalingFactors[i]);
+                    }
+                    fprintf(stderr, "Result partials:\n");
+                    for (int i = 0; i < this->kPartialsSize; i++)
+                        fprintf(stderr, "destP[%d] = %.5f\n", i, destPartials[i]);
+                }
             }
 
             return BEAGLE_SUCCESS;
+        }
+
+        BEAGLE_CPU_ACTION_TEMPLATE
+        int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::setTipStates(int tipIndex, const int* inStates)
+        {
+            std::cerr<<"\nBEAGLE: When using action-based likelihood computations, setTipStates( ) is not allowed.\n";
+            std::cerr<<"        Use setTipPartials( ) instead.\n\n";
+
+            // There does not appear to be a simple method of throwing C++ exceptions into Java through the JNI.
+            // However, throwing this exception makes Java print a stack trace that shows where the setTipStates( )
+            //   call is coming from.
+            throw std::runtime_error("This message will not be seen");
+
+            std::abort();
         }
 
 
@@ -600,6 +627,44 @@ namespace beagle {
         }
 
         BEAGLE_CPU_ACTION_TEMPLATE
+        int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::setSparseMatrix(int matrixIndex,
+                                                                           const int* rowIndices,
+                                                                           const int* colIndices,
+                                                                           const double* values,
+                                                                           int numNonZeros) {
+
+
+            std::vector<Triplet> tripletList;
+            for (int i = 0; i < numNonZeros; i++) {
+                tripletList.push_back(Triplet(rowIndices[i], colIndices[i], values[i]));
+            }
+            gInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
+
+            double mu_B = 0.0;
+            for (int i = 0; i < kStateCount; i++) {
+                mu_B += gInstantaneousMatrices[matrixIndex].coeff(i, i);
+            }
+            mu_B /= (double) kStateCount;
+            gMuBs[matrixIndex] = mu_B;
+            gBs[matrixIndex] = gInstantaneousMatrices[matrixIndex] - mu_B * identity;
+            gB1Norms[matrixIndex] = normP1(gBs[matrixIndex]);
+
+            ds[matrixIndex].clear();
+
+            int pMax = getPMax();
+            for(int p=0;p <= pMax+1; p++)
+            {
+                int t = 5;
+                double approx_norm = normest1( gBs[matrixIndex], p, t);
+
+                // equation 3.7 in Al-Mohy and Higham
+                ds[matrixIndex].push_back( pow( approx_norm, 1.0/double(p) ) );
+            }
+
+            return BEAGLE_SUCCESS;
+        }
+
+        BEAGLE_CPU_ACTION_TEMPLATE
         int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::updateTransitionMatrices(int eigenIndex,
                                                                                     const int* probabilityIndices,
                                                                                     const int* firstDerivativeIndices,
@@ -627,7 +692,7 @@ namespace beagle {
                     << " edge length multiplier: " << edgeLengths[i]
                     << "  edgeMultiplier: "<< gEdgeMultipliers[nodeIndex * kCategoryCount + category]
                     << "  nodeIndex: "<< nodeIndex
-                    << std::endl << gScaledQs[nodeIndex][category]<<std::endl;
+                    <<std::endl;
 #endif
                 }
             }
@@ -681,57 +746,73 @@ namespace beagle {
 
         BEAGLE_CPU_ACTION_TEMPLATE
         void
-        BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::simpleAction2(MapType& destP, MapType& partials, int edgeIndex,
+        BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::simpleAction2(MapType &destP, MapType &partials, int edgeIndex,
                                                                      int category, bool transpose) const {
 #ifdef BEAGLE_DEBUG_FLOW
-            std::cerr<<"New impl 2\nRate category "<<category<<std::endl;
-	    std::cerr<<"In partial: \n"<<partials<<std::endl;
+            std::cerr << "\n\nNew impl 2\nRate category " << category << std::endl;
+            std::cerr << "In partial: \n" << partials << std::endl;
 #endif
-	    const double tol = pow(2.0, -53.0);
-	    const double t = 1.0;
-	    const int nCol = (int)destP.cols();
+            const double tol = pow(2.0, -53.0);
+            const double t = 1.0;
+            const int nCol = (int) destP.cols();
 
-	    const double edgeMultiplier = gEdgeMultipliers[edgeIndex * kCategoryCount + category];
+            const double edgeMultiplier = gEdgeMultipliers[edgeIndex * kCategoryCount + category];
 
-	    auto [m,s] = getStatistics2(t, nCol, edgeMultiplier, gEigenMaps[edgeIndex]);
+            auto [m, s] = getStatistics2(t, nCol, edgeMultiplier, gEigenMaps[edgeIndex]);
+
+            destP = partials;
+            SpMatrix A = gBs[gEigenMaps[edgeIndex]] * edgeMultiplier;
+            if (transpose) {
+                A = A.transpose();
+            }
+
+            MatrixXd F(kStateCount, nCol);
+            F = destP;
+
+            const double eta = exp(t * gMuBs[gEigenMaps[edgeIndex]] * edgeMultiplier / (double) s);
+
+#ifdef BEAGLE_DEBUG_FLOW
+            std::cerr << "simpleAction2: m = " << m << "  s = " << s << "  eta = " << eta << "  edgeMultiplier = " << edgeMultiplier << std::endl;
+            std::cerr << "edgeMultiplier = " << edgeMultiplier << "\nB = " << gBs[gEigenMaps[edgeIndex]] <<std::endl;
+#endif
+
+            for (int i = 0; i < s; i++) {
+                double c1 = normPInf(destP);
+                for (int j = 1; j < m + 1; j++) {
+                    destP = A * destP;
+                    destP *= t / ((double) s * j);
+//#ifdef BEAGLE_DEBUG_FLOW
+//                    std::cerr << "i = " << i << "  j = " << j << "  c1 = " << c1  << " alpha = " << t / ((double) s * j) << std::endl;
+//                    std::cerr << "A = " << A << std::endl;
+//                    std::cerr << "destP = alpha * A * destP\n" <<destP<<std::endl;
+//#endif
+                    double c2 = normPInf(destP);
+                    F += destP;
+//#ifdef BEAGLE_DEBUG_FLOW
+//                    std::cerr << "i = " << i << "  j = " << j << "/" << m << "  c1 = " << c1 << "  c2 = " << c2 << " alpha = " << t / ((double) s * j) << std::endl;
+//                    std::cerr << "F = \n" <<F<<std::endl;
+//#endif
+                    if (c1 + c2 <= tol * normPInf(F)) {
+                        break;
+                    }
+                    c1 = c2;
+                }
+                F *= eta;
+                destP = F;
+            }
 
 
 #ifdef BEAGLE_DEBUG_FLOW
-	    std::cerr<<"simpleAction2: m = "<<m<<"  s = "<<s <<std::endl;
-#endif
-
-	    destP = partials;
-	    SpMatrix A = gBs[gEigenMaps[edgeIndex]] * edgeMultiplier;
-	    if (transpose) {
-		A = A.transpose();
-	    }
-
-	    MatrixXd F(kStateCount, nCol);
-	    F = destP;
-
-	    const double eta = exp(t * gMuBs[gEigenMaps[edgeIndex]] * edgeMultiplier / (double) s);
-
-	    for (int i = 0; i < s; i++) {
-		double c1 = normPInf(destP);
-		for (int j = 1; j < m + 1; j++) {
-		    destP = A * destP;
-		    destP *= t / ((double) s * j);
-		    double c2 = normPInf(destP);
-		    F += destP;
-		    if (c1 + c2 <= tol * normPInf(F)) {
-			break;
-		    }
-		    c1 = c2;
-		}
-		F *= eta;
-		destP = F;
-	    }
-
-
-#ifdef BEAGLE_DEBUG_FLOW
-	    std::cerr<<"Out partials: \n"<<destP<<std::endl;
+            std::cerr << "Out partials: \n" << destP << std::endl;
 #endif
         }
+
+	// Algorithm 2 from Ibáñez et al (2021) Two Taylor Algorithms for
+	//     Computing the Action of the Matrix Exponential on a Vector
+	// The initial loop over the Vs cannot be merged with the computation of w because we don't know s yet.
+	// Storing all the Vs makes this algorithm takes more memory than the Al Mohy algorithm.
+	// This algorithm produces higher values of 's' than the Al Mohy algorithm.
+	// It controls the forward error, whereas the Al Mohy algorithm minimizes the backward error.
 
         BEAGLE_CPU_ACTION_TEMPLATE
         void

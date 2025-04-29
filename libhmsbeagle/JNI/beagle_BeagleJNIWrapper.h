@@ -145,6 +145,14 @@ JNIEXPORT jint JNICALL Java_beagle_BeagleJNIWrapper_setEigenDecomposition
 
 /*
  * Class:     beagle_BeagleJNIWrapper
+ * Method:    setSparseMatrix
+ * Signature: (II[I[I[DI)I
+ */
+JNIEXPORT jint JNICALL Java_beagle_BeagleJNIWrapper_setSparseMatrix
+  (JNIEnv *, jobject, jint, jint, jintArray, jintArray, jdoubleArray, jint);
+
+/*
+ * Class:     beagle_BeagleJNIWrapper
  * Method:    setStateFrequencies
  * Signature: (II[D)I
  */
@@ -213,7 +221,7 @@ JNIEXPORT jint JNICALL Java_beagle_BeagleJNIWrapper_convolveTransitionMatrices
  * Signature: (I[I[I[II)I
  */
 JNIEXPORT jint JNICALL Java_beagle_BeagleJNIWrapper_addTransitionMatrices
-        (JNIEnv *, jobject, jint, jintArray, jintArray, jintArray, jint);
+  (JNIEnv *, jobject, jint, jintArray, jintArray, jintArray, jint);
 
 /*
  * Class:     beagle_BeagleJNIWrapper
@@ -370,7 +378,7 @@ JNIEXPORT jint JNICALL Java_beagle_BeagleJNIWrapper_calculateEdgeDifferentials
 /*
  * Class:     beagle_BeagleJNIWrapper
  * Method:    calculateCrossProductDifferentials
- * Signature: (I[I[I[I[II[D[D[D)I
+ * Signature: (I[I[I[I[I[DI[D[D)I
  */
 JNIEXPORT jint JNICALL Java_beagle_BeagleJNIWrapper_calculateCrossProductDifferentials
   (JNIEnv *, jobject, jint, jintArray, jintArray, jintArray, jintArray, jdoubleArray, jint, jdoubleArray, jdoubleArray);

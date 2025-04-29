@@ -6,19 +6,9 @@
  *
  * This file is part of BEAGLE.
  *
- * BEAGLE is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation, either version 3 of
- * the License, or (at your option) any later version.
- *
- * BEAGLE is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with BEAGLE.  If not, see
- * <http://www.gnu.org/licenses/>.
+ * Use of this source code is governed by an MIT-style
+ * license that can be found in the LICENSE file or at
+ * https://opensource.org/licenses/MIT.
  *
  * @author Marc Suchard
  * @author David Swofford
@@ -104,13 +94,19 @@
 #define SSE_PREFETCH_PRE_MATRICES(src_m1, src_m2, dest_vu_m1, dest_vu_m2) \
 	const double *m1 = (src_m1); \
 	const double *m2 = (src_m2); \
-	for (int i = 0; i < OFFSET; i++, m1+=OFFSET, m2++) { \
+	for (int i = 0; i < 4; i++, m1+=OFFSET, m2++) { \
 		dest_vu_m1[i][0].x[0] = m1[0]; \
 		dest_vu_m1[i][0].x[1] = m1[1]; \
 		dest_vu_m2[i][0].x[0] = m2[0*OFFSET]; \
 		dest_vu_m2[i][0].x[1] = m2[1*OFFSET]; \
 		dest_vu_m1[i][1].x[0] = m1[2]; \
 		dest_vu_m1[i][1].x[1] = m1[3]; \
+		dest_vu_m2[i][1].x[0] = m2[2*OFFSET]; \
+		dest_vu_m2[i][1].x[1] = m2[3*OFFSET]; \
+	} \
+    for (int i = 4; i < OFFSET; i++, m2++) { \
+		dest_vu_m2[i][0].x[0] = m2[0*OFFSET]; \
+		dest_vu_m2[i][0].x[1] = m2[1*OFFSET]; \
 		dest_vu_m2[i][1].x[0] = m2[2*OFFSET]; \
 		dest_vu_m2[i][1].x[1] = m2[3*OFFSET]; \
 	}

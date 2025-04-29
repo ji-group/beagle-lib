@@ -4,10 +4,16 @@ project(BEAGLE)
 set(BEAGLE_PACKAGE_NAME "libhmsbeagle")
 set(BEAGLE_VERSION_MAJOR "4")
 set(BEAGLE_VERSION_MINOR "0")
-set(BEAGLE_VERSION_PATCH "1")
+set(BEAGLE_VERSION_PATCH "2")
+
+set(GENERIC_API_VERSION "1")
+
 
 set(BEAGLE_VERSION "${BEAGLE_VERSION_MAJOR}.${BEAGLE_VERSION_MINOR}.${BEAGLE_VERSION_PATCH}")
 set(BEAGLE_PLUGIN_VERSION "${BEAGLE_VERSION_MAJOR}${BEAGLE_VERSION_MINOR}")
+
+message(STATUS "BEAGLE_VERSION = ${BEAGLE_VERSION}")
+message(STATUS "BEAGLE_PLUGIN_VERSION = ${BEAGLE_PLUGIN_VERSION}")
 
 set(BEAGLE_OPTIMIZE_FOR_NATIVE_ARCH true)
 
@@ -16,16 +22,25 @@ option(BUILD_CUDA "Build beagle with CUDA library" ON)
 option(BUILD_JNI "Build beagle with JNI library" ON)
 option(BUILD_OPENMP "Build beagle with OpenMP library" ON)
 option(BUILD_ACTION "Build beagle with action-based calculations" ON)
+option(BUILD_SSE "Build beagle with SSE library" ON)
+option(BUILD_BASTA "Build beagle with mbasta library" OFF)
 
 # Old config.h settings
 
 OPTION(BEAGLE_BENCHMARK "Print runtimes" OFF)
 OPTION(BEAGLE_DEBUG_FLOW "Print flow" OFF)
 OPTION(BEAGLE_DEBUG_VALUES "Print debug values" OFF)
+OPTION(BEAGLE_DEBUG_SYNCH "Synchronize threads on GPU for timing" OFF)
+OPTION(BEAGLE_BENCHMARK_ENERGY "Print energy consumption" OFF)
+OPTION(BEAGLE_BASTA_CPU_ACCUM "Use CPU for final accumulation for reduction" OFF)
 
 IF(BEAGLE_BENCHMARK)
     ADD_DEFINITIONS(-DBEAGLE_BENCHMARK)
 ENDIF(BEAGLE_BENCHMARK)
+
+IF(BEAGLE_BENCHMARK_ENERGY)
+	ADD_DEFINITIONS(-DBEAGLE_BENCHMARK_ENERGY)
+ENDIF(BEAGLE_BENCHMARK_ENERGY)
 
 IF(BEAGLE_DEBUG_FLOW)
     ADD_DEFINITIONS(-DBEAGLE_DEBUG_FLOW)
@@ -34,6 +49,15 @@ ENDIF(BEAGLE_DEBUG_FLOW)
 IF(BEAGLE_DEBUG_VALUES)
     ADD_DEFINITIONS(-DBEAGLE_DEBUG_VALUES)
 ENDIF(BEAGLE_DEBUG_VALUES)
+
+IF(BEAGLE_DEBUG_SYNCH)
+	ADD_DEFINITIONS(-DBEAGLE_DEBUG_SYNCH)
+ENDIF(BEAGLE_DEBUG_SYNCH)
+
+IF(BEAGLE_BASTA_CPU_ACCUM)
+	ADD_DEFINITIONS(-DBEAGLE_BASTA_CPU_ACCUM)
+ENDIF(BEAGLE_BASTA_CPU_ACCUM)
+
 
 add_definitions(
 	-DPACKAGE_BUGREPORT="beagle-dev@googlegroups.com"
@@ -110,14 +134,33 @@ if(BUILD_OPENMP)
 endif(BUILD_OPENMP)
 
 if(BUILD_ACTION)
-	find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+        include(FetchContent)
+        set(EIGEN_VERSION 3.4)
+        find_package(Eigen3 ${EIGEN_VERSION} QUIET)
+        if(NOT EIGEN3_FOUND)
+                message("   Eigen3: library not found - downloading.")
+                set(BUILD_TESTING OFF CACHE INTERNAL "")
+                FetchContent_Declare(eigen
+                        GIT_REPOSITORY  https://gitlab.com/libeigen/eigen.git
+                        GIT_TAG         ${EIGEN_VERSION}
+                        GIT_SHALLOW     ON)
+                FetchContent_MakeAvailable(eigen)
+                unset(BUILD_TESTING CACHE)
+                message("   Eigen3: downloaded.")
+        endif()
+
 	set(CMAKE_CXX_STANDARD 17)
-	if (NOT TARGET Eigen3::Eigen)
-		message(FATAL_ERROR "No Eigen3 Found")
-	endif (NOT TARGET Eigen3::Eigen)
 	add_definitions(-DBEAGLE_ACTION)
 #	add_definitions(-DBEAGLE_DEBUG_FLOW)
 endif(BUILD_ACTION)
+
+if (BUILD_BASTA)
+    IF(BEAGLE_DEBUG_KERNELS)
+       add_subdirectory(tests/basta)
+    ENDIF(BEAGLE_DEBUG_KERNELS)
+
+    add_definitions(-DBEAGLE_BEASTA)
+endif(BUILD_BASTA)
 
 link_directories(
         ${PROJECT_SOURCE_DIR}/libhmsbeagle
@@ -165,7 +208,7 @@ elseif(UNIX)
         SET(CMAKE_INSTALL_RPATH "\$ORIGIN")
         # $ORIGIN/{CPU,GPU,JNI} is so that libhmsbeagle.so can find the plugins in their build location.
         # $ORIGIN/../libhmsbeagle is so that examples/* can find libhmsbeagle.so
-	SET(CMAKE_BUILD_RPATH "\$ORIGIN:\$ORIGIN/CPU:\$ORIGIN/GPU:\$ORIGIN/JNI:\$ORIGIN/../libhmsbeagle")
+	SET(CMAKE_BUILD_RPATH "\$ORIGIN:\$ORIGIN/CPU:\$ORIGIN/GPU:\$ORIGIN/GPU/CMake_Action:\$ORIGIN/GPU/CMake_CUDA:\$ORIGIN/GPU/CMake_OpenCL:\$ORIGIN/JNI:\$ORIGIN/../libhmsbeagle")
 endif(APPLE)
 
 if (BEAGLE_OPTIMIZE_FOR_NATIVE_ARCH)

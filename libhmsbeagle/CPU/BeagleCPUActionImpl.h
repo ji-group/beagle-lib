@@ -46,7 +46,7 @@
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> MatrixXd;
 typedef Eigen::Map<MatrixXd> MapType;
-typedef Eigen::SparseMatrix<double> SpMatrix;
+typedef Eigen::SparseMatrix<double, Eigen::StorageOptions::RowMajor> SpMatrix;
 typedef Eigen::Triplet<double> Triplet;
 
 
@@ -165,6 +165,8 @@ namespace beagle {
 
 //            virtual int setCategoryRates(const double* inCategoryRates);
 
+            int setTipStates(int tipIndex, const int* inStates);
+
         protected:
             virtual int upPartials(bool byPartition,
 				   const int *operations,
@@ -191,6 +193,12 @@ namespace beagle {
                                               const double *inEigenVectors,
                                               const double *inInverseEigenVectors,
                                               const double *inEigenValues);
+
+            virtual int setSparseMatrix(int matrixIndex,
+                                        const int* rowIndices,
+                                        const int* colIndices,
+                                        const double* values,
+                                        int numNonZeros);
 
             virtual int updateTransitionMatrices(int eigenIndex,
                                                  const int* probabilityIndices,
