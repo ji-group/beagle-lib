@@ -97,6 +97,13 @@ public class BeagleJNIWrapper {
                                       final double[] values,
                                       int numNonZeros);
 
+    public native int setSparseDifferentialMatrix(int instance,
+                                                  int matrixIndex,
+                                                  final int[] rowIndices,
+                                                  final int[] colIndices,
+                                                  final double[] values,
+                                                  int numNonZeros);
+
     public native int setStateFrequencies(int instance,
                                           int stateFrequenciesIndex,
                                           final double[] stateFrequencies);
