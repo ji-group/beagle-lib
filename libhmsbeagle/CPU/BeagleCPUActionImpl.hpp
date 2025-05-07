@@ -582,6 +582,8 @@ namespace beagle {
             auto destSecondDerivTmp = MapType(secondDerivTmp, kStateCount, kPatternCount);
             SpMatrix differentialMatrix = gInstantaneousMatrices[firstDerivativeIndex];
 
+            std::cerr<<"dQ = " << differentialMatrix << std::endl;
+
 
             for (int category = 0; category < kCategoryCount; category++) {
                 const double weight = categoryWeights[category];
@@ -591,14 +593,27 @@ namespace beagle {
 
                 const double categoryMultiplier = weight * categoryRates[category];
 
+                std::cerr<<"Category = " << category << " ; multiplier = " << weight << " * " << categoryRates[category] << " = " << categoryMultiplier << std::endl;
+
                 destFirstDerivTmp = differentialMatrix * postOrderPartial;
 
-                destFirstDerivTmp.cwiseProduct(preOrderPartial);
+                std::cerr<<"Post-order partial = " << std::endl << postOrderPartial << std::endl << "Pre-order partial = " << std::endl << preOrderPartial << std::endl;
+                std::cerr<<"Differential matrix = " << differentialMatrix << std::endl;
+                std::cerr<<"Qp = " << std::endl << destFirstDerivTmp << std::endl;
+
+                destFirstDerivTmp = destFirstDerivTmp.cwiseProduct(preOrderPartial);
+
+                std::cerr<<"q'Qp = " << std::endl << destFirstDerivTmp << std::endl;
 
                 destSecondDerivTmp = postOrderPartial.cwiseProduct(preOrderPartial);
 
+                std::cerr<<"q'p = " << std::endl << destSecondDerivTmp << std::endl;
+
                 destNumeratorDrivTmp += destFirstDerivTmp.colwise().sum() * categoryMultiplier;
+
+                std::cerr<<"colSum(q'Qp)rw = " << std::endl << destNumeratorDrivTmp << std::endl;
                 destDenominatorDrivTmp += destSecondDerivTmp.colwise().sum() * categoryMultiplier;
+                std::cerr<<"colSum(q'p)rw = " << std::endl << destDenominatorDrivTmp << std::endl;
             }
         }
 
@@ -639,6 +654,8 @@ namespace beagle {
                                                       NULL : outSumSquaredDerivatives + nodeNum;
 
             resetDerivativeTemporaries();
+
+            std::cerr<<"Node = " << nodeNum << std::endl;
 
             calcEdgeLogDerivativesPartials(postOrderPartialindex, preOrderPartialIndex, firstDerivativeIndex,
                                            secondDerivativeIndex, categoryRates, categoryWeights,
@@ -771,6 +788,8 @@ namespace beagle {
             }
 
             gInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
+
+            std::cout<<"Checking matrix: "<<gInstantaneousMatrices[matrixIndex]<<std::endl;
 
             return BEAGLE_SUCCESS;
         }
