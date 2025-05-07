@@ -657,7 +657,7 @@ int BeagleGPUImpl<BEAGLE_GPU_GENERIC>::createInstance(int tipCount,
         }
     }
 
-    if(!preferenceFlags & BEAGLE_FLAG_COMPUTATION_ACTION) {
+    if(! (preferenceFlags & BEAGLE_FLAG_COMPUTATION_ACTION)) {
         ptrIncrement = gpu->AlignMemOffset(kMatrixSize * sizeof(Real));
         kEvecOffset  = ptrIncrement/sizeof(Real);
         GPUPtr dEvecOrigin = gpu->AllocateMemory(kEigenDecompCount * ptrIncrement);
