@@ -64,8 +64,8 @@ namespace beagle {
         protected:
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kTipCount;
 //            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::integrationTmp;
-//            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::firstDerivTmp;
-//            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::secondDerivTmp;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::firstDerivTmp;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::secondDerivTmp;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kPatternCount;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kPaddedPatternCount;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kExtraPatterns;
@@ -78,11 +78,12 @@ namespace beagle {
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kEigenDecompCount;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gPartials;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gCategoryRates;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gCategoryWeights;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gScaleBuffers;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kFlags;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::grandNumeratorDerivTmp;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::grandDenominatorDerivTmp;
-            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gTransitionMatrices;
+//            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gTransitionMatrices;
 
             //            SpMatrix** gScaledQs;
             int kPartialsCacheOffset;
@@ -182,6 +183,24 @@ namespace beagle {
 				      int operationCount,
 				      int cumulativeScalingIndex);
 
+            virtual void accumulateDerivatives(double* outDerivatives,
+                                               double* outSumDerivatives,
+                                               double* outSumSquaredDerivatives);
+
+            virtual void resetDerivativeTemporaries();
+
+            virtual int calcEdgeLogDerivatives(const int *postBufferIndices,
+                                               const int *preBufferIndices,
+                                               const int *firstDerivativeIndices,
+                                               const int *secondDerivativeIndices,
+                                               const int *categoryWeightsIndices,
+                                               const int *categoryRatesIndices,
+                                               const int *cumulativeScaleIndices,
+                                               int count,
+                                               double *siteLogLikelihoods,
+                                               double *outLogFirstDerivatives,
+                                               double *outLogDiagonalSecondDerivatives);
+
 	    inline MapType partialsMap(int index, int category, int startPattern, int endPattern);
 
 	    inline MapType partialsMap(int index, int category);
@@ -193,6 +212,17 @@ namespace beagle {
 //            virtual int getPaddedPatternsModulus();
 
         private:
+            void calcEdgeLogDerivativesPartials(const int postOrderPartialIndex,
+                                                const int preOrderPartialIndex,
+                                                const int firstDerivativeIndex,
+                                                const int secondDerivativeIndex,
+                                                const double *categoryRates,
+                                                const double *categoryWeights,
+                                                const int scalingFactorsIndex,
+                                                double *siteLogLikelihoods,
+                                                double *outLogFirstDerivatives,
+                                                double *outLogDiagonalSecondDerivatives);
+
             virtual int setEigenDecomposition(int eigenIndex,
                                               const double *inEigenVectors,
                                               const double *inInverseEigenVectors,
@@ -239,16 +269,6 @@ namespace beagle {
 					  int startPattern,
 					  int endPattern);
 
-            void calcEdgeLogDerivativesPartials(const double *postOrderPartial,
-                                                const double *preOrderPartial,
-                                                const int firstDerivativeIndex,
-                                                const int secondDerivativeIndex,
-                                                const double *categoryRates,
-                                                const double *categoryWeights,
-                                                const int scalingFactorsIndex,
-                                                double *siteLogLikelihoods,
-                                                double *outLogFirstDerivatives,
-                                                double *outLogDiagonalSecondDerivatives);
 
 	    // Return (m,s)
 	    std::tuple<int,int> getStatistics2(double t, int nCol, double edgeMultiplier,

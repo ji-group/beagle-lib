@@ -565,6 +565,137 @@ namespace beagle {
         }
 
         BEAGLE_CPU_ACTION_TEMPLATE
+        void BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::calcEdgeLogDerivativesPartials(const int postOrderPartialIndex,
+                                                                                          const int preOrderPartialIndex,
+                                                                                          const int firstDerivativeIndex,
+                                                                                          const int secondDerivativeIndex,
+                                                                                          const double *categoryRates,
+                                                                                          const double *categoryWeights,
+                                                                                          const int scalingFactorsIndex,
+                                                                                          double *outDerivativesForNode,
+                                                                                          double *outSumDerivativesForNode,
+                                                                                          double *outSumSquaredDerivativesForNode)
+        {
+
+
+//            const REALTYPE *firstDerivMatrix = gTransitionMatrices[firstDerivativeIndex];
+//
+//            for (int category = 0; category < kCategoryCount; category++) {
+//                const REALTYPE weight = categoryWeights[category];
+//
+//                for (int pattern = 0; pattern < kPatternCount; pattern++) {
+//
+//                    int w = category * kMatrixSize;
+//
+//                    const int patternIndex = category * kPatternCount + pattern;
+//                    const int v = patternIndex * kPartialsPaddedStateCount;
+//
+//                    REALTYPE numerator = 0.0;
+//                    REALTYPE denominator = 0.0;
+//
+//                    for (int k = 0; k < kStateCount; k++) {
+//
+//                        REALTYPE sumOverEndState = 0.0;
+//                        for (int j = 0; j < kStateCount; j++) {
+//                            sumOverEndState += firstDerivMatrix[w]
+//                                               * postOrderPartial[v + j]; // fix padded index
+//                            w++;
+//                        }
+//                        w += T_PAD;
+//
+//                        numerator += sumOverEndState * preOrderPartial[v + k];
+//                        denominator += postOrderPartial[v + k] * preOrderPartial[v + k];
+//                    }
+//
+//                    grandNumeratorDerivTmp[pattern] += weight * numerator;
+//                    grandDenominatorDerivTmp[pattern] += weight * denominator;
+//                }
+//            }
+
+
+            auto destNumeratorDrivTmp = MapType(grandNumeratorDerivTmp, kStateCount, kPatternCount);
+            auto destDenominatorDrivTmp = MapType(grandDenominatorDerivTmp, kStateCount, kPatternCount);
+            auto destFirstDerivTmp = MapType(firstDerivTmp, kStateCount, kPatternCount);
+            MapType destSecondDerivTmp = MapType(secondDerivTmp, kStateCount, kPatternCount);
+            SpMatrix differentialMatrix = gInstantaneousMatrices[firstDerivativeIndex];
+
+
+
+            for (int category = 0; category < kCategoryCount; category++) {
+                const double weight = categoryWeights[category];
+
+                MapType postOrderPartial = partialsMap(postOrderPartialIndex, category, 0, kPatternCount);
+                MapType preOrderPartial = partialsMap(preOrderPartialIndex, category, 0, kPatternCount);
+
+                const double categoryMultiplier = weight * categoryRates[category];
+
+                destFirstDerivTmp = differentialMatrix * postOrderPartial;
+
+                destFirstDerivTmp.cwiseProduct(preOrderPartial);
+
+                destSecondDerivTmp = postOrderPartial.template cwiseProduct(preOrderPartial);
+
+                destNumeratorDrivTmp += destFirstDerivTmp.colwise().sum() * categoryMultiplier;
+                destDenominatorDrivTmp += destSecondDerivTmp.colwise().sum() * categoryMultiplier;
+            }
+        }
+
+        BEAGLE_CPU_ACTION_TEMPLATE
+        int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::calcEdgeLogDerivatives(const int *postBufferIndices,
+                                                                                  const int *preBufferIndices,
+                                                                                  const int *firstDerivativeIndices,
+                                                                                  const int *secondDerivativeIndices,
+                                                                                  const int *categoryWeightsIndices,
+                                                                                  const int *categoryRatesIndices,
+                                                                                  const int *cumulativeScaleIndices,
+                                                                                  int count,
+                                                                                  double *outDerivatives,
+                                                                                  double *outSumDerivatives,
+                                                                                  double *outSumSquaredDerivatives) {
+
+        int returnCode = BEAGLE_SUCCESS;
+
+        const int secondDerivativeIndex = BEAGLE_OP_NONE;
+        const double *categoryRates = gCategoryRates[categoryRatesIndices[0]]; // TODO Generalize
+        const double *categoryWeights = gCategoryWeights[categoryWeightsIndices[0]]; // TODO Generalize
+
+        for (int nodeNum = 0; nodeNum < count; nodeNum++) {
+
+            const int preOrderPartialIndex = preBufferIndices[nodeNum];
+            const int postOrderPartialindex =  postBufferIndices[nodeNum];
+
+
+            const int firstDerivativeIndex = firstDerivativeIndices[nodeNum];
+            const int scalingFactorsIndex = -1; // cumulativeScaleIndices[nodeNum];
+
+            const int patternOffset = nodeNum * kPatternCount;
+            double* outDerivativesForNode = (outDerivatives == NULL) ?
+                                            NULL : outDerivatives + patternOffset;
+            double* outSumDerivativesForNode = (outSumDerivatives == NULL) ?
+                                               NULL : outSumDerivatives + nodeNum;
+            double* outSumSquaredDerivativesForNode = (outSumSquaredDerivatives == NULL) ?
+                                                      NULL : outSumSquaredDerivatives + nodeNum;
+
+            resetDerivativeTemporaries();
+
+            calcEdgeLogDerivativesPartials(postOrderPartialindex, preOrderPartialIndex, firstDerivativeIndex,
+                                           secondDerivativeIndex, categoryRates, categoryWeights,
+                                           scalingFactorsIndex,
+                                           outDerivativesForNode,
+                                           outSumDerivativesForNode,
+                                           outSumSquaredDerivativesForNode);
+
+            accumulateDerivatives(outDerivativesForNode,
+                                  outSumDerivativesForNode,
+                                  outSumSquaredDerivativesForNode);
+
+        }
+
+        return returnCode;
+
+        }
+
+        BEAGLE_CPU_ACTION_TEMPLATE
         int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::setTipStates(int tipIndex, const int* inStates)
         {
             std::cerr<<"\nBEAGLE: When using action-based likelihood computations, setTipStates( ) is not allowed.\n";
@@ -759,53 +890,6 @@ namespace beagle {
 
                 gMappedIntegrationTmp[category] = partialCache2.cwiseProduct(partials1);
 		simpleAction2(destP, gMappedIntegrationTmp[category], edgeIndex1, category, true);
-            }
-        }
-
-        BEAGLE_CPU_ACTION_TEMPLATE
-        void BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::calcEdgeLogDerivativesPartials(const double *postOrderPartial,
-                                                                                           const double *preOrderPartial,
-                                                                                           const int firstDerivativeIndex,
-                                                                                           const int secondDerivativeIndex,
-                                                                                           const double *categoryRates,
-                                                                                           const double *categoryWeights,
-                                                                                           const int scalingFactorsIndex,
-                                                                                           double *siteLogLikelihoods,
-                                                                                           double *outLogFirstDerivatives,
-                                                                                           double *outLogDiagonalSecondDerivatives) {
-            std::cout<<"here?"<<std::endl;
-            const double *firstDerivMatrix = gTransitionMatrices[firstDerivativeIndex];
-
-            for (int category = 0; category < kCategoryCount; category++) {
-                const double weight = categoryWeights[category];
-
-                for (int pattern = 0; pattern < kPatternCount; pattern++) {
-
-                    int w = category * kMatrixSize;
-
-                    const int patternIndex = category * kPatternCount + pattern;
-                    const int v = patternIndex * kPartialsPaddedStateCount;
-
-                    double numerator = 0.0;
-                    double denominator = 0.0;
-
-                    for (int k = 0; k < kStateCount; k++) {
-
-                        double sumOverEndState = 0.0;
-                        for (int j = 0; j < kStateCount; j++) {
-                            sumOverEndState += firstDerivMatrix[w]
-                                               * postOrderPartial[v + j]; // fix padded index
-                            w++;
-                        }
-                        w += T_PAD;
-
-                        numerator += sumOverEndState * preOrderPartial[v + k];
-                        denominator += postOrderPartial[v + k] * preOrderPartial[v + k];
-                    }
-
-                    grandNumeratorDerivTmp[pattern] += weight * numerator;
-                    grandDenominatorDerivTmp[pattern] += weight * denominator;
-                }
             }
         }
 
