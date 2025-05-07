@@ -620,7 +620,6 @@ namespace beagle {
             SpMatrix differentialMatrix = gInstantaneousMatrices[firstDerivativeIndex];
 
 
-
             for (int category = 0; category < kCategoryCount; category++) {
                 const double weight = categoryWeights[category];
 

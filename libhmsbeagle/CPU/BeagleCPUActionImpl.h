@@ -63,7 +63,7 @@ namespace beagle {
 
         protected:
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kTipCount;
-//            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::integrationTmp;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::integrationTmp;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::firstDerivTmp;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::secondDerivTmp;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kPatternCount;
@@ -83,6 +83,8 @@ namespace beagle {
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kFlags;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::grandNumeratorDerivTmp;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::grandDenominatorDerivTmp;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::accumulateDerivatives;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::resetDerivativeTemporaries;
 //            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gTransitionMatrices;
 
             //            SpMatrix** gScaledQs;
@@ -182,12 +184,6 @@ namespace beagle {
 				      const int *operations,
 				      int operationCount,
 				      int cumulativeScalingIndex);
-
-            virtual void accumulateDerivatives(double* outDerivatives,
-                                               double* outSumDerivatives,
-                                               double* outSumSquaredDerivatives);
-
-            virtual void resetDerivativeTemporaries();
 
             virtual int calcEdgeLogDerivatives(const int *postBufferIndices,
                                                const int *preBufferIndices,
