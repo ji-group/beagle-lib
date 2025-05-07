@@ -576,43 +576,6 @@ namespace beagle {
                                                                                           double *outSumDerivativesForNode,
                                                                                           double *outSumSquaredDerivativesForNode)
         {
-
-
-//            const REALTYPE *firstDerivMatrix = gTransitionMatrices[firstDerivativeIndex];
-//
-//            for (int category = 0; category < kCategoryCount; category++) {
-//                const REALTYPE weight = categoryWeights[category];
-//
-//                for (int pattern = 0; pattern < kPatternCount; pattern++) {
-//
-//                    int w = category * kMatrixSize;
-//
-//                    const int patternIndex = category * kPatternCount + pattern;
-//                    const int v = patternIndex * kPartialsPaddedStateCount;
-//
-//                    REALTYPE numerator = 0.0;
-//                    REALTYPE denominator = 0.0;
-//
-//                    for (int k = 0; k < kStateCount; k++) {
-//
-//                        REALTYPE sumOverEndState = 0.0;
-//                        for (int j = 0; j < kStateCount; j++) {
-//                            sumOverEndState += firstDerivMatrix[w]
-//                                               * postOrderPartial[v + j]; // fix padded index
-//                            w++;
-//                        }
-//                        w += T_PAD;
-//
-//                        numerator += sumOverEndState * preOrderPartial[v + k];
-//                        denominator += postOrderPartial[v + k] * preOrderPartial[v + k];
-//                    }
-//
-//                    grandNumeratorDerivTmp[pattern] += weight * numerator;
-//                    grandDenominatorDerivTmp[pattern] += weight * denominator;
-//                }
-//            }
-
-
             auto destNumeratorDrivTmp = MapType(grandNumeratorDerivTmp, 1, kPatternCount);
             auto destDenominatorDrivTmp = MapType(grandDenominatorDerivTmp, 1, kPatternCount);
             auto destFirstDerivTmp = MapType(firstDerivTmp, kStateCount, kPatternCount);
