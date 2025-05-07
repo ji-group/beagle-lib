@@ -616,7 +616,7 @@ namespace beagle {
             auto destNumeratorDrivTmp = MapType(grandNumeratorDerivTmp, kStateCount, kPatternCount);
             auto destDenominatorDrivTmp = MapType(grandDenominatorDerivTmp, kStateCount, kPatternCount);
             auto destFirstDerivTmp = MapType(firstDerivTmp, kStateCount, kPatternCount);
-            MapType destSecondDerivTmp = MapType(secondDerivTmp, kStateCount, kPatternCount);
+            auto destSecondDerivTmp = MapType(secondDerivTmp, kStateCount, kPatternCount);
             SpMatrix differentialMatrix = gInstantaneousMatrices[firstDerivativeIndex];
 
 
@@ -633,7 +633,7 @@ namespace beagle {
 
                 destFirstDerivTmp.cwiseProduct(preOrderPartial);
 
-                destSecondDerivTmp = postOrderPartial.template cwiseProduct(preOrderPartial);
+                destSecondDerivTmp = postOrderPartial.cwiseProduct(preOrderPartial);
 
                 destNumeratorDrivTmp += destFirstDerivTmp.colwise().sum() * categoryMultiplier;
                 destDenominatorDrivTmp += destSecondDerivTmp.colwise().sum() * categoryMultiplier;
