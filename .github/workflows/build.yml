@@ -15,7 +15,9 @@ jobs:
         name: [ubuntu-gcc-10,
                ubuntu-gcc-11,
                ubuntu-gcc-12,
+               ubuntu-gcc-13,
                ubuntu-clang-15,
+               ubuntu-clang-17,
                macos-xcode-15-intel,
                macos-xcode-16-arm,
                windows
@@ -23,7 +25,7 @@ jobs:
 
         include:
           - name: ubuntu-gcc-10
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             compiler: gcc
             version: "10"
             buildtype: "release"
@@ -43,10 +45,24 @@ jobs:
             buildtype: "release"
             arch: "linux64"
 
+          - name: ubuntu-gcc-13
+            os: ubuntu-24.04
+            compiler: gcc
+            version: "12"
+            buildtype: "release"
+            arch: "linux64"
+
           - name: ubuntu-clang-15
             os: ubuntu-22.04
             compiler: clang
             version: "15"
+            buildtype: "release"
+            arch: "linux64"
+
+          - name: ubuntu-clang-17
+            os: ubuntu-24.04
+            compiler: clang
+            version: "17"
             buildtype: "release"
             arch: "linux64"
 
@@ -77,6 +93,16 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: 3.12
+
+    # Caches for different branches are isolated, so we don't need to put the branch name into the key.
+    # The total size for all caches in a repository is 5Gb.
+
+    - name: ccache
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+         key: ${{ matrix.name }}
+         restore-keys: |
+           ${{ matrix.name }}
 
     - name: Install (Linux)
       if: runner.os == 'Linux' && matrix.name != 'windows'
@@ -129,28 +155,6 @@ jobs:
 
     # Caches for different branches are isolated, so we don't need to put the branch name into the key.
     # The total size for all caches in a repository is 5Gb.
-
-    - name: Prepare ccache timestamp
-      id: ccache_cache_timestamp
-      run: |
-        ccache --set-config=cache_dir=$HOME/.ccache
-
-        if [ "${{ runner.os }}" = "Linux" ]; then
-          stamp=$(date '+%s')
-        else
-          stamp=$(gdate '+%s')
-        fi
-        echo "${stamp}"
-        echo "timestamp=${stamp}" >> $GITHUB_OUTPUT
-
-    - name: ccache cache files
-#      uses: actions/cache@v2
-      uses: pat-s/always-upload-cache@v3.0.11
-      with:
-         path: ~/.ccache
-         key: ${{ matrix.name }}-ccache-${{ steps.ccache_cache_timestamp.outputs.timestamp }}
-         restore-keys: |
-           ${{ matrix.name }}-ccache-
 
     - name: Configure
       run: |
