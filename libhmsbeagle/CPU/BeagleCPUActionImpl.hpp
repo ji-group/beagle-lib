@@ -655,7 +655,7 @@ namespace beagle {
         int returnCode = BEAGLE_SUCCESS;
 
         const int secondDerivativeIndex = BEAGLE_OP_NONE;
-        const double *categoryRates = gCategoryRates[categoryRatesIndices[0]]; // TODO Generalize
+        const double *categoryRates = gCategoryRates[0]; // TODO Generalize
         const double *categoryWeights = gCategoryWeights[categoryWeightsIndices[0]]; // TODO Generalize
 
         for (int nodeNum = 0; nodeNum < count; nodeNum++) {
