@@ -613,8 +613,8 @@ namespace beagle {
 //            }
 
 
-            auto destNumeratorDrivTmp = MapType(grandNumeratorDerivTmp, kStateCount, kPatternCount);
-            auto destDenominatorDrivTmp = MapType(grandDenominatorDerivTmp, kStateCount, kPatternCount);
+            auto destNumeratorDrivTmp = MapType(grandNumeratorDerivTmp, 1, kPatternCount);
+            auto destDenominatorDrivTmp = MapType(grandDenominatorDerivTmp, 1, kPatternCount);
             auto destFirstDerivTmp = MapType(firstDerivTmp, kStateCount, kPatternCount);
             auto destSecondDerivTmp = MapType(secondDerivTmp, kStateCount, kPatternCount);
             SpMatrix differentialMatrix = gInstantaneousMatrices[firstDerivativeIndex];
