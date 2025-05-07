@@ -789,7 +789,7 @@ namespace beagle {
 
             gInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
 
-            std::cout<<"Checking matrix: "<<gInstantaneousMatrices[matrixIndex]<<std::endl;
+//            std::cout<<"Checking matrix: "<<gInstantaneousMatrices[matrixIndex]<<std::endl;
 
             return BEAGLE_SUCCESS;
         }
