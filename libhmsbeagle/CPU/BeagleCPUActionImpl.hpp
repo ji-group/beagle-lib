@@ -582,7 +582,7 @@ namespace beagle {
             auto destSecondDerivTmp = MapType(secondDerivTmp, kStateCount, kPatternCount);
             SpMatrix differentialMatrix = gInstantaneousMatrices[firstDerivativeIndex];
 
-            std::cerr<<"dQ = " << differentialMatrix << std::endl;
+//            std::cerr<<"dQ = " << differentialMatrix << std::endl;
 
 
             for (int category = 0; category < kCategoryCount; category++) {
@@ -593,27 +593,27 @@ namespace beagle {
 
                 const double categoryMultiplier = weight * categoryRates[category];
 
-                std::cerr<<"Category = " << category << " ; multiplier = " << weight << " * " << categoryRates[category] << " = " << categoryMultiplier << std::endl;
+//                std::cerr<<"Category = " << category << " ; multiplier = " << weight << " * " << categoryRates[category] << " = " << categoryMultiplier << std::endl;
 
                 destFirstDerivTmp = differentialMatrix * postOrderPartial;
 
-                std::cerr<<"Post-order partial = " << std::endl << postOrderPartial << std::endl << "Pre-order partial = " << std::endl << preOrderPartial << std::endl;
-                std::cerr<<"Differential matrix = " << differentialMatrix << std::endl;
-                std::cerr<<"Qp = " << std::endl << destFirstDerivTmp << std::endl;
+//                std::cerr<<"Post-order partial = " << std::endl << postOrderPartial << std::endl << "Pre-order partial = " << std::endl << preOrderPartial << std::endl;
+//                std::cerr<<"Differential matrix = " << differentialMatrix << std::endl;
+//                std::cerr<<"Qp = " << std::endl << destFirstDerivTmp << std::endl;
 
                 destFirstDerivTmp = destFirstDerivTmp.cwiseProduct(preOrderPartial);
 
-                std::cerr<<"q'Qp = " << std::endl << destFirstDerivTmp << std::endl;
+//                std::cerr<<"q'Qp = " << std::endl << destFirstDerivTmp << std::endl;
 
                 destSecondDerivTmp = postOrderPartial.cwiseProduct(preOrderPartial);
 
-                std::cerr<<"q'p = " << std::endl << destSecondDerivTmp << std::endl;
+//                std::cerr<<"q'p = " << std::endl << destSecondDerivTmp << std::endl;
 
                 destNumeratorDrivTmp += destFirstDerivTmp.colwise().sum() * categoryMultiplier;
 
-                std::cerr<<"colSum(q'Qp)rw = " << std::endl << destNumeratorDrivTmp << std::endl;
-                destDenominatorDrivTmp += destSecondDerivTmp.colwise().sum() * categoryMultiplier;
-                std::cerr<<"colSum(q'p)rw = " << std::endl << destDenominatorDrivTmp << std::endl;
+//                std::cerr<<"colSum(q'Qp)rw = " << std::endl << destNumeratorDrivTmp << std::endl;
+                destDenominatorDrivTmp += destSecondDerivTmp.colwise().sum() * weight;
+//                std::cerr<<"colSum(q'p)rw = " << std::endl << destDenominatorDrivTmp << std::endl;
             }
         }
 
@@ -655,7 +655,7 @@ namespace beagle {
 
             resetDerivativeTemporaries();
 
-            std::cerr<<"Node = " << nodeNum << std::endl;
+//            std::cerr<<"Node = " << nodeNum << std::endl;
 
             calcEdgeLogDerivativesPartials(postOrderPartialindex, preOrderPartialIndex, firstDerivativeIndex,
                                            secondDerivativeIndex, categoryRates, categoryWeights,
