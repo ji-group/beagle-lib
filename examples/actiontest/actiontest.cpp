@@ -749,6 +749,8 @@ int main( int argc, const char* argv[] )
     beagleSetDifferentialMatrix(instance, 4, scaledQ.data());
     beagleSetDifferentialMatrix(instance, 5, scaledQ2.data());
 
+    beagleSetSparseDifferentialMatrix(instance, 4, rowIndices, colIndices, eval, 16);
+
 
     std::vector<double> firstBuffer(nPatterns * 5 * 2); // Get both numerator and denominator
     std::vector<double> sumBuffer(5);
