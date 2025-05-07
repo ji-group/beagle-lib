@@ -949,6 +949,21 @@ int beagleSetSparseMatrix(int instance,
     return returnValue;
 }
 
+int beagleSetSparseDifferentialMatrix(int instance,
+                                      int matrixIndex,
+                                      const int *rowIndices,
+                                      const int *colIndices,
+                                      const double *values,
+                                      int numNonZeros) {
+    DEBUG_START_TIME();
+    beagle::BeagleImpl *beagleInstance = beagle::getBeagleInstance(instance);
+    if (beagleInstance == NULL)
+        return BEAGLE_ERROR_UNINITIALIZED_INSTANCE;
+    int returnValue = beagleInstance->setSparseDifferentialMatrix(matrixIndex, rowIndices, colIndices, values, numNonZeros);
+    DEBUG_END_TIME();
+    return returnValue;
+}
+
 int beagleSetStateFrequencies(int instance,
                               int stateFrequenciesIndex,
                               const double* inStateFrequencies) {

@@ -289,6 +289,12 @@ public:
                         const int* colIndices,
                         const double* values,
                         int numNonZeros);
+
+    int setSparseDifferentialMatrix(int matrixIndex,
+                                    const int *rowIndices,
+                                    const int *colIndices,
+                                    const double *values,
+                                    int numNonZeros);
     
     int setStateFrequencies(int stateFrequenciesIndex,
                             const double* inStateFrequencies);

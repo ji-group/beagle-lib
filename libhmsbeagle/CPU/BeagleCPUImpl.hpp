@@ -916,6 +916,16 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setSparseMatrix(int matrixIndex,
 }
 
 BEAGLE_CPU_TEMPLATE
+int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setSparseDifferentialMatrix(int matrixIndex,
+                                                                   const int *rowIndices,
+                                                                   const int *colIndices,
+                                                                   const double *values,
+                                                                   int numNonZeros) {
+
+    return BEAGLE_ERROR_NO_IMPLEMENTATION;
+}
+
+BEAGLE_CPU_TEMPLATE
 int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setCategoryRates(const double* inCategoryRates) {
     int categoryRatesIndex=0;
     if (gCategoryRates[categoryRatesIndex] == NULL) {

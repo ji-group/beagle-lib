@@ -325,8 +325,8 @@ namespace beagle {
                                                                                preferenceFlags, requirementFlags);
             kPartialsCacheOffset = partialsBufferCount + compactBufferCount;
 
-            gInstantaneousMatrices.resize(eigenDecompositionCount);
-            for (int i = 0; i < eigenDecompositionCount; i++)
+            gInstantaneousMatrices.resize(eigenDecompositionCount + matrixCount);
+            for (int i = 0; i < eigenDecompositionCount + matrixCount; i++)
                 gInstantaneousMatrices[i] = SpMatrix(kStateCount, kStateCount);
             gBs.resize(eigenDecompositionCount);
             gMuBs.resize(eigenDecompositionCount);
@@ -665,6 +665,24 @@ namespace beagle {
         }
 
         BEAGLE_CPU_ACTION_TEMPLATE
+        int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::setSparseDifferentialMatrix(int matrixIndex,
+                                                                                       const int *rowIndices,
+                                                                                       const int *colIndices,
+                                                                                       const double *values,
+                                                                                       int numNonZeros) {
+
+
+            std::vector<Triplet> tripletList;
+            for (int i = 0; i < numNonZeros; i++) {
+                tripletList.push_back(Triplet(rowIndices[i], colIndices[i], values[i]));
+            }
+
+            gInstantaneousMatrices[matrixIndex].setFromTriplets(tripletList.begin(), tripletList.end());
+
+            return BEAGLE_SUCCESS;
+        }
+
+        BEAGLE_CPU_ACTION_TEMPLATE
         int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::updateTransitionMatrices(int eigenIndex,
                                                                                     const int* probabilityIndices,
                                                                                     const int* firstDerivativeIndices,
@@ -743,6 +761,54 @@ namespace beagle {
 		simpleAction2(destP, gMappedIntegrationTmp[category], edgeIndex1, category, true);
             }
         }
+
+        BEAGLE_CPU_ACTION_TEMPLATE
+        void BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::calcEdgeLogDerivativesPartials(const double *postOrderPartial,
+                                                                                           const double *preOrderPartial,
+                                                                                           const int firstDerivativeIndex,
+                                                                                           const int secondDerivativeIndex,
+                                                                                           const double *categoryRates,
+                                                                                           const double *categoryWeights,
+                                                                                           const int scalingFactorsIndex,
+                                                                                           double *siteLogLikelihoods,
+                                                                                           double *outLogFirstDerivatives,
+                                                                                           double *outLogDiagonalSecondDerivatives) {
+            std::cout<<"here?"<<std::endl;
+            const double *firstDerivMatrix = gTransitionMatrices[firstDerivativeIndex];
+
+            for (int category = 0; category < kCategoryCount; category++) {
+                const double weight = categoryWeights[category];
+
+                for (int pattern = 0; pattern < kPatternCount; pattern++) {
+
+                    int w = category * kMatrixSize;
+
+                    const int patternIndex = category * kPatternCount + pattern;
+                    const int v = patternIndex * kPartialsPaddedStateCount;
+
+                    double numerator = 0.0;
+                    double denominator = 0.0;
+
+                    for (int k = 0; k < kStateCount; k++) {
+
+                        double sumOverEndState = 0.0;
+                        for (int j = 0; j < kStateCount; j++) {
+                            sumOverEndState += firstDerivMatrix[w]
+                                               * postOrderPartial[v + j]; // fix padded index
+                            w++;
+                        }
+                        w += T_PAD;
+
+                        numerator += sumOverEndState * preOrderPartial[v + k];
+                        denominator += postOrderPartial[v + k] * preOrderPartial[v + k];
+                    }
+
+                    grandNumeratorDerivTmp[pattern] += weight * numerator;
+                    grandDenominatorDerivTmp[pattern] += weight * denominator;
+                }
+            }
+        }
+
 
         BEAGLE_CPU_ACTION_TEMPLATE
         void

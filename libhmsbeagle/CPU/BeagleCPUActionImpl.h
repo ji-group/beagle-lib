@@ -80,7 +80,11 @@ namespace beagle {
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gCategoryRates;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gScaleBuffers;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kFlags;
-//            SpMatrix** gScaledQs;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::grandNumeratorDerivTmp;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::grandDenominatorDerivTmp;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gTransitionMatrices;
+
+            //            SpMatrix** gScaledQs;
             int kPartialsCacheOffset;
 //            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gStateFrequencies;
 //            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::gTipStates;
@@ -200,6 +204,12 @@ namespace beagle {
                                         const double* values,
                                         int numNonZeros);
 
+            virtual int setSparseDifferentialMatrix(int matrixIndex,
+                                                    const int *rowIndices,
+                                                    const int *colIndices,
+                                                    const double *values,
+                                                    int numNonZeros);
+
             virtual int updateTransitionMatrices(int eigenIndex,
                                                  const int* probabilityIndices,
                                                  const int* firstDerivativeIndices,
@@ -228,6 +238,17 @@ namespace beagle {
 					  int edgeIndex2,
 					  int startPattern,
 					  int endPattern);
+
+            void calcEdgeLogDerivativesPartials(const double *postOrderPartial,
+                                                const double *preOrderPartial,
+                                                const int firstDerivativeIndex,
+                                                const int secondDerivativeIndex,
+                                                const double *categoryRates,
+                                                const double *categoryWeights,
+                                                const int scalingFactorsIndex,
+                                                double *siteLogLikelihoods,
+                                                double *outLogFirstDerivatives,
+                                                double *outLogDiagonalSecondDerivatives);
 
 	    // Return (m,s)
 	    std::tuple<int,int> getStatistics2(double t, int nCol, double edgeMultiplier,

@@ -79,6 +79,12 @@ public:
                                 const double* values,
                                 int numNonZeros) = 0;
 
+    virtual int setSparseDifferentialMatrix(int matrixIndex,
+                                            const int *rowIndices,
+                                            const int *colIndices,
+                                            const double *values,
+                                            int numNonZeros) = 0;
+
     virtual int setStateFrequencies(int stateFrequenciesIndex,
                                   const double* inStateFrequencies) = 0;
 
