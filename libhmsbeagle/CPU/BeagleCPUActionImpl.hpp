@@ -474,8 +474,12 @@ namespace beagle {
             if (cumulativeScaleIndex != BEAGLE_OP_NONE)
                 cumulativeScaleBuffer = gScaleBuffers[cumulativeScaleIndex];
 
+            int numOps = BEAGLE_OP_COUNT;
+            if (byPartition)
+                numOps = BEAGLE_PARTITION_OP_COUNT;
+
+
             for (int op = 0; op < operationCount; op++) {
-                int numOps = BEAGLE_OP_COUNT;
 
                 // create a list of partial likelihood update operations
                 // the order is [dest, destScaling, source1, matrix1, source2, matrix2]
@@ -862,15 +866,15 @@ namespace beagle {
 										     int edgeIndex2,
 										     int startPattern,
 										     int endPattern) {
-            memset(gIntegrationTmp, 0, (kPatternCount * kStateCount * kCategoryCount)*sizeof(double));
+            memset(gIntegrationTmp, 0, (kPatternCount * kStateCount * kCategoryCount) * sizeof(double));
 
             for (int category = 0; category < kCategoryCount; category++) {
-		auto partialCache2 = partialsCacheMap(partials2Index, category, startPattern, endPattern);
-		auto partials1     = partialsMap(partials1Index, category, startPattern, endPattern);
-		auto destP         = partialsMap(destPIndex, category, startPattern, endPattern);
+                auto partialCache2 = partialsCacheMap(partials2Index, category, startPattern, endPattern);
+                auto partials1 = partialsMap(partials1Index, category, startPattern, endPattern);
+                auto destP = partialsMap(destPIndex, category, startPattern, endPattern);
 
                 gMappedIntegrationTmp[category] = partialCache2.cwiseProduct(partials1);
-		simpleAction2(destP, gMappedIntegrationTmp[category], edgeIndex1, category, true);
+                simpleAction2(destP, gMappedIntegrationTmp[category], edgeIndex1, category, true);
             }
         }
 
