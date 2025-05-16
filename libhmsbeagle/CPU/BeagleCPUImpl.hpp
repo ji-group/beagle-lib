@@ -1508,21 +1508,21 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::updatePrePartials(const int *operations,
                                                          int cumulativeScaleIndex) {
     int returnCode = BEAGLE_ERROR_GENERAL;
 
-//    if (kAutoPartitioningEnabled) {
-//        autoPartitionPartialsOperations(operations,
-//                                        gAutoPartitionOperations,
-//                                        count,
-//                                        cumulativeScaleIndex);
-//        count *= kPartitionCount;
-//        returnCode = upPrePartialsByPartitionAsync((const int*) gAutoPartitionOperations,
-//                                                count);
-//    } else {
+    if (kAutoPartitioningEnabled) {
+        autoPartitionPartialsOperations(operations,
+                                        gAutoPartitionOperations,
+                                        count,
+                                        cumulativeScaleIndex);
+        count *= kPartitionCount;
+        returnCode = upPrePartialsByPartitionAsync((const int*) gAutoPartitionOperations,
+                                                count);
+    } else {
         bool byPartition = false;
         returnCode = upPartials(byPartition,
                                 operations,
                                 count,
                                 cumulativeScaleIndex);
-//    }
+    }
 
     return returnCode;
 }
