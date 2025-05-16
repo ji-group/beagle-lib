@@ -866,15 +866,24 @@ namespace beagle {
 										     int edgeIndex2,
 										     int startPattern,
 										     int endPattern) {
-            memset(gIntegrationTmp, 0, (kPatternCount * kStateCount * kCategoryCount) * sizeof(double));
+//            memset(gIntegrationTmp, 0, (kPatternCount * kStateCount * kCategoryCount) * sizeof(double));
 
             for (int category = 0; category < kCategoryCount; category++) {
+//                memset(gIntegrationTmp + category * kPaddedPatternCount * kStateCount + startPattern * kStateCount, 0, (endPattern - startPattern) * kStateCount * sizeof(double));
+
                 auto partialCache2 = partialsCacheMap(partials2Index, category, startPattern, endPattern);
                 auto partials1 = partialsMap(partials1Index, category, startPattern, endPattern);
                 auto destP = partialsMap(destPIndex, category, startPattern, endPattern);
 
-                gMappedIntegrationTmp[category] = partialCache2.cwiseProduct(partials1);
-                simpleAction2(destP, gMappedIntegrationTmp[category], edgeIndex1, category, true);
+                auto integrationMap = MapType(gIntegrationTmp + category * kPaddedPatternCount * kStateCount + startPattern * kStateCount, kStateCount, endPattern - startPattern);
+//                memset(integrationMap.data(), 0, (endPattern - startPattern) * kStateCount * sizeof(double));
+                integrationMap = partialCache2;
+                integrationMap = integrationMap.cwiseProduct(partials1);
+//                integrationMap = partialCache2.cwiseProduct(partials1);
+                simpleAction2(destP, integrationMap, edgeIndex1, category, true);
+
+//                gMappedIntegrationTmp[category] = partialCache2.cwiseProduct(partials1);
+//                simpleAction2(destP, gMappedIntegrationTmp[category], edgeIndex1, category, true);
             }
         }
 

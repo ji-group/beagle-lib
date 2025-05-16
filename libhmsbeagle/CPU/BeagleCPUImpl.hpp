@@ -1508,8 +1508,21 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::updatePrePartials(const int *operations,
                                                          int cumulativeScaleIndex) {
     int returnCode = BEAGLE_ERROR_GENERAL;
 
-    bool byPartition = false;
-    returnCode = upPrePartials(byPartition, operations, count, cumulativeScaleIndex);
+    if (kAutoPartitioningEnabled) {
+        autoPartitionPartialsOperations(operations,
+                                        gAutoPartitionOperations,
+                                        count,
+                                        cumulativeScaleIndex);
+        count *= kPartitionCount;
+        returnCode = upPrePartialsByPartitionAsync((const int*) gAutoPartitionOperations,
+                                                count);
+    } else {
+        bool byPartition = false;
+        returnCode = upPartials(byPartition,
+                                operations,
+                                count,
+                                cumulativeScaleIndex);
+    }
 
     return returnCode;
 }
@@ -2492,9 +2505,8 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::updatePrePartialsByPartition(const int* o
     int returnCode = BEAGLE_ERROR_GENERAL;
 
     if (kThreadingEnabled) {
-//        TODO
-//        returnCode = upPrePartialsByPartitionAsync(operations,
-//                                                   count);
+        returnCode = upPrePartialsByPartitionAsync(operations,
+                                                   count);
     } else {
         bool byPartition = true;
         returnCode = upPrePartials(byPartition,
@@ -2549,6 +2561,47 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::upPartialsByPartitionAsync(const int* ope
                       (const int*) gThreadOperations[i],
                       gThreadOpCounts[i],
                       BEAGLE_OP_NONE));
+
+        gFutures[i] = threadTask.get_future();
+        threadData* td = &gThreads[i];
+
+        std::unique_lock<std::mutex> l(td->m);
+        td->jobs.push(std::move(threadTask));
+        l.unlock();
+
+        gThreads[i].cv.notify_one();
+    }
+
+    for (int i=0; i<kNumThreads; i++) {
+        gFutures[i].wait();
+    }
+
+    return BEAGLE_SUCCESS;
+}
+
+BEAGLE_CPU_TEMPLATE
+int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::upPrePartialsByPartitionAsync(const int* operations,
+                                                                  int count) {
+
+    int numOps = BEAGLE_PARTITION_OP_COUNT;
+
+    memset(gThreadOpCounts, 0, sizeof(int) * kNumThreads);
+
+    for (int i=0; i<count; i++) {
+        int t = operations[i * numOps + 7] % kNumThreads;
+        for (int j=0; j<numOps; j++) {
+            gThreadOperations[t][gThreadOpCounts[t]*numOps + j] = operations[i*numOps + j];
+        }
+        gThreadOpCounts[t]++;
+    }
+
+    for (int i=0; i<kNumThreads; i++) {
+        std::packaged_task<void()> threadTask(
+                std::bind(&BeagleCPUImpl<BEAGLE_CPU_GENERIC>::upPrePartials, this,
+                          true,
+                          (const int*) gThreadOperations[i],
+                          gThreadOpCounts[i],
+                          BEAGLE_OP_NONE));
 
         gFutures[i] = threadTask.get_future();
         threadData* td = &gThreads[i];
