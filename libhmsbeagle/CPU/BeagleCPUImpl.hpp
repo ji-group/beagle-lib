@@ -5669,11 +5669,12 @@ void BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calcPrePartialsPartials(REALTYPE* destP,
     int stateCountModFour = (kStateCount / 4) * 4;
     REALTYPE* tmpdestPtr = destP;
     //clean up the partial first, set every entry to 0
-    std::fill(tmpdestPtr, tmpdestPtr + kPartialsSize, 0);
+//    std::fill(tmpdestPtr, tmpdestPtr + kPartialsSize, 0);
 
 #pragma omp parallel for num_threads(kCategoryCount)
     for (int l = 0; l < kCategoryCount; l++) {
-        int v = l*kPartialsPaddedStateCount*kPatternCount + kPartialsPaddedStateCount*startPattern;
+        int v = l*kPartialsPaddedStateCount*kPaddedPatternCount + kPartialsPaddedStateCount*startPattern;
+        std::fill(destP + v, destP + l*kPartialsPaddedStateCount*kPaddedPatternCount + kPartialsPaddedStateCount*endPattern, 0);
         int matrixOffset = l*kMatrixSize;
         const REALTYPE* partials1Ptr = &partials1[v];
         const REALTYPE* partials2Ptr = &partials2[v];
@@ -5745,11 +5746,12 @@ void BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calcPrePartialsStates(REALTYPE* destP,
     int stateCountModFour = (kStateCount / 4) * 4;
     REALTYPE* tmpdestPtr = destP;
     //clean up the partial first, set every entry to 0
-    std::fill(tmpdestPtr, tmpdestPtr + kPartialsSize, 0);
+//    std::fill(tmpdestPtr, tmpdestPtr + kPartialsSize, 0);
 
 #pragma omp parallel for num_threads(kCategoryCount)
     for (int l = 0; l < kCategoryCount; l++) {
-        int v = l*kPartialsPaddedStateCount*kPatternCount + kPartialsPaddedStateCount*startPattern;
+        int v = l*kPartialsPaddedStateCount*kPaddedPatternCount + kPartialsPaddedStateCount*startPattern;
+        std::fill(destP + v, destP + l*kPartialsPaddedStateCount*kPaddedPatternCount + kPartialsPaddedStateCount*endPattern, 0);
         int matrixOffset = l*kMatrixSize;
         const REALTYPE* partials1Ptr = &partials1[v];
 
