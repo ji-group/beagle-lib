@@ -578,26 +578,31 @@ namespace beagle {
                                                                                           const int scalingFactorsIndex,
                                                                                           double *outDerivativesForNode,
                                                                                           double *outSumDerivativesForNode,
-                                                                                          double *outSumSquaredDerivativesForNode)
+                                                                                          double *outSumSquaredDerivativesForNode,
+                                                                                          int offset)
         {
-            auto destNumeratorDrivTmp = MapType(grandNumeratorDerivTmp, 1, kPatternCount);
-            auto destDenominatorDrivTmp = MapType(grandDenominatorDerivTmp, 1, kPatternCount);
-            auto destFirstDerivTmp = MapType(firstDerivTmp, kStateCount, kPatternCount);
-            auto destSecondDerivTmp = MapType(secondDerivTmp, kStateCount, kPatternCount);
+
+            auto destNumeratorDrivTmp = MapType(grandNumeratorDerivTmp + offset * kPatternCount , 1, kPatternCount);
+            auto destDenominatorDrivTmp = MapType(grandDenominatorDerivTmp + offset * kPatternCount, 1, kPatternCount);
+            auto destFirstDerivTmp = MapType(firstDerivTmp + offset * kPatternCount * kStateCount, kStateCount, kPatternCount);
+            auto destSecondDerivTmp = MapType(secondDerivTmp + offset * kPatternCount * kStateCount, kStateCount, kPatternCount);
             SpMatrix differentialMatrix = gInstantaneousMatrices[firstDerivativeIndex];
 
-//            std::cerr<<"dQ = " << differentialMatrix << std::endl;
+//            std::cerr<<"dQ = " << differentialMatrix << ", offset = "<< offset << std::endl;
+//            std::cerr<< "offset = "<< offset << std::endl;
 
 
             for (int category = 0; category < kCategoryCount; category++) {
                 const double weight = categoryWeights[category];
+
+//                std::cerr<<"Category = " << category << " ; multiplier = " << weight << " * " << categoryRates[category] << std::endl;
 
                 MapType postOrderPartial = partialsMap(postOrderPartialIndex, category, 0, kPatternCount);
                 MapType preOrderPartial = partialsMap(preOrderPartialIndex, category, 0, kPatternCount);
 
                 const double categoryMultiplier = weight * categoryRates[category];
 
-//                std::cerr<<"Category = " << category << " ; multiplier = " << weight << " * " << categoryRates[category] << " = " << categoryMultiplier << std::endl;
+//                std::cerr<< " = " << categoryMultiplier << std::endl;
 
                 destFirstDerivTmp = differentialMatrix * postOrderPartial;
 
@@ -619,6 +624,91 @@ namespace beagle {
                 destDenominatorDrivTmp += destSecondDerivTmp.colwise().sum() * weight;
 //                std::cerr<<"colSum(q'p)rw = " << std::endl << destDenominatorDrivTmp << std::endl;
             }
+//            std::cerr<< "reduction finished"<< std::endl;
+        }
+
+        BEAGLE_CPU_ACTION_TEMPLATE
+        int BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::calcEdgeLogDerivativesByAutoPartitionAsync(const int *operations,
+                                                                                                      int count,
+                                                                                                      double *outDerivatives,
+                                                                                                      double *outSumDerivatives,
+                                                                                                      double *outSumSquaredDerivatives) {
+
+            int returnCode = BEAGLE_SUCCESS;
+
+            int numOps  = BEAGLE_OP_COUNT;
+            int numOpsP = BEAGLE_PARTITION_OP_COUNT;
+
+            const int secondDerivativeIndex = BEAGLE_OP_NONE;
+            const double *categoryRates = gCategoryRates[0]; // TODO Generalize
+            const double *categoryWeights = gCategoryWeights[operations[3]]; // TODO Generalize
+
+
+
+            for (int nodeNum = 0; nodeNum < count; nodeNum++) {
+
+                const int preOrderPartialIndex = operations[nodeNum * numOpsP + 1];
+                const int postOrderPartialindex =  operations[nodeNum * numOpsP];
+
+
+                const int firstDerivativeIndex = operations[nodeNum * numOpsP + 2];
+                const int scalingFactorsIndex = -1; // cumulativeScaleIndices[nodeNum];
+
+                const int patternOffset = operations[nodeNum * numOpsP + 4] * kPatternCount;
+                const int threadOffset = operations[nodeNum * numOpsP + 5] * kPatternCount;
+
+#ifdef BEAGLE_DEBUG_FLOW
+                std::cerr<<"Job = " << operations[nodeNum * numOpsP + 4] <<std::endl;
+                std::cerr<<"Post index = " << operations[nodeNum * numOpsP] <<std::endl;
+                std::cerr<<"Pre index = " << operations[nodeNum * numOpsP + 1] <<std::endl;
+                std::cerr<<"First Derivative index = " << operations[nodeNum * numOpsP + 2] <<std::endl;
+#endif
+
+                double* outDerivativesForNode = (outDerivatives == NULL) ?
+                                                NULL : outDerivatives + patternOffset;
+                double* outSumDerivativesForNode = (outSumDerivatives == NULL) ?
+                                                   NULL : outSumDerivatives + operations[nodeNum * numOpsP + 4];
+                double* outSumSquaredDerivativesForNode = (outSumSquaredDerivatives == NULL) ?
+                                                          NULL : outSumSquaredDerivatives + operations[nodeNum * numOpsP + 4];
+
+                resetDerivativeTemporaries(threadOffset);
+
+//            std::cerr<<"Node = " << nodeNum << std::endl;
+
+#ifdef BEAGLE_DEBUG_FLOW
+                std::cerr<<"Almost almost finished Job = " << operations[nodeNum * numOpsP + 4] <<std::endl;
+#endif
+
+
+                calcEdgeLogDerivativesPartials(postOrderPartialindex, preOrderPartialIndex, firstDerivativeIndex,
+                                               secondDerivativeIndex, categoryRates, categoryWeights,
+                                               scalingFactorsIndex,
+                                               outDerivativesForNode,
+                                               outSumDerivativesForNode,
+                                               outSumSquaredDerivativesForNode,
+                                               operations[nodeNum * numOpsP + 5]);
+
+
+#ifdef BEAGLE_DEBUG_FLOW
+                std::cerr<<"Almost finished Job = " << operations[nodeNum * numOpsP + 4] <<std::endl;
+#endif
+
+
+                accumulateDerivatives(outDerivativesForNode,
+                                      outSumDerivativesForNode,
+                                      outSumSquaredDerivativesForNode, threadOffset);
+
+#ifdef BEAGLE_DEBUG_FLOW
+                std::cerr<<"Finished Job = " << operations[nodeNum * numOpsP + 4] << ", current / count = " << nodeNum << "/" << count <<std::endl;
+#endif
+            }
+
+
+#ifdef BEAGLE_DEBUG_FLOW
+            std::cerr<<"Reached return!" <<std::endl;
+#endif
+
+            return returnCode;
         }
 
         BEAGLE_CPU_ACTION_TEMPLATE
@@ -666,7 +756,8 @@ namespace beagle {
                                            scalingFactorsIndex,
                                            outDerivativesForNode,
                                            outSumDerivativesForNode,
-                                           outSumSquaredDerivativesForNode);
+                                           outSumSquaredDerivativesForNode,
+                                           0);
 
             accumulateDerivatives(outDerivativesForNode,
                                   outSumDerivativesForNode,

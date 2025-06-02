@@ -217,7 +217,14 @@ namespace beagle {
                                                 const int scalingFactorsIndex,
                                                 double *siteLogLikelihoods,
                                                 double *outLogFirstDerivatives,
-                                                double *outLogDiagonalSecondDerivatives);
+                                                double *outLogDiagonalSecondDerivatives,
+                                                int offset);
+
+            int calcEdgeLogDerivativesByAutoPartitionAsync(const int *operations,
+                                                           int count,
+                                                           double *outDerivatives,
+                                                           double *outSumDerivatives,
+                                                           double *outSumSquaredDerivatives);
 
             virtual int setEigenDecomposition(int eigenIndex,
                                               const double *inEigenVectors,
