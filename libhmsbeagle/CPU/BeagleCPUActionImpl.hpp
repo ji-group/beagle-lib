@@ -657,7 +657,7 @@ namespace beagle {
             double* outSumSquaredDerivativesForNode = (outSumSquaredDerivatives == NULL) ?
                                                       NULL : outSumSquaredDerivatives + nodeNum;
 
-            resetDerivativeTemporaries();
+            resetDerivativeTemporaries(0);
 
 //            std::cerr<<"Node = " << nodeNum << std::endl;
 
@@ -670,7 +670,7 @@ namespace beagle {
 
             accumulateDerivatives(outDerivativesForNode,
                                   outSumDerivativesForNode,
-                                  outSumSquaredDerivativesForNode);
+                                  outSumSquaredDerivativesForNode, 0);
 
         }
 
