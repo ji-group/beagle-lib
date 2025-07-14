@@ -309,21 +309,8 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     std::vector<std::vector<int>> indices(pMax+1,std::vector<int>(n,0));
     std::vector<std::vector<bool>> ind_hist(pMax+1, std::vector<bool>(n,0));
 
-    for(int p=0; p<=pMax; p++)
+    for(int p=1; p<=pMax; p++)
     {
-        if (p == 0)
-        {
-            norms[p] = 1.0;
-            continue;
-        }
-
-        // Defer to normP1 if p=1 and n is small or we want an exact answer.
-        if (p == 1 and (n <= 4 or t == n))
-        {
-            norms[p] = normP1(A);
-            continue;
-        }
-
         // (0) Choose starting matrix X that is (n,t) with columns of unit 1-norm.
         // We choose the first column to be all 1s.
         X[p].col(0).setOnes();
@@ -333,19 +320,8 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         X[p] /= n;
     }
 
-    for(int p=0; p<=pMax; p++)
+    for(int p=1; p<=pMax; p++)
     {
-        if (p == 0)
-        {
-            continue;
-        }
-
-        // Defer to normP1 if p=1 and n is small or we want an exact answer.
-        if (p == 1 and (n <= 4 or t == n))
-        {
-            continue;
-        }
-
         std::optional<double> result;
 
         for(int k=1; k<=itmax and not result; k++)
