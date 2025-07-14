@@ -299,6 +299,8 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
     std::vector<double> norms(pMax+1, 1.0);
 
+    std::vector<MatrixXd> X(pMax+1);
+
     for(int p=0; p<=pMax; p++)
     {
         if (p == 0)
@@ -315,13 +317,13 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         }
 
         // (0) Choose starting matrix X that is (n,t) with columns of unit 1-norm.
-        MatrixXd X(n,t);
+        X[p].resize(n,t);
         // We choose the first column to be all 1s.
-        X.col(0).setOnes();
+        X[p].col(0).setOnes();
         // The other columns have randomly chosen {-1,+1} entries.
-        X = X.unaryExpr( &random_plus_minus_1_func );
+        X[p] = X[p].unaryExpr( &random_plus_minus_1_func );
         // Divide by n so that the norm of each column is 1.
-        X /= n;
+        X[p] /= n;
 
         // 3.
         std::vector<bool> ind_hist(n,0);
@@ -338,7 +340,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         for(int k=1; k<=itmax and not result; k++)
         {
             // std::cerr<<"iter "<<k<<"\n";
-            Y = A*X; // Y is (n,n) * (n,t) = (n,t)
+            Y = A*X[p]; // Y is (n,n) * (n,t) = (n,t)
             for(int i=1;i<p;i++)
                 Y = A*Y;
 
@@ -411,9 +413,9 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             int tmax = std::min<int>(t, indices.size());
 
-            X = MatrixXd::Zero(n, tmax);
+            X[p] = MatrixXd::Zero(n, tmax);
             for(int j=0; j < tmax; j++)
-                X(indices[j], j) = 1; // X(:,j) = e(indices[j])
+                X[p](indices[j], j) = 1; // X(:,j) = e(indices[j])
 
             for(int i: indices)
                 ind_hist[i] = true;
