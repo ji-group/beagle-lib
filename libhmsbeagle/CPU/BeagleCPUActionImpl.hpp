@@ -300,6 +300,10 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     std::vector<double> norms(pMax+1, 1.0);
 
     std::vector<MatrixXd> X(pMax+1);
+    std::vector<MatrixXd> Y(pMax+1, MatrixXd(n,t));
+    std::vector<MatrixXd> Z(pMax+1, MatrixXd(n,t));
+    std::vector<MatrixXd> S(pMax+1, MatrixXd::Ones(n,t));
+    std::vector<Eigen::VectorXd> h(pMax+1, Eigen::VectorXd(n));
 
     for(int p=0; p<=pMax; p++)
     {
@@ -330,27 +334,23 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         std::vector<int> indices(n,0);
         int ind_best = -1;
         double est_old = 0;
-        MatrixXd S = MatrixXd::Ones(n,t);
-        MatrixXd Y(n,t);
-        MatrixXd Z(n,t);
-        Eigen::VectorXd h(n);
 
         std::optional<double> result;
 
         for(int k=1; k<=itmax and not result; k++)
         {
             // std::cerr<<"iter "<<k<<"\n";
-            Y = A*X[p]; // Y is (n,n) * (n,t) = (n,t)
+            Y[p] = A*X[p]; // Y is (n,n) * (n,t) = (n,t)
             for(int i=1;i<p;i++)
-                Y = A*Y;
+                Y[p] = A*Y[p];
 
-            auto [est, j] = ArgNormP1(Y);
+            auto [est, j] = ArgNormP1(Y[p]);
 
             if (est > est_old or k == 2)
             {
                 // Note that j is in [0,t-1], but indices[j] is in [0,n-1].
                 ind_best = indices[j];
-                // w = Y.col(ind_best);
+                // w = Y[p].col(ind_best);
             }
             // std::cerr<<"  est = "<<est<<"  (est_old = "<<est_old<<")\n";
             assert(ind_best < n);
@@ -367,14 +367,14 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             assert(est >= est_old);
 
-            // S = sign(Y), 0.0 -> 1.0
-            S = Y.unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
+            // S[p] = sign(Y[p]), 0.0 -> 1.0
+            S[p] = Y[p].unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
 
             // (3) of Algorithm 2.4
-            Z = A.transpose() * S; // (n,n) * (n,t) -> (n,t)
+            Z[p] = A.transpose() * S[p]; // (n,n) * (n,t) -> (n,t)
 
-            // Maximize across each the t entries in each row of Z.
-            h = Z.cwiseAbs().rowwise().maxCoeff();  // (n,t) -> (n,1)
+            // Maximize across each the t entries in each row of Z[p].
+            h[p] = Z[p].cwiseAbs().rowwise().maxCoeff();  // (n,t) -> (n,1)
 
             // Sort dimensions based on h
             indices.resize(n);
@@ -382,7 +382,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
                 indices[i] = i;
 
             // reorder idx so that the highest values of h[indices[i]] come first.
-            std::sort(indices.begin(), indices.end(), [&](int i,int j) {return h[i] > h[j];});
+            std::sort(indices.begin(), indices.end(), [&](int i,int j) {return h[p][i] > h[p][j];});
 
             // (5) of Algorithm 2.4
             int n_found = 0;
