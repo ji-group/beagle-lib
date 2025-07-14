@@ -299,7 +299,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
     std::vector<double> norms(pMax+1, 1.0);
 
-    std::vector<MatrixXd> X(pMax+1);
+    std::vector<MatrixXd> X(pMax+1, MatrixXd(n,t));
     std::vector<MatrixXd> Y(pMax+1, MatrixXd(n,t));
     std::vector<MatrixXd> Z(pMax+1, MatrixXd(n,t));
     std::vector<MatrixXd> S(pMax+1, MatrixXd::Ones(n,t));
@@ -325,15 +325,26 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         }
 
         // (0) Choose starting matrix X that is (n,t) with columns of unit 1-norm.
-        X[p].resize(n,t);
         // We choose the first column to be all 1s.
         X[p].col(0).setOnes();
         // The other columns have randomly chosen {-1,+1} entries.
         X[p] = X[p].unaryExpr( &random_plus_minus_1_func );
         // Divide by n so that the norm of each column is 1.
         X[p] /= n;
+    }
 
-        // 3.
+    for(int p=0; p<=pMax; p++)
+    {
+        if (p == 0)
+        {
+            continue;
+        }
+
+        // Defer to normP1 if p=1 and n is small or we want an exact answer.
+        if (p == 1 and (n <= 4 or t == n))
+        {
+            continue;
+        }
 
         std::optional<double> result;
 
