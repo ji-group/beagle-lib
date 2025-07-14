@@ -300,11 +300,12 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     std::vector<double> norms(pMax+1, 0);
     norms[0] = 1.0;
 
+    MatrixXd S(n,t);
+    MatrixXd Z(n,t);
+    Eigen::VectorXd h(n);
+
     std::vector<MatrixXd> X(pMax+1, MatrixXd(n,t));
     std::vector<MatrixXd> Y(pMax+1, MatrixXd(n,t));
-    std::vector<MatrixXd> Z(pMax+1, MatrixXd(n,t));
-    std::vector<MatrixXd> S(pMax+1, MatrixXd::Ones(n,t));
-    std::vector<Eigen::VectorXd> h(pMax+1, Eigen::VectorXd(n));
     std::vector<int> ind_best(pMax+1, -1);
     std::vector<double> est_old(pMax+1,0);
     std::vector<std::vector<int>> indices(pMax+1,std::vector<int>(n,0));
@@ -320,6 +321,10 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         // Divide by n so that the norm of each column is 1.
         X[p] /= n;
     }
+
+    std::vector<int> all_indices;
+    all_indices.resize(n);
+    std::vector<bool> all_ind_hist(n,false);
 
     for(int k=1; k<=itmax; k++)
     {
@@ -347,14 +352,14 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             assert(est >= est_old[p]);
 
-            // S[p] = sign(Y[p]), 0.0 -> 1.0
-            S[p] = Y[p].unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
+            // S = sign(Y[p]), 0.0 -> 1.0
+            S = Y[p].unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
 
             // (3) of Algorithm 2.4
-            Z[p] = A.transpose() * S[p]; // (n,n) * (n,t) -> (n,t)
+            Z = A.transpose() * S; // (n,n) * (n,t) -> (n,t)
 
-            // Maximize across each the t entries in each row of Z[p].
-            h[p] = Z[p].cwiseAbs().rowwise().maxCoeff();  // (n,t) -> (n,1)
+            // Maximize across each the t entries in each row of Z.
+            h = Z.cwiseAbs().rowwise().maxCoeff();  // (n,t) -> (n,1)
 
             // Sort dimensions based on h
             indices[p].resize(n);
@@ -362,13 +367,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
                 indices[p][i] = i;
 
             // reorder idx so that the highest values of h[indices[i]] come first.
-            std::sort(indices[p].begin(), indices[p].end(), [&](int i,int j) {return h[p][i] > h[p][j];});
-
-            // (5) of Algorithm 2.4
-            int n_found = 0;
-            for(int i=0;i<t;i++)
-                if (ind_hist[p][indices[p][i]])
-                    n_found++;
+            std::sort(indices[p].begin(), indices[p].end(), [&](int i,int j) {return h[i] > h[j];});
 
             // find the first t indices that are not in ind_hist
             int l=0;
