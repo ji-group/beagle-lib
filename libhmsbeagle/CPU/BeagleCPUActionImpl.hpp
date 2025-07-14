@@ -304,6 +304,10 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     std::vector<MatrixXd> Z(pMax+1, MatrixXd(n,t));
     std::vector<MatrixXd> S(pMax+1, MatrixXd::Ones(n,t));
     std::vector<Eigen::VectorXd> h(pMax+1, Eigen::VectorXd(n));
+    std::vector<int> ind_best(pMax+1, -1);
+    std::vector<double> est_old(pMax+1,0);
+    std::vector<std::vector<int>> indices(pMax+1,std::vector<int>(n,0));
+    std::vector<std::vector<bool>> ind_hist(pMax+1, std::vector<bool>(n,0));
 
     for(int p=0; p<=pMax; p++)
     {
@@ -330,10 +334,6 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         X[p] /= n;
 
         // 3.
-        std::vector<bool> ind_hist(n,0);
-        std::vector<int> indices(n,0);
-        int ind_best = -1;
-        double est_old = 0;
 
         std::optional<double> result;
 
@@ -346,26 +346,26 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             auto [est, j] = ArgNormP1(Y[p]);
 
-            if (est > est_old or k == 2)
+            if (est > est_old[p] or k == 2)
             {
                 // Note that j is in [0,t-1], but indices[j] is in [0,n-1].
-                ind_best = indices[j];
+                ind_best[p] = indices[p][j];
                 // w = Y[p].col(ind_best);
             }
             // std::cerr<<"  est = "<<est<<"  (est_old = "<<est_old<<")\n";
-            assert(ind_best < n);
+            assert(ind_best[p] < n);
 
             // (1) of Algorithm 2.4
-            if (est < est_old and k >= 2)
+            if (est < est_old[p] and k >= 2)
             {
                 // std::cerr<<"  The new estimate ("<<est<<") is smaller than the old estimate ("<<est_old<<")\n";
-                result = est_old;
+                result = est_old[p];
                 break;
             }
 
-            est_old = est;
+            est_old[p] = est;
 
-            assert(est >= est_old);
+            assert(est >= est_old[p]);
 
             // S[p] = sign(Y[p]), 0.0 -> 1.0
             S[p] = Y[p].unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
@@ -377,17 +377,17 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             h[p] = Z[p].cwiseAbs().rowwise().maxCoeff();  // (n,t) -> (n,1)
 
             // Sort dimensions based on h
-            indices.resize(n);
+            indices[p].resize(n);
             for(int i=0;i<n;i++)
-                indices[i] = i;
+                indices[p][i] = i;
 
             // reorder idx so that the highest values of h[indices[i]] come first.
-            std::sort(indices.begin(), indices.end(), [&](int i,int j) {return h[p][i] > h[p][j];});
+            std::sort(indices[p].begin(), indices[p].end(), [&](int i,int j) {return h[p][i] > h[p][j];});
 
             // (5) of Algorithm 2.4
             int n_found = 0;
             for(int i=0;i<t;i++)
-                if (ind_hist[indices[i]])
+                if (ind_hist[p][indices[p][i]])
                     n_found++;
 
             if (n_found == t)
@@ -400,25 +400,25 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             // find the first t indices that are not in ind_hist
             int l=0;
-            for(int i=0;i<indices.size() and l < t;i++)
+            for(int i=0;i<indices[p].size() and l < t;i++)
             {
-                if (not ind_hist[indices[i]])
+                if (not ind_hist[p][indices[p][i]])
                 {
-                    indices[l] = indices[i];
+                    indices[p][l] = indices[p][i];
                     l++;
                 }
             }
-            indices.resize( std::min(l,t) );
-            assert(not indices.empty());
+            indices[p].resize( std::min(l,t) );
+            assert(not indices[p].empty());
 
-            int tmax = std::min<int>(t, indices.size());
+            int tmax = std::min<int>(t, indices[p].size());
 
             X[p] = MatrixXd::Zero(n, tmax);
             for(int j=0; j < tmax; j++)
-                X[p](indices[j], j) = 1; // X(:,j) = e(indices[j])
+                X[p](indices[p][j], j) = 1; // X(:,j) = e(indices[j])
 
-            for(int i: indices)
-                ind_hist[i] = true;
+            for(int i: indices[p])
+                ind_hist[p][i] = true;
         }
 
         norms[p] = result.value();
