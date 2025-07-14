@@ -330,7 +330,6 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         double est_old = 0;
         MatrixXd S = MatrixXd::Ones(n,t);
         MatrixXd S_old = MatrixXd::Ones(n,t);
-        MatrixXi prodS(t,t);
         MatrixXd Y(n,t);
         MatrixXd Z(n,t);
         Eigen::VectorXd h(n);
@@ -369,43 +368,6 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             // S = sign(Y), 0.0 -> 1.0
             S = Y.unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
-
-            // prodS is (t,t)
-            prodS = (S_old.transpose() * S).matrix().cwiseAbs().cast<int>() ;
-
-            // (2) If each columns in S is parallel to SOME column of S_old
-            if (prodS.colwise().maxCoeff().sum() == n * t and k >= 2)
-            {
-                // std::cerr<<"  All columns of S parallel to S_old\n";
-                result = est;
-                break;
-            }
-
-            if (t > 1)
-            {
-                // If S(j) is parallel to S_old(i), replace S(j) with random column
-                for(int j=0;j<S.cols();j++)
-                {
-                    for(int i=0;i<S_old.cols();i++)
-                        if (prodS(i,j) == n)
-                        {
-                            // std::cerr<<"  S.col("<<j<<") parallel to S_old.col("<<i<<")\n";
-                            S.col(j) = S.col(j).unaryExpr( &random_plus_minus_1_func );
-                            break;
-                        }
-                }
-
-                // If S(j) is parallel to S(i) for i<j, replace S(j) with random column
-                prodS = (S.transpose() * S).matrix().cast<int>() ;
-                for(int i=0;i<S.cols();i++)
-                    for(int j=i+1;j<S.cols();j++)
-                        if (prodS(i,j) == n)
-                        {
-                            // std::cerr<<"  S.col("<<j<<") parallel to S.col("<<i<<")\n";
-                            S.col(j) = S.col(j).unaryExpr( &random_plus_minus_1_func );
-                            break;
-                        }
-            }
 
             // (3) of Algorithm 2.4
             Z = A.transpose() * S; // (n,n) * (n,t) -> (n,t)
