@@ -202,9 +202,10 @@ double normest1(const SpMatrix& A, int p, int t=2, int itmax=5)
         }
 
         // (3) of Algorithm 2.4
-	Z = A.transpose() * S; // (t,n) * (n,t) -> (t,t)
+	Z = A.transpose() * S; // (n,n) * (n,t) -> (n,t)
 
-	h = Z.cwiseAbs().rowwise().maxCoeff();
+        // Maximize across each the t entries in each row of Z.
+	h = Z.cwiseAbs().rowwise().maxCoeff();  // (n,t) -> (n,1)
 
 	// (4) of Algorithm 2.4
 	if (k >= 2 and h.maxCoeff() == h[ind_best])
