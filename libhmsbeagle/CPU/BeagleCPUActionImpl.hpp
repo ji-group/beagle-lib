@@ -308,6 +308,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     std::vector<double> est_old(pMax+1,0);
     std::vector<std::vector<int>> indices(pMax+1,std::vector<int>(n,0));
     std::vector<std::vector<bool>> ind_hist(pMax+1, std::vector<bool>(n,0));
+    std::vector<std::optional<double>> result(pMax+1);
 
     for(int p=1; p<=pMax; p++)
     {
@@ -322,9 +323,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
     for(int p=1; p<=pMax; p++)
     {
-        std::optional<double> result;
-
-        for(int k=1; k<=itmax and not result; k++)
+        for(int k=1; k<=itmax and not result[p]; k++)
         {
             // std::cerr<<"iter "<<k<<"\n";
             Y[p] = A*X[p]; // Y is (n,n) * (n,t) = (n,t)
@@ -346,7 +345,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             if (est < est_old[p] and k >= 2)
             {
                 // std::cerr<<"  The new estimate ("<<est<<") is smaller than the old estimate ("<<est_old<<")\n";
-                result = est_old[p];
+                result[p] = est_old[p];
                 break;
             }
 
@@ -381,7 +380,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             {
                 assert(k >= 2);
                 // std::cerr<<"  All columns were found in the column history.\n";
-                result = est;
+                result[p] = est;
                 break;
             }
 
@@ -407,13 +406,14 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             for(int i: indices[p])
                 ind_hist[p][i] = true;
         }
-
-        norms[p] = result.value();
     }
 
     auto sep_norms = normest1_all(A,pMax,t,itmax);
-    for(int p=0;p<pMax+1;p++)
+    for(int p=1;p<pMax+1;p++)
+    {
+        norms[p] = result[p].value();
         std::cerr<<"p = "<<p<<"  norm = "<<sep_norms[p]<<" norm_merged = "<<norms[p]<<"\n";
+    }
     
     return norms;
 }
