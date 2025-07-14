@@ -323,7 +323,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
     for(int p=1; p<=pMax; p++)
     {
-        for(int k=1; k<=itmax and not result[p]; k++)
+        for(int k=1; k<=itmax; k++)
         {
             // std::cerr<<"iter "<<k<<"\n";
             Y[p] = A*X[p]; // Y is (n,n) * (n,t) = (n,t)
