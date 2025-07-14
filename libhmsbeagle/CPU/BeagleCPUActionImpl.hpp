@@ -297,7 +297,8 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     // Interpret negative t as t == n
     if (t < 0) t = n;
 
-    std::vector<double> norms(pMax+1, 1.0);
+    std::vector<double> norms(pMax+1, 0);
+    norms[0] = 1.0;
 
     std::vector<MatrixXd> X(pMax+1, MatrixXd(n,t));
     std::vector<MatrixXd> Y(pMax+1, MatrixXd(n,t));
@@ -308,7 +309,6 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     std::vector<double> est_old(pMax+1,0);
     std::vector<std::vector<int>> indices(pMax+1,std::vector<int>(n,0));
     std::vector<std::vector<bool>> ind_hist(pMax+1, std::vector<bool>(n,0));
-    std::vector<std::optional<double>> result(pMax+1);
 
     for(int p=1; p<=pMax; p++)
     {
@@ -332,6 +332,8 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             auto [est, j] = ArgNormP1(Y[p]);
 
+            norms[p] = std::max(norms[p], est);
+
             if (est > est_old[p] or k == 2)
             {
                 // Note that j is in [0,t-1], but indices[j] is in [0,n-1].
@@ -340,14 +342,6 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             }
             // std::cerr<<"  est = "<<est<<"  (est_old = "<<est_old<<")\n";
             assert(ind_best[p] < n);
-
-            // (1) of Algorithm 2.4
-            if (est < est_old[p] and k >= 2)
-            {
-                // std::cerr<<"  The new estimate ("<<est<<") is smaller than the old estimate ("<<est_old<<")\n";
-                result[p] = est_old[p];
-                break;
-            }
 
             est_old[p] = est;
 
@@ -376,14 +370,6 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
                 if (ind_hist[p][indices[p][i]])
                     n_found++;
 
-            if (n_found == t)
-            {
-                assert(k >= 2);
-                // std::cerr<<"  All columns were found in the column history.\n";
-                result[p] = est;
-                break;
-            }
-
             // find the first t indices that are not in ind_hist
             int l=0;
             for(int i=0;i<indices[p].size() and l < t;i++)
@@ -411,7 +397,6 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     auto sep_norms = normest1_all(A,pMax,t,itmax);
     for(int p=1;p<pMax+1;p++)
     {
-        norms[p] = result[p].value();
         std::cerr<<"p = "<<p<<"  norm = "<<sep_norms[p]<<" norm_merged = "<<norms[p]<<"\n";
     }
     
