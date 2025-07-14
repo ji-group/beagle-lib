@@ -382,6 +382,10 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             indices[p].resize( std::min(l,t) );
             assert(not indices[p].empty());
 
+        }
+
+        for(int p=1;p<=pMax;p++)
+        {
             int tmax = std::min<int>(t, indices[p].size());
 
             X[p] = MatrixXd::Zero(n, tmax);
