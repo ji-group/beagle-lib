@@ -329,7 +329,6 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         int ind_best = -1;
         double est_old = 0;
         MatrixXd S = MatrixXd::Ones(n,t);
-        MatrixXd S_old = MatrixXd::Ones(n,t);
         MatrixXd Y(n,t);
         MatrixXd Z(n,t);
         Eigen::VectorXd h(n);
@@ -375,19 +374,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             // Maximize across each the t entries in each row of Z.
             h = Z.cwiseAbs().rowwise().maxCoeff();  // (n,t) -> (n,1)
 
-            // (4) of Algorithm 2.4
-            if (k >= 2 and h.maxCoeff() == h[ind_best])
-            {
-                // std::cerr<<"  The best column ("<<ind_best<<") is not new\n";
-
-                // According to Algorithm 2.4, we should exit here.
-
-                // However, continuing until we find a different reason to exit 
-                // seems to providegreater accuracy.
-
-                // return est;
-            }
-
+            // Sort dimensions based on h
             indices.resize(n);
             for(int i=0;i<n;i++)
                 indices[i] = i;
@@ -430,8 +417,6 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             for(int i: indices)
                 ind_hist[i] = true;
-
-            S_old = S;
         }
 
         norms[p] = result.value();
