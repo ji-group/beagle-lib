@@ -323,7 +323,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     all_indices.resize(n);
     std::vector<bool> all_ind_hist(n,false);
 
-    for(int k=1; k<=itmax; k++)
+    for(int k=1; k<=itmax and X.cols() > 0; k++)
     {
         for(int p=1; p<=pMax; p++)
         {
