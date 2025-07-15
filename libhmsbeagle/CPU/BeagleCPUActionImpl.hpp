@@ -304,23 +304,20 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     MatrixXd Z(n,t);
     Eigen::VectorXd h(n);
 
-    std::vector<MatrixXd> X(pMax+1, MatrixXd(n,t));
+    MatrixXd X(n,t);
     std::vector<MatrixXd> Y(pMax+1, MatrixXd(n,t));
     std::vector<int> ind_best(pMax+1, -1);
     std::vector<double> est_old(pMax+1,0);
     std::vector<std::vector<int>> indices(pMax+1,std::vector<int>(n,0));
     std::vector<std::vector<bool>> ind_hist(pMax+1, std::vector<bool>(n,0));
 
-    for(int p=1; p<=pMax; p++)
-    {
-        // (0) Choose starting matrix X that is (n,t) with columns of unit 1-norm.
-        // We choose the first column to be all 1s.
-        X[p].col(0).setOnes();
-        // The other columns have randomly chosen {-1,+1} entries.
-        X[p] = X[p].unaryExpr( &random_plus_minus_1_func );
-        // Divide by n so that the norm of each column is 1.
-        X[p] /= n;
-    }
+    // (0) Choose starting matrix X that is (n,t) with columns of unit 1-norm.
+    // We choose the first column to be all 1s.
+    X.col(0).setOnes();
+    // The other columns have randomly chosen {-1,+1} entries.
+    X = X.unaryExpr( &random_plus_minus_1_func );
+    // Divide by n so that the norm of each column is 1.
+    X /= n;
 
     std::vector<int> all_indices;
     all_indices.resize(n);
@@ -339,10 +336,12 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             norms[p] = std::max(norms[p], est);
 
+            if (k == itmax) break;
+
             if (est > est_old[p] or k == 2)
             {
                 // Note that j is in [0,t-1], but indices[j] is in [0,n-1].
-                ind_best[p] = indices[p][j];
+                ind_best[p] = all_indices[j];
                 // w = Y[p].col(ind_best);
             }
             // std::cerr<<"  est = "<<est<<"  (est_old = "<<est_old<<")\n";
@@ -384,16 +383,31 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
         }
 
+        // Combine indices from different values of p
+        all_indices.clear();
         for(int p=1;p<=pMax;p++)
         {
-            int tmax = std::min<int>(t, indices[p].size());
-
-            X[p] = MatrixXd::Zero(n, tmax);
-            for(int j=0; j < tmax; j++)
-                X[p](indices[p][j], j) = 1; // X(:,j) = e(indices[j])
-
             for(int i: indices[p])
+            {
                 ind_hist[p][i] = true;
+                if (not all_ind_hist[i])
+                {
+                    all_indices.push_back(i);
+                    all_ind_hist[i] = true;
+                }
+            }
+        }
+
+        std::cerr<<"k = "<<k<<" all_indices.size() = "<<all_indices.size()<<"\n";
+
+        // Create a new X for the next iteration.
+        int tmax = all_indices.size();
+
+        if (tmax > 0)
+        {
+            X = MatrixXd::Zero(n, tmax);
+            for(int j=0; j < tmax; j++)
+                X(all_indices[j], j) = 1; // X(:,j) = e(indices[j])
         }
     }
 
