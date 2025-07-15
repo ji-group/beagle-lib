@@ -328,9 +328,10 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         for(int p=1; p<=pMax; p++)
         {
             // std::cerr<<"iter "<<k<<"\n";
-            Y[p] = A*X[p]; // Y is (n,n) * (n,t) = (n,t)
-            for(int i=1;i<p;i++)
-                Y[p] = A*Y[p];
+            if (p == 1)
+                Y[p] = A*X; // Y is (n,n) * (n,t) = (n,t)
+            else
+                Y[p] = A*Y[p-1];
 
             auto [est, j] = ArgNormP1(Y[p]);
 
