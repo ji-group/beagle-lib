@@ -305,7 +305,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     Eigen::VectorXd h(n);
 
     MatrixXd X(n,t);
-    std::vector<MatrixXd> Y(pMax+1, MatrixXd(n,t));
+    MatrixXd Y(n,t);
     std::vector<int> ind_best(pMax+1, -1);
     std::vector<double> est_old(pMax+1,0);
     std::vector<std::vector<int>> indices(pMax+1,std::vector<int>(n,0));
@@ -329,11 +329,11 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         {
             // std::cerr<<"iter "<<k<<"\n";
             if (p == 1)
-                Y[p] = A*X; // Y is (n,n) * (n,t) = (n,t)
+                Y = A*X; // Y is (n,n) * (n,t) = (n,t)
             else
-                Y[p] = A*Y[p-1];
+                Y = A*Y;
 
-            auto [est, j] = ArgNormP1(Y[p]);
+            auto [est, j] = ArgNormP1(Y);
 
             norms[p] = std::max(norms[p], est);
 
@@ -353,7 +353,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             assert(est >= est_old[p]);
 
             // S = sign(Y[p]), 0.0 -> 1.0
-            S = Y[p].unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
+            S = Y.unaryExpr([](const double& x) {return (x>=0) ? 1.0 : -1.0 ;});
 
             // (3) of Algorithm 2.4
             Z = A.transpose() * S; // (n,n) * (n,t) -> (n,t)
