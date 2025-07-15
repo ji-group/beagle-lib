@@ -337,7 +337,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
 
             norms[p] = std::max(norms[p], est);
 
-            if (k == itmax) break;
+            if (k == itmax) continue;
 
             if (est > est_old[p] or k == 2)
             {
