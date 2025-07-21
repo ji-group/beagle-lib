@@ -281,8 +281,11 @@ std::vector<double> normest1_all(const SpMatrix& A, int pMax, int t=2, int itmax
     return norms;
 }
 
-std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int itmax=5)
+std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int itmax=2)
 {
+    // nstd::cerr<<"--BEGIN--\n";
+    // auto sep_norms = normest1_all(A,pMax,t,itmax);
+
     assert(pMax >= 0);
     assert(t != 0); // negative means t = n
     assert(itmax >= 1);
@@ -399,7 +402,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             }
         }
 
-        std::cerr<<"k = "<<k<<" all_indices.size() = "<<all_indices.size()<<"\n";
+        // std::cerr<<"k = "<<k<<" all_indices.size() = "<<all_indices.size()<<"\n";
 
         // Create a new X for the next iteration.
         int tmax = all_indices.size();
@@ -412,12 +415,12 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
         }
     }
 
-    auto sep_norms = normest1_all(A,pMax,t,itmax);
-    for(int p=1;p<pMax+1;p++)
-    {
-        std::cerr<<"p = "<<p<<"  norm = "<<sep_norms[p]<<" norm_merged = "<<norms[p]<<"\n";
-    }
+//    for(int p=1;p<pMax+1;p++)
+//    {
+//        std::cerr<<"p = "<<p<<"  norm = "<<sep_norms[p]<<" norm_merged = "<<norms[p]<<"\n";
+//    }
     
+//    std::cerr<<"--END--\n\n";
     return norms;
 }
 
@@ -963,8 +966,7 @@ namespace beagle {
             ds[eigenIndex].clear();
 
 	    int pMax = getPMax();
-            int t = 5;
-            std::vector<double> approx_norms = normest1_merged( gBs[eigenIndex], pMax+1, t);
+            std::vector<double> approx_norms = normest1_merged( gBs[eigenIndex], pMax+1);
 
             // equation 3.7 in Al-Mohy and Higham
 	    for(int p=0;p <= pMax+1; p++)
@@ -1008,8 +1010,7 @@ namespace beagle {
             ds[matrixIndex].clear();
 
             int pMax = getPMax();
-            int t = 5;
-            auto approx_norms = normest1_merged( gBs[matrixIndex], pMax+1, t);
+            auto approx_norms = normest1_merged( gBs[matrixIndex], pMax+1);
             for(int p=0;p <= pMax+1; p++)
             {
                 // equation 3.7 in Al-Mohy and Higham
