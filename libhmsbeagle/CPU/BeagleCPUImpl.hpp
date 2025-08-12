@@ -600,15 +600,12 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::createInstance(int tipCount,
             if (partitionCount > hardwareThreads/2) {
                 partitionCount = hardwareThreads/2;
             }
-            int* patternPartitions = (int*) malloc(sizeof(int) * kPatternCount);
 
-            for (int i=0; i<kPatternCount; i++) {
-                int sitePartition = floor(i*double(partitionCount)/kPatternCount);
-                if (sitePartition > partitionCount - 1)
-                    sitePartition = partitionCount - 1;
-                patternPartitions[i] = sitePartition;
+            std::vector<int> partitionForPattern(kPatternCount);
+            for (int p=0; p<kPatternCount; p++) {
+                partitionForPattern[p] = floor(  (double(p)/kPatternCount) * partitionCount  );
             }
-            setPatternPartitions(partitionCount, patternPartitions);
+            setPatternPartitions(partitionCount, partitionForPattern.data());
 
             gAutoPartitionOperations = (int*) malloc(sizeof(int) * kBufferCount * kPartitionCount * BEAGLE_PARTITION_OP_COUNT);
 
@@ -677,14 +674,11 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setCPUThreadCount(int threadCount) {
                 partitionCount = threadCount;
             }
 
-            int* patternPartitions = (int*) malloc(sizeof(int) * kPatternCount);
-            for (int i=0; i<kPatternCount; i++) {
-                int sitePartition = floor(i*double(partitionCount)/kPatternCount);
-                if (sitePartition > partitionCount - 1)
-                    sitePartition = partitionCount - 1;
-                patternPartitions[i] = sitePartition;
+            std::vector<int> partitionForPattern(kPatternCount);
+            for (int p=0; p<kPatternCount; p++) {
+                partitionForPattern[p] = floor(  (double(p)/kPatternCount) * partitionCount  );
             }
-            setPatternPartitions(partitionCount, patternPartitions);
+            setPatternPartitions(partitionCount, partitionForPattern.data());
 
             gAutoPartitionOperations = (int*) malloc(sizeof(int) * kBufferCount * kPartitionCount * BEAGLE_PARTITION_OP_COUNT);
 
