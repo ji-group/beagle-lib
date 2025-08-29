@@ -1516,10 +1516,10 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::updatePrePartials(const int *operations,
                                                 count);
     } else {
         bool byPartition = false;
-        returnCode = upPartials(byPartition,
-                                operations,
-                                count,
-                                cumulativeScaleIndex);
+        returnCode = upPrePartials(byPartition,
+                                   operations,
+                                   count,
+                                   cumulativeScaleIndex);
     }
 
     return returnCode;
