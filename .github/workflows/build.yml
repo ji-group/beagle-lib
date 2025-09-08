@@ -157,7 +157,7 @@ jobs:
     - name: Install utilities (macOS)
       if: runner.os == 'macOS'
       run: |
-          brew install cmake ninja pkg-config ccache coreutils eigen openjdk
+          brew install ninja pkg-config ccache coreutils eigen openjdk
           echo "CC=ccache clang" >> $GITHUB_ENV
           echo "CXX=ccache clang++" >> $GITHUB_ENV
           echo "CMAKE_ARGS=${CMAKE_ARGS} -DBUILD_OPENMP=OFF" >> $GITHUB_ENV
