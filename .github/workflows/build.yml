@@ -3,7 +3,7 @@ name: Build and test
 on:
   push:
     branches:
-      - "*"
+    - "*"
   pull_request:
     branches:
     - "*"
@@ -35,19 +35,19 @@ jobs:
           - name: ubuntu-gcc-13
             os: ubuntu-24.04
             compiler: gcc
-            version: "12"
+            version: "13"
             arch: "linux64"
 
           - name: ubuntu-gcc-14
             os: ubuntu-24.04
             compiler: gcc
-            version: "12"
+            version: "14"
             arch: "linux64"
 
           - name: ubuntu-gcc-15
             os: ubuntu-24.04
             compiler: gcc
-            version: "12"
+            version: "14"
             buildtype: "Release"
             arch: "linux64"
             image: ubuntu:25.04
@@ -55,7 +55,7 @@ jobs:
           - name: ubuntu-gcc-15-debug
             os: ubuntu-24.04
             compiler: gcc
-            version: "12"
+            version: "15"
             buildtype: "Debug"
             arch: "linux64"
             image: ubuntu:25.04
