@@ -17,6 +17,7 @@ jobs:
                ubuntu-gcc-14,
                ubuntu-gcc-15,
                ubuntu-gcc-15-debug,
+#               ubuntu-gcc-14-arm,
                ubuntu-clang-17,
                ubuntu-clang-19,
                macos-xcode-15-intel,
@@ -59,6 +60,13 @@ jobs:
             buildtype: "Debug"
             arch: "linux64"
             image: ubuntu:25.04
+
+#           "Failed to obtain BEAGLE instance" on some tests.
+#          - name: ubuntu-gcc-14-arm
+#            os: ubuntu-24.04-arm
+#            compiler: gcc
+#            version: "14"
+#            arch: "linux64"
 
           - name: ubuntu-clang-17
             os: ubuntu-24.04
