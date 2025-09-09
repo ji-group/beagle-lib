@@ -311,8 +311,7 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
     MatrixXd Y(n,t);
     std::vector<int> ind_best(pMax+1, -1);
     std::vector<double> est_old(pMax+1,0);
-    std::vector<std::vector<int>> indices(pMax+1,std::vector<int>(n,0));
-    std::vector<std::vector<bool>> ind_hist(pMax+1, std::vector<bool>(n,0));
+    vector<int> new_indices(pMax+1);
 
     // (0) Choose starting matrix X that is (n,t) with columns of unit 1-norm.
     // We choose the first column to be all 1s.
@@ -364,41 +363,24 @@ std::vector<double> normest1_merged(const SpMatrix& A, int pMax, int t=2, int it
             // Maximize across each the t entries in each row of Z.
             h = Z.cwiseAbs().rowwise().maxCoeff();  // (n,t) -> (n,1)
 
-            // Sort dimensions based on h
-            indices[p].resize(n);
-            for(int i=0;i<n;i++)
-                indices[p][i] = i;
-
             // reorder idx so that the highest values of h[indices[i]] come first.
-            std::sort(indices[p].begin(), indices[p].end(), [&](int i,int j) {return h[i] > h[j];});
+            std::optional<int> i;
+            for(int l=0;l<h.size();l++)
+                if (not all_ind_hist[l] and ((not i) or h[l] > h[i.value()]))
+                    i = l;
 
-            // find the first t indices that are not in ind_hist
-            int l=0;
-            for(int i=0;i<indices[p].size() and l < t;i++)
-            {
-                if (not ind_hist[p][indices[p][i]])
-                {
-                    indices[p][l] = indices[p][i];
-                    l++;
-                }
-            }
-            indices[p].resize( std::min(l,t) );
-            assert(not indices[p].empty());
-
+            new_indices[p] = i.value();
         }
 
         // Combine indices from different values of p
         all_indices.clear();
         for(int p=1;p<=pMax;p++)
         {
-            for(int i: indices[p])
+            int i = new_indices[p];
+            if (not all_ind_hist[i])
             {
-                ind_hist[p][i] = true;
-                if (not all_ind_hist[i])
-                {
-                    all_indices.push_back(i);
-                    all_ind_hist[i] = true;
-                }
+                all_indices.push_back(i);
+                all_ind_hist[i] = true;
             }
         }
 
