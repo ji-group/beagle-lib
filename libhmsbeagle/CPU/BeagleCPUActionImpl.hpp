@@ -85,6 +85,29 @@ double random_plus_minus_1_func(double x)
 	return -1;
 }
 
+std::vector<double> true_norm_merged(const SpMatrix& A, int pMax)
+{
+    assert(pMax >= 0);
+
+    std::vector<double> norms(pMax+1, 0);
+    norms[0] = 1.0;
+
+    // A is (n,n);
+    assert(A.rows() == A.cols());
+    int n = A.cols();
+
+    MatrixXd Y = MatrixXd::Identity(n,n);
+
+    for(int p=1;p<=pMax;p++)
+    {
+        Y = A*Y;
+        auto [est, j] = ArgNormP1(Y);
+        norms[p] = est;
+    }
+
+    return norms;
+}
+
 // Algorithm 2.4 from Higham and Tisseur (2000), A BLOCK ALGORITHM FOR MATRIX 1-NORM ESTIMATION,
 //    WITH AN APPLICATION TO 1-NORM PSEUDOSPECTRA.
 // See OneNormEst in https://eprints.maths.manchester.ac.uk/2195/1/thesis-main.pdf
