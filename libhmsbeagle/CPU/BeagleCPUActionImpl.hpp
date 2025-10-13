@@ -1318,7 +1318,10 @@ namespace beagle {
 
 	    const bool conditionFragment313 = gB1Norms[eigenIndex] * edgeMultiplier <= 2.0 * theta / ((double) nCol * mMax) * pMax * (pMax + 3);
 	    // using l = 1 as in equation 3.13
+            // BDR: l is equivalent to 't' in normest1.  So maybe we should use (l=1,t=1) or (l=2,t=2).
 	    if (conditionFragment313) {
+                // If this condition is true, it is cheaper to use ||A|| directly if we do NOT calculate the d-values.
+                // The condition assumes that we are only using the d-values for one branch though.
 		for (auto& [thisM, thetaM]: thetaConstants) {
 		    const double thisS = ceil(gB1Norms[eigenIndex] * edgeMultiplier / thetaM);
 		    if (bestM == INT_MAX || ((double) thisM) * thisS < bestM * bestS) {
