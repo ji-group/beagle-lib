@@ -24,15 +24,15 @@ BEAGLE_CPU_EIGEN_TEMPLATE
 EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::EigenDecompositionSquare(int decompositionCount,
 											       int stateCount,
 											       int categoryCount,
-											       long flags)
-	: EigenDecomposition<BEAGLE_CPU_EIGEN_GENERIC>(decompositionCount,stateCount,categoryCount, flags) {
+                                                                             long flags)
+    : EigenDecomposition<BEAGLE_CPU_EIGEN_GENERIC>(decompositionCount,stateCount,categoryCount, flags) {
 
-	isComplex = kFlags & BEAGLE_FLAG_EIGEN_COMPLEX;
+    isComplex = kFlags & BEAGLE_FLAG_EIGEN_COMPLEX;
 
-	if (isComplex)
-		kEigenValuesSize = 2 * kStateCount;
-	else
-		kEigenValuesSize = kStateCount;
+    if (isComplex)
+        kEigenValuesSize = 2 * kStateCount;
+    else
+        kEigenValuesSize = kStateCount;
 
     this->gEigenValues = (REALTYPE**) malloc(sizeof(REALTYPE*) * kEigenDecompCount);
     if (gEigenValues == NULL)
@@ -43,21 +43,21 @@ EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::EigenDecompositionSquare(int
     	throw std::bad_alloc();
 
     gIMatrices = (REALTYPE**) malloc(sizeof(REALTYPE*) * kEigenDecompCount);
-       if (gIMatrices == NULL)
+    if (gIMatrices == NULL)
        	throw std::bad_alloc();
 
     for (int i = 0; i < kEigenDecompCount; i++) {
     	gEMatrices[i] = (REALTYPE*) malloc(sizeof(REALTYPE) * kStateCount * kStateCount);
     	if (gEMatrices[i] == NULL)
-    		throw std::bad_alloc();
+            throw std::bad_alloc();
 
     	gIMatrices[i] = (REALTYPE*) malloc(sizeof(REALTYPE) * kStateCount * kStateCount);
     	if (gIMatrices[i] == NULL)
-    		throw std::bad_alloc();
+            throw std::bad_alloc();
 
     	gEigenValues[i] = (REALTYPE*) malloc(sizeof(REALTYPE) * kEigenValuesSize);
     	if (gEigenValues[i] == NULL)
-    		throw std::bad_alloc();
+            throw std::bad_alloc();
     }
 
     matrixTmp = (REALTYPE*) malloc(sizeof(REALTYPE) * kStateCount * kStateCount);
@@ -116,45 +116,45 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
                                                         REALTYPE** transitionMatrices,
                                                         int count) {
 
-	const REALTYPE* Ievc = gIMatrices[eigenIndex];
-	const REALTYPE* Evec = gEMatrices[eigenIndex];
-	const REALTYPE* Eval = gEigenValues[eigenIndex];
-	const REALTYPE* EvalImag = Eval + kStateCount;
+    const REALTYPE* Ievc = gIMatrices[eigenIndex];
+    const REALTYPE* Evec = gEMatrices[eigenIndex];
+    const REALTYPE* Eval = gEigenValues[eigenIndex];
+    const REALTYPE* EvalImag = Eval + kStateCount;
     for (int u = 0; u < count; u++) {
         REALTYPE* transitionMat = transitionMatrices[probabilityIndices[u]];
         const double edgeLength = edgeLengths[u];
         int n = 0;
         for (int l = 0; l < kCategoryCount; l++) {
-			const REALTYPE distance = categoryRates[l] * edgeLength;
-        	for(int i=0; i<kStateCount; i++) {
-        		if (!isComplex || EvalImag[i] == 0) {
-        			const REALTYPE tmp = exp(Eval[i] * distance);
-        			for(int j=0; j<kStateCount; j++) {
-        				matrixTmp[i*kStateCount+j] = Ievc[i*kStateCount+j] * tmp;
-        			}
-        		} else {
-        			// 2 x 2 conjugate block
-        			int i2 = i + 1;
-        			const REALTYPE b = EvalImag[i];
-        			const REALTYPE expat = exp(Eval[i] * distance);
-        			const REALTYPE expatcosbt = expat * cos(b * distance);
-        			const REALTYPE expatsinbt = expat * sin(b * distance);
-        			for(int j=0; j<kStateCount; j++) {
-        				matrixTmp[ i*kStateCount+j] = expatcosbt * Ievc[ i*kStateCount+j] +
-        						                      expatsinbt * Ievc[i2*kStateCount+j];
-        				matrixTmp[i2*kStateCount+j] = expatcosbt * Ievc[i2*kStateCount+j] -
-												      expatsinbt * Ievc[ i*kStateCount+j];
-        			}
-        			i++; // processed two conjugate rows
-        		}
-        	}
+            const REALTYPE distance = categoryRates[l] * edgeLength;
+            for(int i=0; i<kStateCount; i++) {
+                if (!isComplex || EvalImag[i] == 0) {
+                    const REALTYPE tmp = exp(Eval[i] * distance);
+                    for(int j=0; j<kStateCount; j++) {
+                        matrixTmp[i*kStateCount+j] = Ievc[i*kStateCount+j] * tmp;
+                    }
+                } else {
+                    // 2 x 2 conjugate block
+                    int i2 = i + 1;
+                    const REALTYPE b = EvalImag[i];
+                    const REALTYPE expat = exp(Eval[i] * distance);
+                    const REALTYPE expatcosbt = expat * cos(b * distance);
+                    const REALTYPE expatsinbt = expat * sin(b * distance);
+                    for(int j=0; j<kStateCount; j++) {
+                        matrixTmp[ i*kStateCount+j] = expatcosbt * Ievc[ i*kStateCount+j] +
+                            expatsinbt * Ievc[i2*kStateCount+j];
+                        matrixTmp[i2*kStateCount+j] = expatcosbt * Ievc[i2*kStateCount+j] -
+                            expatsinbt * Ievc[ i*kStateCount+j];
+                    }
+                    i++; // processed two conjugate rows
+                }
+            }
 
 #ifdef DEBUG_COMPLEX
-           	fprintf(stderr,"[");
-            	for(int i=0; i<16; i++)
-            		fprintf(stderr," %7.5e,",matrixTmp[i]);
-            	fprintf(stderr,"] -- complex debug\n");
-            	exit(0);
+            fprintf(stderr,"[");
+            for(int i=0; i<16; i++)
+                fprintf(stderr," %7.5e,",matrixTmp[i]);
+            fprintf(stderr,"] -- complex debug\n");
+            exit(0);
 #endif
 
 
@@ -169,15 +169,15 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
                         transitionMat[n] = 0;
                     n++;
                 }
-if (T_PAD != 0) {
-                transitionMat[n] = 1.0;
-                n += T_PAD;
-}
+                if (T_PAD != 0) {
+                    transitionMat[n] = 1.0;
+                    n += T_PAD;
+                }
             }
         }
 
         if (DEBUGGING_OUTPUT) {
-        	int kMatrixSize = kStateCount * kStateCount;
+            int kMatrixSize = kStateCount * kStateCount;
             fprintf(stderr,"transitionMat index=%d brlen=%.5f\n", probabilityIndices[u], edgeLengths[u]);
             for ( int w = 0; w < (20 > kMatrixSize ? 20 : kMatrixSize); ++w)
                 fprintf(stderr,"transitionMat[%d] = %.5f\n", w, transitionMat[w]);
