@@ -175,21 +175,13 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
             exit(0);
 #endif
 
+            P = (Evec * Tmp).cwiseMax(0);
 
-            for (int i = 0; i < kStateCount; i++) {
-                for (int j = 0; j < kStateCount; j++) {
-                    REALTYPE sum = 0.0;
-                    for (int k = 0; k < kStateCount; k++)
-                        sum += Evec(i,k) * Tmp(k,j);
-
-                    P(i,j) = std::max<REALTYPE>(sum, 0);
-                }
-
-                if (T_PAD != 0)
-                {
-                    // What exactly is this for?
+            if (T_PAD != 0)
+            {
+                // What exactly is this for?
+                for (int i = 0; i < kStateCount; i++)
                     P(i,kStateCount) = 1.0;
-                }
             }
         }
 
