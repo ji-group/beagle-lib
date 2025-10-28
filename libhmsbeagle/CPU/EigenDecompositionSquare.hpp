@@ -131,7 +131,10 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
     Map<const Vector> EvalImag(gEigenValues[eigenIndex] + kStateCount, kStateCount);
 
     Map<Matrix> Tmp(matrixTmp, kStateCount, kStateCount);
-    
+
+    bool anyComplex = isComplex and not (EvalImag.array() == 0).all();
+
+    Vector expvals(kStateCount);
     for (int u = 0; u < count; u++) {
         REALTYPE* transitionMat = transitionMatrices[probabilityIndices[u]];
 
@@ -146,6 +149,16 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
                   Stride<Dynamic, Dynamic>(1, kStateCount + T_PAD));
             
             const REALTYPE distance = categoryRates[l] * edgeLength;
+
+            if (not anyComplex)
+            {
+                expvals = (Eval.array() * distance).exp();
+                Eigen::DiagonalMatrix<REALTYPE, Dynamic> Dexp(expvals);
+                P = (Evec * Dexp * Ievc).cwiseMax(0);
+                continue;
+            }
+
+
             for(int i=0; i<kStateCount; i++) {
                 if (!isComplex || EvalImag[i] == 0) {
                     const REALTYPE tmp = exp(Eval[i] * distance);
