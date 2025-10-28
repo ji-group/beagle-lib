@@ -8,6 +8,7 @@
 #define _EigenDecompositionSquare_hpp_
 #include "EigenDecompositionSquare.h"
 #include "libhmsbeagle/beagle.h"
+#include <Eigen/Dense>
 
 //#if defined (BEAGLE_IMPL_DEBUGGING_OUTPUT) && BEAGLE_IMPL_DEBUGGING_OUTPUT
 //const bool DEBUGGING_OUTPUT = true;
@@ -115,11 +116,19 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
                                                         const double* categoryRates,
                                                         REALTYPE** transitionMatrices,
                                                         int count) {
+    using Eigen::Map;
+    using Eigen::Dynamic;
+    using Eigen::RowMajor;
+    using Eigen::Stride;
+
+    typedef Eigen::Matrix<REALTYPE, Dynamic, Dynamic, RowMajor> Matrix;
+    typedef Eigen::Vector<REALTYPE, Dynamic> Vector;
 
     const REALTYPE* Ievc = gIMatrices[eigenIndex];
     const REALTYPE* Evec = gEMatrices[eigenIndex];
-    const REALTYPE* Eval = gEigenValues[eigenIndex];
-    const REALTYPE* EvalImag = Eval + kStateCount;
+    Map<const Vector> Eval(gEigenValues[eigenIndex], kStateCount);
+    Map<const Vector> EvalImag(gEigenValues[eigenIndex] + kStateCount, kStateCount);
+
     for (int u = 0; u < count; u++) {
         REALTYPE* transitionMat = transitionMatrices[probabilityIndices[u]];
         const double edgeLength = edgeLengths[u];

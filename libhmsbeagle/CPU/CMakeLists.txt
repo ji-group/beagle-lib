@@ -13,6 +13,7 @@ add_library(hmsbeagle-cpu SHARED
         Precision.h
         SSEDefinitions.h
         )
+target_link_libraries(hmsbeagle-cpu Eigen3::Eigen)
 
 install(TARGETS hmsbeagle-cpu
     DESTINATION ${BEAGLE_INSTALL_DIR}
@@ -45,6 +46,7 @@ add_library(hmsbeagle-cpu-sse SHARED
         Precision.h
         SSEDefinitions.h
         )
+target_link_libraries(hmsbeagle-cpu-sse Eigen3::Eigen)
 
 install(TARGETS hmsbeagle-cpu-sse
 	DESTINATION ${BEAGLE_INSTALL_DIR}
