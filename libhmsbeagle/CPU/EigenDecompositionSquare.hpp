@@ -120,6 +120,7 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
     using Eigen::Dynamic;
     using Eigen::RowMajor;
     using Eigen::Stride;
+    using RowMajorMatrixWithStride = Eigen::Matrix<REALTYPE, Dynamic, Dynamic, RowMajor>;
 
     typedef Eigen::Matrix<REALTYPE, Dynamic, Dynamic, RowMajor> Matrix;
     typedef Eigen::Vector<REALTYPE, Dynamic> Vector;
@@ -133,9 +134,17 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
     
     for (int u = 0; u < count; u++) {
         REALTYPE* transitionMat = transitionMatrices[probabilityIndices[u]];
+
         const double edgeLength = edgeLengths[u];
-        int n = 0;
+
         for (int l = 0; l < kCategoryCount; l++) {
+
+            Map<RowMajorMatrixWithStride, 0, Stride<Dynamic, Dynamic>>
+                P(transitionMat + l*(kStateCount+T_PAD)*kStateCount,
+                  kStateCount,
+                  kStateCount,
+                  Stride<Dynamic, Dynamic>(1, kStateCount + T_PAD));
+            
             const REALTYPE distance = categoryRates[l] * edgeLength;
             for(int i=0; i<kStateCount; i++) {
                 if (!isComplex || EvalImag[i] == 0) {
@@ -172,15 +181,14 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
                     REALTYPE sum = 0.0;
                     for (int k = 0; k < kStateCount; k++)
                         sum += Evec(i,k) * Tmp(k,j);
-                    if (sum > 0)
-                        transitionMat[n] = sum;
-                    else
-                        transitionMat[n] = 0;
-                    n++;
+
+                    P(i,j) = std::max<REALTYPE>(sum, 0);
                 }
-                if (T_PAD != 0) {
-                    transitionMat[n] = 1.0;
-                    n += T_PAD;
+
+                if (T_PAD != 0)
+                {
+                    // What exactly is this for?
+                    P(i,kStateCount) = 1.0;
                 }
             }
         }
