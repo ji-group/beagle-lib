@@ -129,6 +129,8 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
     Map<const Vector> Eval(gEigenValues[eigenIndex], kStateCount);
     Map<const Vector> EvalImag(gEigenValues[eigenIndex] + kStateCount, kStateCount);
 
+    Map<Matrix> Tmp(matrixTmp, kStateCount, kStateCount);
+    
     for (int u = 0; u < count; u++) {
         REALTYPE* transitionMat = transitionMatrices[probabilityIndices[u]];
         const double edgeLength = edgeLengths[u];
@@ -139,7 +141,7 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
                 if (!isComplex || EvalImag[i] == 0) {
                     const REALTYPE tmp = exp(Eval[i] * distance);
                     for(int j=0; j<kStateCount; j++) {
-                        matrixTmp[i*kStateCount+j] = Ievc(i,j) * tmp;
+                        Tmp(i,j) = Ievc(i,j) * tmp;
                     }
                 } else {
                     // 2 x 2 conjugate block
@@ -149,10 +151,8 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
                     const REALTYPE expatcosbt = expat * cos(b * distance);
                     const REALTYPE expatsinbt = expat * sin(b * distance);
                     for(int j=0; j<kStateCount; j++) {
-                        matrixTmp[ i*kStateCount+j] = expatcosbt * Ievc(i,j) +
-                            expatsinbt * Ievc(i2,j);
-                        matrixTmp[i2*kStateCount+j] = expatcosbt * Ievc(i2,j) -
-                            expatsinbt * Ievc(i,j);
+                        Tmp(i,j) = expatcosbt * Ievc(i,j) + expatsinbt * Ievc(i2,j);
+                        Tmp(i2,j) = expatcosbt * Ievc(i2,j) - expatsinbt * Ievc(i,j);
                     }
                     i++; // processed two conjugate rows
                 }
@@ -171,7 +171,7 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
                 for (int j = 0; j < kStateCount; j++) {
                     REALTYPE sum = 0.0;
                     for (int k = 0; k < kStateCount; k++)
-                        sum += Evec(i,k) * matrixTmp[k*kStateCount+j];
+                        sum += Evec(i,k) * Tmp(k,j);
                     if (sum > 0)
                         transitionMat[n] = sum;
                     else
