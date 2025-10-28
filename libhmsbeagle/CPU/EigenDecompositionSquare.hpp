@@ -149,9 +149,7 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
             for(int i=0; i<kStateCount; i++) {
                 if (!isComplex || EvalImag[i] == 0) {
                     const REALTYPE tmp = exp(Eval[i] * distance);
-                    for(int j=0; j<kStateCount; j++) {
-                        Tmp(i,j) = Ievc(i,j) * tmp;
-                    }
+                    Tmp.row(i) = tmp * Ievc.row(i);
                 } else {
                     // 2 x 2 conjugate block
                     int i2 = i + 1;
@@ -159,10 +157,9 @@ void EigenDecompositionSquare<BEAGLE_CPU_EIGEN_GENERIC>::updateTransitionMatrice
                     const REALTYPE expat = exp(Eval[i] * distance);
                     const REALTYPE expatcosbt = expat * cos(b * distance);
                     const REALTYPE expatsinbt = expat * sin(b * distance);
-                    for(int j=0; j<kStateCount; j++) {
-                        Tmp(i,j) = expatcosbt * Ievc(i,j) + expatsinbt * Ievc(i2,j);
-                        Tmp(i2,j) = expatcosbt * Ievc(i2,j) - expatsinbt * Ievc(i,j);
-                    }
+                    Tmp.row(i) = expatcosbt * Ievc.row(i) + expatsinbt * Ievc.row(i2);
+                    Tmp.row(i2) = expatcosbt * Ievc.row(i2) - expatsinbt * Ievc.row(i);
+
                     i++; // processed two conjugate rows
                 }
             }
