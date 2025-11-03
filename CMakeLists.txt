@@ -8,7 +8,6 @@ set(BEAGLE_VERSION_PATCH "2")
 
 set(GENERIC_API_VERSION "1")
 
-
 set(BEAGLE_VERSION "${BEAGLE_VERSION_MAJOR}.${BEAGLE_VERSION_MINOR}.${BEAGLE_VERSION_PATCH}")
 set(BEAGLE_PLUGIN_VERSION "${BEAGLE_VERSION_MAJOR}${BEAGLE_VERSION_MINOR}")
 
@@ -74,6 +73,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT DEFINED CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
+endif()
+
+# Make erros and warnings more readable by enabling colors in the compiler output
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    add_compile_options(-fdiagnostics-color=always)
+elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    add_compile_options(-fcolor-diagnostics)
 endif()
 
 ## flags for standard library
