@@ -5901,40 +5901,25 @@ void BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calcPartialsPartials(REALTYPE* destP,
 #pragma omp parallel for num_threads(kCategoryCount)
     for (int l = 0; l < kCategoryCount; l++) {
         int v = l*kPartialsPaddedStateCount*kPatternCount + kPartialsPaddedStateCount*startPattern;
-        int matrixOffset = l*kMatrixSize;
+
         const REALTYPE* partials1Ptr = &partials1[v];
         const REALTYPE* partials2Ptr = &partials2[v];
         REALTYPE* destPtr = &destP[v];
 
+        const REALTYPE* matrices1Ptr = matrices1 + l*kMatrixSize;
+        const REALTYPE* matrices2Ptr = matrices2 + l*kMatrixSize;
         
         for (int k = startPattern; k < endPattern; k++) {
 
             for (int i = 0; i < kStateCount; i++) {
-                const REALTYPE* matrices1Ptr = matrices1 + matrixOffset + i * matrixIncr;
-                const REALTYPE* matrices2Ptr = matrices2 + matrixOffset + i * matrixIncr;
-                REALTYPE sum1A = 0.0, sum2A = 0.0;
-                REALTYPE sum1B = 0.0, sum2B = 0.0;
-                int j = 0;
-                for (; j < stateCountModFour; j += 4) {
-                    sum1A += matrices1Ptr[j + 0] * partials1Ptr[j + 0];
-                    sum2A += matrices2Ptr[j + 0] * partials2Ptr[j + 0];
-
-                    sum1B += matrices1Ptr[j + 1] * partials1Ptr[j + 1];
-                    sum2B += matrices2Ptr[j + 1] * partials2Ptr[j + 1];
-
-                    sum1A += matrices1Ptr[j + 2] * partials1Ptr[j + 2];
-                    sum2A += matrices2Ptr[j + 2] * partials2Ptr[j + 2];
-
-                    sum1B += matrices1Ptr[j + 3] * partials1Ptr[j + 3];
-                    sum2B += matrices2Ptr[j + 3] * partials2Ptr[j + 3];
+                REALTYPE sum1 = 0.0;
+                REALTYPE sum2 = 0.0;
+                for (int j = 0; j < kStateCount; j ++) {
+                    sum1 += matrices1Ptr[i * matrixIncr + j] * partials1Ptr[j];
+                    sum2 += matrices2Ptr[i * matrixIncr + j] * partials2Ptr[j];
                 }
 
-                for (; j < kStateCount; j++) {
-                    sum1A += matrices1Ptr[j] * partials1Ptr[j];
-                    sum2A += matrices2Ptr[j] * partials2Ptr[j];
-                }
-
-                *(destPtr++) = (sum1A + sum1B) * (sum2A + sum2B);
+                *(destPtr++) = sum1 * sum2;
             }
             destPtr += P_PAD;
             partials1Ptr += kPartialsPaddedStateCount;
