@@ -5891,39 +5891,32 @@ void BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calcPartialsPartials(REALTYPE* destP,
     typedef Eigen::Matrix<REALTYPE, Dynamic, Dynamic, RowMajor> Matrix;
     typedef Eigen::Vector<REALTYPE, Dynamic> Vector;
 
-    int matrixIncr = kStateCount;
-
-    // increment for the extra column at the end
-    matrixIncr += T_PAD;
-
-    int stateCountModFour = (kStateCount / 4) * 4;
+    int matrixIncr = kStateCount + T_PAD;
 
 #pragma omp parallel for num_threads(kCategoryCount)
-    for (int l = 0; l < kCategoryCount; l++) {
-        int v = l*kPartialsPaddedStateCount*kPatternCount + kPartialsPaddedStateCount*startPattern;
-
-        const REALTYPE* partials1Ptr = &partials1[v];
-        const REALTYPE* partials2Ptr = &partials2[v];
-        REALTYPE* destPtr = &destP[v];
+    for (int l = 0; l < kCategoryCount; l++)
+    {
+        int v = l*kPartialsPaddedStateCount*kPatternCount;
+        
+        const REALTYPE* partials1Ptr = partials1 + v;
+        const REALTYPE* partials2Ptr = partials2 + v;
+        REALTYPE* destPtr = destP + v;
 
         const REALTYPE* matrices1Ptr = matrices1 + l*kMatrixSize;
         const REALTYPE* matrices2Ptr = matrices2 + l*kMatrixSize;
         
-        for (int k = startPattern; k < endPattern; k++) {
+        for (int k = startPattern; k < endPattern; k++)
+        {
+            Map<const Vector> p1(partials1Ptr + k*kPartialsPaddedStateCount, kStateCount);
+            Map<const Vector> p2(partials2Ptr + k*kPartialsPaddedStateCount, kStateCount);
 
-            for (int i = 0; i < kStateCount; i++) {
-                REALTYPE sum1 = 0.0;
-                REALTYPE sum2 = 0.0;
-                for (int j = 0; j < kStateCount; j ++) {
-                    sum1 += matrices1Ptr[i * matrixIncr + j] * partials1Ptr[j];
-                    sum2 += matrices2Ptr[i * matrixIncr + j] * partials2Ptr[j];
-                }
+            for (int i = 0; i < kStateCount; i++)
+            {
+                Map<const Vector> m1(matrices1Ptr + i*matrixIncr, kStateCount);
+                Map<const Vector> m2(matrices2Ptr + i*matrixIncr, kStateCount);
 
-                *(destPtr++) = sum1 * sum2;
+                *(destPtr + k*kPartialsPaddedStateCount + i) = m1.dot(p1) * m2.dot(p2);
             }
-            destPtr += P_PAD;
-            partials1Ptr += kPartialsPaddedStateCount;
-            partials2Ptr += kPartialsPaddedStateCount;
         }
     }
 }
