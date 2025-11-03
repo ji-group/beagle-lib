@@ -405,12 +405,12 @@ void BeagleCPU4StateSSEImpl<BEAGLE_CPU_4_SSE_DOUBLE>::calcPartialsPartials(doubl
 
 BEAGLE_CPU_4_SSE_TEMPLATE
 void BeagleCPU4StateSSEImpl<BEAGLE_CPU_4_SSE_DOUBLE>::calcPrePartialsPartials(double* destP,
-                                                                           const double*  partials_q,
-                                                                           const double*  matrices_q,
-                                                                           const double*  partials_r,
-                                                                           const double*  matrices_r,
-                                                                           int startPattern,
-                                                                           int endPattern) {
+                                                                              const double*  partials_q,
+                                                                              const double*  matrices_q,
+                                                                              const double*  partials_r,
+                                                                              const double*  matrices_r,
+                                                                              int startPattern,
+                                                                              int endPattern) {
 
     int patternDefficit = kPatternCount + kExtraPatterns - endPattern;
 
@@ -438,7 +438,7 @@ void BeagleCPU4StateSSEImpl<BEAGLE_CPU_4_SSE_DOUBLE>::calcPrePartialsPartials(do
             V_Real vpr_0, vpr_1, vpr_2, vpr_3;
             SSE_PREFETCH_PARTIALS(vpr_,partials_r,v);
 
-        	/* This would probably be faster on PPC/Altivec, which has a fused multiply-add
+            /* This would probably be faster on PPC/Altivec, which has a fused multiply-add
                vector instruction */
 
             destr_01 = VEC_MULT(vpr_0, vu_mr[0][0].vx);
@@ -466,7 +466,7 @@ void BeagleCPU4StateSSEImpl<BEAGLE_CPU_4_SSE_DOUBLE>::calcPrePartialsPartials(do
             destPvec[1] = destq_23;
             destPvec += 2;
 
-                /* VEC_STORE did demonstrate a measurable performance gain as
+            /* VEC_STORE did demonstrate a measurable performance gain as
                it copies all (2/4) values to memory simultaneously;
                I can no longer reproduce the performance gain (?) */
 

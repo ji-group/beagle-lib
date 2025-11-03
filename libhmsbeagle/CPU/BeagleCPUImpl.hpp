@@ -70,6 +70,7 @@
 #include <cassert>
 #include <vector>
 #include <cfloat>
+#include <Eigen/Dense>
 
 #include "libhmsbeagle/beagle.h"
 #include "libhmsbeagle/CPU/Precision.h"
@@ -5881,6 +5882,15 @@ void BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calcPartialsPartials(REALTYPE* destP,
                                                              const REALTYPE* matrices2,
                                                              int startPattern,
                                                              int endPattern) {
+    using Eigen::Map;
+    using Eigen::Dynamic;
+    using Eigen::RowMajor;
+    using Eigen::Stride;
+    using RowMajorMatrixWithStride = Eigen::Matrix<REALTYPE, Dynamic, Dynamic, RowMajor>;
+
+    typedef Eigen::Matrix<REALTYPE, Dynamic, Dynamic, RowMajor> Matrix;
+    typedef Eigen::Vector<REALTYPE, Dynamic> Vector;
+
     int matrixIncr = kStateCount;
 
     // increment for the extra column at the end
@@ -5895,6 +5905,8 @@ void BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calcPartialsPartials(REALTYPE* destP,
         const REALTYPE* partials1Ptr = &partials1[v];
         const REALTYPE* partials2Ptr = &partials2[v];
         REALTYPE* destPtr = &destP[v];
+
+        
         for (int k = startPattern; k < endPattern; k++) {
 
             for (int i = 0; i < kStateCount; i++) {
