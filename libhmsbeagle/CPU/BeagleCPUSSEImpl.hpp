@@ -584,41 +584,58 @@ BeagleImpl* BeagleCPUSSEImplFactory<BEAGLE_CPU_FACTORY_GENERIC>::createImpl(int 
         
 
         try {
-            if (impl->createInstance(tipCount, partialsBufferCount, compactBufferCount, stateCount,
+            *errorCode = 
+                impl->createInstance(tipCount, partialsBufferCount, compactBufferCount, stateCount,
                                      patternCount, eigenBufferCount, matrixBufferCount,
                                      categoryCount,scaleBufferCount, resourceNumber,
                                      pluginResourceNumber,
-                                     preferenceFlags, requirementFlags) == 0)
+                                     preferenceFlags, requirementFlags);
+
+            if (*errorCode == BEAGLE_SUCCESS)
+            {
                 return impl;
+            }
         }
-        catch(...) {
-            if (DEBUGGING_OUTPUT)
-                std::cerr << "exception in initialize\n";
+        catch(const std::exception& e)
+        {
+            std::cerr<<"BEAGLE: exception in createInstance: "<<e.what()<<"\n";
             delete impl;
             throw;
         }
-        
-        delete impl;        
+        catch(...) {
+            std::cerr << "BEAGLE: exception in createInstance.\n";
+            delete impl;
+            throw;
+        }
+        delete impl;
     } else {
         BeagleCPUSSEImpl<REALTYPE, T_PAD_SSE_EVEN, P_PAD_SSE_EVEN>* impl =
 	    new BeagleCPUSSEImpl<REALTYPE, T_PAD_SSE_EVEN, P_PAD_SSE_EVEN>();
 
 
         try {
-            if (impl->createInstance(tipCount, partialsBufferCount, compactBufferCount, stateCount,
+            *errorCode =
+                impl->createInstance(tipCount, partialsBufferCount, compactBufferCount, stateCount,
                                      patternCount, eigenBufferCount, matrixBufferCount,
                                      categoryCount,scaleBufferCount, resourceNumber,
                                      pluginResourceNumber,
-                                     preferenceFlags, requirementFlags) == 0)
+                                     preferenceFlags, requirementFlags);
+
+            
+            if (*errorCode == BEAGLE_SUCCESS)
                 return impl;
         }
-        catch(...) {
-            if (DEBUGGING_OUTPUT)
-                std::cerr << "exception in initialize\n";
+        catch(const std::exception& e)
+        {
+            std::cerr<<"BEAGLE: exception in createInstance: "<<e.what()<<"\n";
             delete impl;
             throw;
         }
-
+        catch(...) {
+            std::cerr << "BEAGLE: exception in createInstance.\n";
+            delete impl;
+            throw;
+        }
         delete impl;
     }
 

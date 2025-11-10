@@ -6219,12 +6219,15 @@ BeagleImpl* BeagleCPUImplFactory<BEAGLE_CPU_FACTORY_GENERIC>::createImpl(int tip
         if (*errorCode == BEAGLE_SUCCESS) {
             return impl;
         }
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr<<"BEAGLE: exception in createInstance: "<<e.what()<<"\n";
         delete impl;
-        return NULL;
+        throw;
     }
     catch(...) {
-        if (DEBUGGING_OUTPUT)
-            std::cerr << "exception in initialize\n";
+        std::cerr << "BEAGLE: exception in createInstance.\n";
         delete impl;
         throw;
     }

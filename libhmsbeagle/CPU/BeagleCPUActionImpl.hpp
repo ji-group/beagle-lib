@@ -1421,9 +1421,14 @@ namespace beagle {
                 delete impl;
                 return NULL;
             }
+            catch(const std::exception& e)
+            {
+                std::cerr<<"BEAGLE: exception in createInstance: "<<e.what()<<"\n";
+                delete impl;
+                throw;
+            }
             catch(...) {
-                if (DEBUGGING_OUTPUT)
-                    std::cerr << "exception in initialize\n";
+                std::cerr << "BEAGLE: exception in createInstance.\n";
                 delete impl;
                 throw;
             }
