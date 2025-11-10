@@ -121,14 +121,14 @@ BeagleCPUImpl<BEAGLE_CPU_GENERIC>::~BeagleCPUImpl() {
     // which is TEMP_SCRATCH_PARTIAL twice.
 
     for(unsigned int i=0; i<kEigenDecompCount; i++) {
-        if (gCategoryWeights[i] != NULL)
+        if (gCategoryWeights != NULL && gCategoryWeights[i] != NULL)
             free(gCategoryWeights[i]);
-        if (gStateFrequencies[i] != NULL)
+        if (gStateFrequencies != NULL && gStateFrequencies[i] != NULL)
             free(gStateFrequencies[i]);
     }
 
     for(unsigned int i=0; i<kMatrixCount; i++) {
-        if (gTransitionMatrices[i] != NULL)
+        if (gTransitionMatrices != NULL && gTransitionMatrices[i] != NULL)
             free(gTransitionMatrices[i]);
     }
     free(gTransitionMatrices);
@@ -181,10 +181,10 @@ BeagleCPUImpl<BEAGLE_CPU_GENERIC>::~BeagleCPUImpl() {
 
     for(unsigned int i=0; i<kBufferCount; i++) {
 #ifndef BEAGLE_CACHE_FRIENDLY
-        if (gPartials[i] != NULL)
+        if (gPartials != NULL && gPartials[i] != NULL)
             free(gPartials[i]);
 #endif
-        if (gTipStates[i] != NULL)
+        if (gTipStates != NULL && gTipStates[i] != NULL)
             free(gTipStates[i]);
     }
 #ifdef BEAGLE_CACHE_FRIENDLY
@@ -205,7 +205,7 @@ BeagleCPUImpl<BEAGLE_CPU_GENERIC>::~BeagleCPUImpl() {
             free(gScaleBuffers[0]);
     } else {
         for(unsigned int i=0; i<kScaleBufferCount; i++) {
-            if (gScaleBuffers[i] != NULL)
+            if (gScaleBuffers != NULL && gScaleBuffers[i] != NULL)
                 free(gScaleBuffers[i]);
         }
     }
