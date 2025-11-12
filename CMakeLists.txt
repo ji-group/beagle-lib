@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.18)
 project(BEAGLE)
 
 set(BEAGLE_PACKAGE_NAME "libhmsbeagle")
@@ -143,16 +143,30 @@ if(BUILD_ACTION)
         include(FetchContent)
         set(EIGEN_VERSION 3.4)
         find_package(Eigen3 ${EIGEN_VERSION} QUIET)
-        if(NOT EIGEN3_FOUND)
-                message("   Eigen3: library not found - downloading.")
+        if(NOT Eigen3_FOUND)
+                message(STATUS "Eigen3 not found — downloading.")
+
                 set(BUILD_TESTING OFF CACHE INTERNAL "")
-                FetchContent_Declare(eigen
-                        GIT_REPOSITORY  https://gitlab.com/libeigen/eigen.git
-                        GIT_TAG         ${EIGEN_VERSION}
-                        GIT_SHALLOW     ON)
+
+                FetchContent_Declare(
+                        eigen
+                        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+                        GIT_TAG        ${EIGEN_VERSION}
+                        GIT_SHALLOW    ON
+                        SOURCE_SUBDIR  "NONEXISTANT_DIR"
+                )
+
                 FetchContent_MakeAvailable(eigen)
+                message(STATUS "   Eigen3: downloaded.")
+
                 unset(BUILD_TESTING CACHE)
-                message("   Eigen3: downloaded.")
+
+                # Create our own Eigen3::Eigen target instead of running the CMakeLists.txt from Eigen,
+                #  which is creates an uninstallable target and so fails to configure.
+                add_library(Eigen3::Eigen INTERFACE IMPORTED)
+                target_include_directories(Eigen3::Eigen INTERFACE
+                        ${eigen_SOURCE_DIR}
+                )
         endif()
 
 	set(CMAKE_CXX_STANDARD 17)
