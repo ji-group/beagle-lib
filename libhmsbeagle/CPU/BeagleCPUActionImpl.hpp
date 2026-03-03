@@ -970,14 +970,6 @@ namespace beagle {
 
             ds[eigenIndex].clear();
 
-	    int pMax = getPMax();
-            std::vector<double> approx_norms = normest1_all( gBs[eigenIndex], pMax+1);
-            // std::vector<double> approx_norms = normest1_merged( gBs[eigenIndex], pMax+1);
-
-            // equation 3.7 in Al-Mohy and Higham
-	    for(int p=0;p <= pMax+1; p++)
-		ds[eigenIndex].push_back( pow( approx_norms[p], 1.0/double(p) ) );
-
 //            gSimpleActions[eigenIndex]->setInstantaneousMatrix(tripletList);
 //            gSimpleActions[eigenIndex]->fireMatrixChanged();
 #ifdef BEAGLE_DEBUG_FLOW
@@ -1014,15 +1006,6 @@ namespace beagle {
             gB1Norms[matrixIndex] = normP1(gBs[matrixIndex]);
 
             ds[matrixIndex].clear();
-
-            int pMax = getPMax();
-            auto approx_norms = normest1_all( gBs[matrixIndex], pMax+1);
-            // auto approx_norms = normest1_merged( gBs[matrixIndex], pMax+1);
-            for(int p=0;p <= pMax+1; p++)
-            {
-                // equation 3.7 in Al-Mohy and Higham
-                ds[matrixIndex].push_back( pow( approx_norms[p], 1.0/double(p) ) );
-            }
 
             return BEAGLE_SUCCESS;
         }
@@ -1367,6 +1350,20 @@ namespace beagle {
         BEAGLE_CPU_ACTION_TEMPLATE
         double BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::getDValue(int p, int eigenIndex) const
         {
+            int pMax = getPMax();
+
+	    assert(p >= 0 and p <= pMax+1);
+
+            // If the d-value is not computed, then compute and cache it.
+            if (p >= ds[eigenIndex].size())
+            {
+                for(int i=ds[eigenIndex].size();i<=p;i++)
+                {
+                    double approx_norm = normest1( gBs[eigenIndex], i);
+                    ds[eigenIndex].push_back( pow(approx_norm, 1.0/double(i)) );
+                }
+            }
+
 	    assert(p >= 0 and p < ds[eigenIndex].size());
 
             return ds[eigenIndex][p];
