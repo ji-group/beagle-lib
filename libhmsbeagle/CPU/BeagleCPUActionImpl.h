@@ -35,6 +35,7 @@
 #include <vector>
 #include <Eigen/Sparse>
 #include <Eigen/Dense>
+#include <shared_mutex>
 
 #define T_PAD_DEFAULT   1   // Pad transition matrix rows with an extra 1.0 for ambiguous characters
 #define P_PAD_DEFAULT   0   // No partials padding necessary for non-SSE implementations
@@ -102,6 +103,7 @@ namespace beagle {
 	    std::vector<int> gEigenMaps;
 	    std::vector<double> gEdgeMultipliers;
 	    mutable std::vector<std::vector<double>> ds;
+            mutable std::shared_mutex ds_mutex;
             SpMatrix identity;
             MapType* gMappedIntegrationTmp;
 //            MapType* gMappedLeftPartialTmp;

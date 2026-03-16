@@ -1350,21 +1350,25 @@ namespace beagle {
         BEAGLE_CPU_ACTION_TEMPLATE
         double BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::getDValue(int p, int eigenIndex) const
         {
-            int pMax = getPMax();
-
-	    assert(p >= 0 and p <= pMax+1);
-
-            // If the d-value is not computed, then compute and cache it.
-            if (p >= ds[eigenIndex].size())
+            // 1. Try to read with a SHARED lock (multiple readers allowed)
             {
-                for(int i=ds[eigenIndex].size();i<=p;i++)
-                {
-                    double approx_norm = normest1( gBs[eigenIndex], i);
-                    ds[eigenIndex].push_back( pow(approx_norm, 1.0/double(i)) );
+                std::shared_lock read_lock(ds_mutex);
+                if (p < ds[eigenIndex].size()) {
+                    return ds[eigenIndex][p];
                 }
             }
 
-	    assert(p >= 0 and p < ds[eigenIndex].size());
+            // 2. If not found, upgrade to an EXCLUSIVE lock (only one writer)
+            std::unique_lock write_lock(ds_mutex);
+
+            // Double-check: another thread might have finished the work 
+            // while we were waiting for the write_lock.
+            if (p >= ds[eigenIndex].size()) {
+                for(int i = ds[eigenIndex].size(); i <= p; i++) {
+                    double approx_norm = normest1(gBs[eigenIndex], i);
+                    ds[eigenIndex].push_back(pow(approx_norm, 1.0/double(i)));
+                }
+            }
 
             return ds[eigenIndex][p];
         }
