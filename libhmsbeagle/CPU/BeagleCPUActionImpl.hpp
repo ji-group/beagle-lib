@@ -1294,26 +1294,33 @@ namespace beagle {
             if (t * gB1Norms[eigenIndex] == 0.0)
 		return {0, 1};
 
-	    int bestM = INT_MAX;
-	    double bestS = INT_MAX;  // Not all the values of s can fit in a 32-bit int.
-
 	    const double theta = thetaConstants.at(mMax);
 	    const double pMax = getPMax();
 	    // pMax is the largest positive integer such that p*(p-1) <= mMax + 1
 
-	    const bool conditionFragment313 = gB1Norms[eigenIndex] * edgeMultiplier <= 2.0 * theta / ((double) nCol * mMax) * pMax * (pMax + 3);
+            
+            // If this condition is true, it is cheaper to use ||A|| directly if we do NOT calculate the d-values.
+            // The condition assumes that we are only using the d-values for one branch though.
+            int bestM1 = INT_MAX;
+            double bestS1 = INT_MAX;
+            for (auto& [thisM, thetaM]: thetaConstants) {
+                const double thisS = ceil(gB1Norms[eigenIndex] * edgeMultiplier / thetaM);
+                if (bestM1 == INT_MAX or ((double) thisM) * thisS < bestM1 * bestS1) {
+                    bestS1 = thisS;
+                    bestM1 = thisM;
+                }
+            }
+
+	    int bestM = INT_MAX;
+	    double bestS = INT_MAX;  // Not all the values of s can fit in a 32-bit int.
+
 	    // using l = 1 as in equation 3.13
+            int l=1;
+	    const bool conditionFragment313 = gB1Norms[eigenIndex] * edgeMultiplier <= 2.0 * l * theta / ((double) nCol * mMax) * pMax * (pMax + 3);
             // BDR: l is equivalent to 't' in normest1.  So maybe we should use (l=1,t=1) or (l=2,t=2).
 	    if (conditionFragment313) {
-                // If this condition is true, it is cheaper to use ||A|| directly if we do NOT calculate the d-values.
-                // The condition assumes that we are only using the d-values for one branch though.
-		for (auto& [thisM, thetaM]: thetaConstants) {
-		    const double thisS = ceil(gB1Norms[eigenIndex] * edgeMultiplier / thetaM);
-		    if (bestM == INT_MAX || ((double) thisM) * thisS < bestM * bestS) {
-			bestS = thisS;
-			bestM = thisM;
-		    }
-		}
+                bestM = bestM1;
+                bestS = bestS1;
 	    } else {
 		for (int p = 2; p < pMax; p++) {
 		    for (int thisM = p * (p - 1) - 1; thisM < mMax + 1; thisM++) {
