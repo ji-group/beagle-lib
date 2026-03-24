@@ -1294,52 +1294,76 @@ namespace beagle {
             if (t * gB1Norms[eigenIndex] == 0.0)
 		return {0, 1};
 
-	    const double theta = thetaConstants.at(mMax);
+	    // pMax is the largest positive integer such that pMax*(pMax-1) <= mMax + 1
+            // Al Mohy & Higham picked pMax = 8, mMax = 8*(8-1)-1 = 55
 	    const double pMax = getPMax();
-	    // pMax is the largest positive integer such that p*(p-1) <= mMax + 1
 
-            
-            // If this condition is true, it is cheaper to use ||A|| directly if we do NOT calculate the d-values.
-            // The condition assumes that we are only using the d-values for one branch though.
-            int bestM1 = INT_MAX;
-            double bestS1 = INT_MAX;
+            // 1. What are the best values for (s,m) based only on the ||A||?
+            //    In some sense this is the result for p=1.
+            int bestM = INT_MAX;
+            double bestS = INT_MAX;  // Not all the values of s can fit in a 32-bit int.
             for (auto& [thisM, thetaM]: thetaConstants) {
                 const double thisS = ceil(gB1Norms[eigenIndex] * edgeMultiplier / thetaM);
-                if (bestM1 == INT_MAX or ((double) thisM) * thisS < bestM1 * bestS1) {
-                    bestS1 = thisS;
-                    bestM1 = thisM;
+                if (bestM == INT_MAX or ((double) thisM) * thisS < bestM * bestS) {
+                    bestS = thisS;
+                    bestM = thisM;
+                }
+            }
+	    int bestM1 = bestM;
+	    double bestS1 = bestS;  // Not all the values of s can fit in a 32-bit int.
+
+            // BDR: l is called 't' in normest1.  Right now it is 2.
+            int l=2;
+            int nColPerThread = ceil(nCol / std::max(1,kNumThreads));
+
+	    // Condition 3.13 in the paper:
+            //
+            //    gB1Norms[eigenIndex] * edgeMultiplier / thetaM_max * mMax * nCol <= 4.0 * l * pMax * (pMax + 3) / 2;
+            //
+            // is shorthand for
+            //
+            //    bestM1 * bestS1 * nCol <= 4.0 * l * pMax * (pMax + 3) / 2;
+            //
+	    // This specifies that the amount of work computing ALL the ds (on the rhs) exceeds the work
+            // computing the action with no ds (lhs).
+            //
+            // However, 
+            // * what if we compute just a FEW ds?  The first ones help the most, and are also cheapest.
+            // * after all the ds have been computed, it would be silly not to use them.
+            // * speed is affected by the number of columns PER THREAD, so use that instead.
+            //
+            // Previously we always computed all the ds, and then refused to use them if condition 3.13 was met.
+
+            int workComputingDs = 0;
+            for (int p = 2; p <= pMax; p++)
+            {
+                if (not hasDValue(p, eigenIndex))
+                    workComputingDs += 4.0 * l * p;
+
+                if (not hasDValue(p+1, eigenIndex))
+                    workComputingDs += 4.0 * l * (p+1);
+
+                // Stop computing D values before it ends up being more expensive to compute them than to compute the action.
+                if (bestM * bestS * nColPerThread < workComputingDs)
+                    break;
+
+                for (int thisM = p * (p - 1) - 1; thisM < mMax + 1; thisM++) {
+                    auto it = thetaConstants.find(thisM);
+                    if (it != thetaConstants.end()) {
+                        // equation 3.7 in Al-Mohy and Higham
+                        const double dValueP = getDValue(p, eigenIndex);
+                        const double dValuePPlusOne = getDValue(p + 1, eigenIndex);
+                        const double alpha = std::max(dValueP, dValuePPlusOne) * edgeMultiplier;
+                        // part of equation 3.10
+                        const double thisS = ceil(alpha / thetaConstants.at(thisM));
+                        if (bestM == INT_MAX or ((double) thisM) * thisS < bestM * bestS) {
+                            bestS = thisS;
+                            bestM = thisM;
+                        }
+                    }
                 }
             }
 
-	    int bestM = INT_MAX;
-	    double bestS = INT_MAX;  // Not all the values of s can fit in a 32-bit int.
-
-	    // using l = 1 as in equation 3.13
-            int l=1;
-	    const bool conditionFragment313 = gB1Norms[eigenIndex] * edgeMultiplier <= 2.0 * l * theta / ((double) nCol * mMax) * pMax * (pMax + 3);
-            // BDR: l is equivalent to 't' in normest1.  So maybe we should use (l=1,t=1) or (l=2,t=2).
-	    if (conditionFragment313) {
-                bestM = bestM1;
-                bestS = bestS1;
-	    } else {
-		for (int p = 2; p < pMax; p++) {
-		    for (int thisM = p * (p - 1) - 1; thisM < mMax + 1; thisM++) {
-			auto it = thetaConstants.find(thisM);
-			if (it != thetaConstants.end()) {
-			    // equation 3.7 in Al-Mohy and Higham
-			    const double dValueP = getDValue(p, eigenIndex);
-			    const double dValuePPlusOne = getDValue(p + 1, eigenIndex);
-			    const double alpha = std::max(dValueP, dValuePPlusOne) * edgeMultiplier;
-			    // part of equation 3.10
-			    const double thisS = ceil(alpha / thetaConstants.at(thisM));
-			    if (bestM == INT_MAX || ((double) thisM) * thisS < bestM * bestS) {
-				bestS = thisS;
-				bestM = thisM;
-			    }
-			}
-		    }
-		}
-	    }
 	    bestS = std::max(std::min<double>(bestS, INT_MAX), 1.0);
 	    assert( bestS >= 1 );
 	    assert( bestS <= INT_MAX );
@@ -1378,6 +1402,14 @@ namespace beagle {
             }
 
             return ds[eigenIndex][p];
+        }
+
+        BEAGLE_CPU_ACTION_TEMPLATE
+        bool BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::hasDValue(int p, int eigenIndex) const
+        {
+            // 1. Try to read with a SHARED lock (multiple readers allowed)
+            std::shared_lock read_lock(ds_mutex);
+            return (p < ds[eigenIndex].size());
         }
 
         BEAGLE_CPU_ACTION_TEMPLATE

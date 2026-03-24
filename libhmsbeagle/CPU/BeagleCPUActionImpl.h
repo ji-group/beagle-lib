@@ -64,6 +64,7 @@ namespace beagle {
 
         protected:
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kTipCount;
+            using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::kNumThreads;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::integrationTmp;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::firstDerivTmp;
             using BeagleCPUImpl<BEAGLE_CPU_ACTION_DOUBLE>::secondDerivTmp;
@@ -280,6 +281,8 @@ namespace beagle {
 					       int eigenIndex) const;
 
             double getDValue(int p, int eigenIndex) const;
+
+            bool hasDValue(int p, int eigenIndex) const;
 
             double getPMax() const;
         };
