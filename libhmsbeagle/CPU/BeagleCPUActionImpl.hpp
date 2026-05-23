@@ -1147,8 +1147,8 @@ namespace beagle {
                 double c1 = normPInf(curr_term);
 
                 for (int j = 1; j < m + 1; j++) {
-                    next_term.noalias() = A * curr_term;
-                    next_term *= scale / double(j);
+                    double alpha = scale / double(j);
+                    next_term.noalias() = alpha * A * curr_term;
 
 //#ifdef BEAGLE_DEBUG_FLOW
 //                    std::cerr << "i = " << i << "  j = " << j << "  c1 = " << c1  << " alpha = " << t / ((double) s * j) << std::endl;
