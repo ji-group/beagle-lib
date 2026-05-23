@@ -703,8 +703,16 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setTipStates(int tipIndex,
                                 const int* inStates) {
     if (tipIndex < 0 || tipIndex >= kTipCount)
         return BEAGLE_ERROR_OUT_OF_RANGE;
-    gTipStates[tipIndex] = (int*) mallocAligned(sizeof(int) * kPaddedPatternCount);
-    // TODO: What if this throws a memory full error?
+
+    int* newTipStates = static_cast<int*>( mallocAligned(sizeof(int) * kPaddedPatternCount) );
+
+    if (newTipStates == nullptr) {
+        return BEAGLE_ERROR_OUT_OF_MEMORY;
+    }
+
+    free(gTipStates[tipIndex]);
+    gTipStates[tipIndex] = newTipStates;
+
     for (int j = 0; j < kPatternCount; j++) {
         gTipStates[tipIndex][j] = (inStates[j] < kStateCount ? inStates[j] : kStateCount);
     }
