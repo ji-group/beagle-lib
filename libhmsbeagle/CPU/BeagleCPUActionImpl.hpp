@@ -490,6 +490,7 @@ namespace beagle {
             for (int i = 0; i < eigenDecompositionCount + matrixCount; i++)
                 gInstantaneousMatrices[i] = SpMatrix(kStateCount, kStateCount);
             gBs.resize(eigenDecompositionCount);
+            gBTs.resize(eigenDecompositionCount);
             gMuBs.resize(eigenDecompositionCount);
             gB1Norms.resize(eigenDecompositionCount);
             ds.resize(eigenDecompositionCount);
@@ -960,6 +961,7 @@ namespace beagle {
             mu_B /= (double) kStateCount;
             gMuBs[eigenIndex] = mu_B;
             gBs[eigenIndex] = gInstantaneousMatrices[eigenIndex] - mu_B * identity;
+            gBTs[eigenIndex ] = gBs[eigenIndex].transpose();
             gB1Norms[eigenIndex] = normP1(gBs[eigenIndex]);
 
             ds[eigenIndex].clear();
@@ -997,6 +999,7 @@ namespace beagle {
             mu_B /= (double) kStateCount;
             gMuBs[matrixIndex] = mu_B;
             gBs[matrixIndex] = gInstantaneousMatrices[matrixIndex] - mu_B * identity;
+            gBTs[matrixIndex] = gBs[matrixIndex].transpose();
             gB1Norms[matrixIndex] = normP1(gBs[matrixIndex]);
 
             ds[matrixIndex].clear();
@@ -1122,19 +1125,18 @@ namespace beagle {
             auto [m, s] = getStatistics2(t, nCol, gEigenMaps[edgeIndex]);
 
             destP = partials;
-            SpMatrix A = gBs[gEigenMaps[edgeIndex]];
-            if (transpose) {
-                A = A.transpose();
-            }
+
+            int eigenIndex = gEigenMaps[edgeIndex];
+            const SpMatrix& A = transpose ? gBTs[eigenIndex] : gBs[eigenIndex];
 
             MatrixXd F(kStateCount, nCol);
             F = destP;
 
-            const double eta = exp(t * gMuBs[gEigenMaps[edgeIndex]] / (double) s);
+            const double eta = exp(t * gMuBs[eigenIndex] / (double) s);
 
 #ifdef BEAGLE_DEBUG_FLOW
-            std::cerr << "simpleAction2: m = " << m << "  s = " << s << "  eta = " << eta << "  edgeMultiplier = " << edgeMultiplier << std::endl;
-            std::cerr << "edgeMultiplier = " << edgeMultiplier << "\nB = " << gBs[gEigenMaps[edgeIndex]] <<std::endl;
+            std::cerr << "simpleAction2: m = " << m << "  s = " << s << "  eta = " << eta << "  t = " << t << std::endl;
+            std::cerr << "t = " << t << "\nB = " << A <<std::endl;
 #endif
 
             for (int i = 0; i < s; i++) {

@@ -99,6 +99,7 @@ namespace beagle {
 //            double* gRightPartialTmp;
 	    std::vector<SpMatrix> gInstantaneousMatrices;
 	    std::vector<SpMatrix> gBs;
+	    std::vector<SpMatrix> gBTs;
             std::vector<double> gMuBs;
 	    std::vector<double> gB1Norms;
 	    std::vector<int> gEigenMaps;
