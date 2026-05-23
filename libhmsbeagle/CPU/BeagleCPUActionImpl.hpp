@@ -511,12 +511,6 @@ namespace beagle {
 
             gIntegrationTmp = new double[kStateCount * kPaddedPatternCount * kCategoryCount];
 
-	    // TODO Eliminate this with an inline member function!
-            gMappedIntegrationTmp = (MapType*) malloc(sizeof(MapType) * kCategoryCount);
-            for (int category = 0; category < kCategoryCount; category++) {
-                new (& gMappedIntegrationTmp[category]) MapType(gIntegrationTmp + category * kPaddedPatternCount * kStateCount, kStateCount, kPatternCount);
-            }
-
             return BEAGLE_SUCCESS;
         }
 
@@ -1109,9 +1103,6 @@ namespace beagle {
                 auto integrationMap = MapType(gIntegrationTmp + category * kPaddedPatternCount * kStateCount + startPattern * kStateCount, kStateCount, endPattern - startPattern);
                 integrationMap = partialCache2.cwiseProduct(partials1);
                 simpleAction2(destP, integrationMap, edgeIndex1, category, true);
-
-//                gMappedIntegrationTmp[category] = partialCache2.cwiseProduct(partials1);
-//                simpleAction2(destP, gMappedIntegrationTmp[category], edgeIndex1, category, true);
             }
         }
 
