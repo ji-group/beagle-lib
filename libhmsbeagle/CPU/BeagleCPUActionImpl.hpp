@@ -1118,21 +1118,23 @@ namespace beagle {
             std::cerr << "\n\nNew impl 2\nRate category " << category << std::endl;
             std::cerr << "In partial: \n" << partials << std::endl;
 #endif
-            const double tol = pow(2.0, -53.0);
             const int nCol = (int) destP.cols();
+            const int eigenIndex = gEigenMaps[edgeIndex];
             const double t = gEdgeMultipliers[edgeIndex * kCategoryCount + category];
+            static constexpr double tol = 0x1p-53; // 2^-53
 
             auto [m, s] = getStatistics2(t, nCol, gEigenMaps[edgeIndex]);
 
-            destP = partials;
-
-            int eigenIndex = gEigenMaps[edgeIndex];
             const SpMatrix& A = transpose ? gBTs[eigenIndex] : gBs[eigenIndex];
 
-            MatrixXd F(kStateCount, nCol);
-            F = destP;
+            // We should probably avoid allocating these on each call.
+            MatrixXd curr_term(kStateCount, nCol); // current taylor term
+            MatrixXd next_term(kStateCount, nCol);  // next taylor term
 
-            const double eta = exp(t * gMuBs[eigenIndex] / (double) s);
+            destP = partials;
+
+            double scale = t/double(s);
+            const double eta = exp(scale * gMuBs[eigenIndex]);
 
 #ifdef BEAGLE_DEBUG_FLOW
             std::cerr << "simpleAction2: m = " << m << "  s = " << s << "  eta = " << eta << "  t = " << t << std::endl;
@@ -1140,30 +1142,36 @@ namespace beagle {
 #endif
 
             for (int i = 0; i < s; i++) {
-                double c1 = normPInf(destP);
+                curr_term = destP;
+
+                double c1 = normPInf(curr_term);
+
                 for (int j = 1; j < m + 1; j++) {
-                    destP = A * destP;
-                    destP *= t / ((double) s * j);
+                    next_term.noalias() = A * curr_term;
+                    next_term *= scale / double(j);
+
 //#ifdef BEAGLE_DEBUG_FLOW
 //                    std::cerr << "i = " << i << "  j = " << j << "  c1 = " << c1  << " alpha = " << t / ((double) s * j) << std::endl;
 //                    std::cerr << "A = " << A << std::endl;
-//                    std::cerr << "destP = alpha * A * destP\n" <<destP<<std::endl;
+//                    std::cerr << "next_term = alpha * A * curr_term\n" << next_term << std::endl;
 //#endif
-                    double c2 = normPInf(destP);
-                    F += destP;
+                    double c2 = normPInf(next_term);
+
+                    destP += next_term;
+
 //#ifdef BEAGLE_DEBUG_FLOW
 //                    std::cerr << "i = " << i << "  j = " << j << "/" << m << "  c1 = " << c1 << "  c2 = " << c2 << " alpha = " << t / ((double) s * j) << std::endl;
-//                    std::cerr << "F = \n" <<F<<std::endl;
+//                    std::cerr << "destP = \n" <<F<<std::endl;
 //#endif
-                    if (c1 + c2 <= tol * normPInf(F)) {
+                    if (c1 + c2 <= tol * normPInf(destP)) {
                         break;
                     }
                     c1 = c2;
+                    curr_term.swap(next_term);
                 }
-                F *= eta;
-                destP = F;
-            }
 
+                destP *= eta;
+            }
 
 #ifdef BEAGLE_DEBUG_FLOW
             std::cerr << "Out partials: \n" << destP << std::endl;
