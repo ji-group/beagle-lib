@@ -277,8 +277,7 @@ namespace beagle {
 
 
 	    // Return (m,s)
-	    std::tuple<int,int> getStatistics2(double t, int nCol, double edgeMultiplier,
-					       int eigenIndex) const;
+	    std::tuple<int,int> getStatistics2(double t, int nCol, int eigenIndex) const;
 
             double getDValue(int p, int eigenIndex) const;
 

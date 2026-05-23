@@ -1116,15 +1116,13 @@ namespace beagle {
             std::cerr << "In partial: \n" << partials << std::endl;
 #endif
             const double tol = pow(2.0, -53.0);
-            const double t = 1.0;
             const int nCol = (int) destP.cols();
+            const double t = gEdgeMultipliers[edgeIndex * kCategoryCount + category];
 
-            const double edgeMultiplier = gEdgeMultipliers[edgeIndex * kCategoryCount + category];
-
-            auto [m, s] = getStatistics2(t, nCol, edgeMultiplier, gEigenMaps[edgeIndex]);
+            auto [m, s] = getStatistics2(t, nCol, gEigenMaps[edgeIndex]);
 
             destP = partials;
-            SpMatrix A = gBs[gEigenMaps[edgeIndex]] * edgeMultiplier;
+            SpMatrix A = gBs[gEigenMaps[edgeIndex]];
             if (transpose) {
                 A = A.transpose();
             }
@@ -1132,7 +1130,7 @@ namespace beagle {
             MatrixXd F(kStateCount, nCol);
             F = destP;
 
-            const double eta = exp(t * gMuBs[gEigenMaps[edgeIndex]] * edgeMultiplier / (double) s);
+            const double eta = exp(t * gMuBs[gEigenMaps[edgeIndex]] / (double) s);
 
 #ifdef BEAGLE_DEBUG_FLOW
             std::cerr << "simpleAction2: m = " << m << "  s = " << s << "  eta = " << eta << "  edgeMultiplier = " << edgeMultiplier << std::endl;
@@ -1275,11 +1273,9 @@ namespace beagle {
         BEAGLE_CPU_ACTION_TEMPLATE
         std::tuple<int,int>
 	BeagleCPUActionImpl<BEAGLE_CPU_ACTION_DOUBLE>::getStatistics2(double t, int nCol,
-								      double edgeMultiplier,
 								      int eigenIndex) const {
 	    assert( t >= 0 );
 	    assert( nCol >= 0);
-	    assert( edgeMultiplier >= 0 );
 	    assert( eigenIndex >= 0);
 
             if (t * gB1Norms[eigenIndex] == 0.0)
@@ -1294,7 +1290,7 @@ namespace beagle {
             int bestM = INT_MAX;
             double bestS = INT_MAX;  // Not all the values of s can fit in a 32-bit int.
             for (auto& [thisM, thetaM]: thetaConstants) {
-                const double thisS = ceil(gB1Norms[eigenIndex] * edgeMultiplier / thetaM);
+                const double thisS = ceil(gB1Norms[eigenIndex] * t / thetaM);
                 if (bestM == INT_MAX or ((double) thisM) * thisS < bestM * bestS) {
                     bestS = thisS;
                     bestM = thisM;
@@ -1309,7 +1305,7 @@ namespace beagle {
 
 	    // Condition 3.13 in the paper:
             //
-            //    gB1Norms[eigenIndex] * edgeMultiplier / thetaM_max * mMax * nCol <= 4.0 * l * pMax * (pMax + 3) / 2;
+            //    gB1Norms[eigenIndex] * t / thetaM_max * mMax * nCol <= 4.0 * l * pMax * (pMax + 3) / 2;
             //
             // is shorthand for
             //
@@ -1344,7 +1340,7 @@ namespace beagle {
                         // equation 3.7 in Al-Mohy and Higham
                         const double dValueP = getDValue(p, eigenIndex);
                         const double dValuePPlusOne = getDValue(p + 1, eigenIndex);
-                        const double alpha = std::max(dValueP, dValuePPlusOne) * edgeMultiplier;
+                        const double alpha = std::max(dValueP, dValuePPlusOne) * t;
                         // part of equation 3.10
                         const double thisS = ceil(alpha / thetaConstants.at(thisM));
                         if (bestM == INT_MAX or ((double) thisM) * thisS < bestM * bestS) {
