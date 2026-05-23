@@ -261,24 +261,23 @@ BeagleCPUImpl<BEAGLE_CPU_GENERIC>::~BeagleCPUImpl() {
             threadData* td = &gThreads[i];
             td->t.join();
         }
+    }
 
-        delete[] gThreads;
-        delete[] gFutures;
+    delete[] gThreads;
+    delete[] gFutures;
 
+    if (gThreadOperations)
+    {
         for (int i=0; i<kNumThreads; i++) {
             free(gThreadOperations[i]);
         }
-        free(gThreadOperations);
-        free(gThreadOpCounts);
     }
+    free(gThreadOperations);
+    free(gThreadOpCounts);
 
-    if (kAutoPartitioningEnabled) {
-        free(gAutoPartitionOperations);
-        if (kAutoRootPartitioningEnabled) {
-            free(gAutoPartitionIndices);
-            free(gAutoPartitionOutSumLogLikelihoods);
-        }
-    }
+    free(gAutoPartitionOperations);
+    free(gAutoPartitionIndices);
+    free(gAutoPartitionOutSumLogLikelihoods);
 }
 
 BEAGLE_CPU_TEMPLATE
@@ -581,6 +580,16 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::createInstance(int tipCount,
 
     kThreadingEnabled = false;
     kAutoPartitioningEnabled = false;
+    kAutoRootPartitioningEnabled = false;
+    gAutoPartitionOperations = nullptr;
+    gAutoPartitionIndices = nullptr;
+    gAutoPartitionOutSumLogLikelihoods = nullptr;
+    gThreadOperations = NULL;
+    gThreadOpCounts = NULL;
+    kNumThreads = 0;
+    gThreads = NULL;
+    gFutures = NULL;
+
     if (kFlags & BEAGLE_FLAG_THREADING_CPP) {
         int hardwareThreads = std::thread::hardware_concurrency();
         if (kStateCount <= 4) {
@@ -969,10 +978,34 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setPatternPartitions(int partitionCount,
     assert(inPatternPartitions != 0L);
 
     kPartitionCount = partitionCount;
-    grandDenominatorDerivTmp = (REALTYPE*) mallocAligned(sizeof(REALTYPE) * kPaddedPatternCount * kPartitionCount);
-    grandNumeratorDerivTmp = (REALTYPE*) mallocAligned(sizeof(REALTYPE) * kPaddedPatternCount * kPartitionCount);
-    firstDerivTmp =  (REALTYPE*) mallocAligned(sizeof(REALTYPE) * kPaddedPatternCount * kStateCount * kPartitionCount);
-    secondDerivTmp =  (REALTYPE*) mallocAligned(sizeof(REALTYPE) * kPaddedPatternCount * kStateCount * kPartitionCount);
+
+    REALTYPE* newGrandDenominatorDerivTmp = (REALTYPE*) mallocAligned(sizeof(REALTYPE) * kPaddedPatternCount * kPartitionCount);
+    REALTYPE* newGrandNumeratorDerivTmp = (REALTYPE*) mallocAligned(sizeof(REALTYPE) * kPaddedPatternCount * kPartitionCount);
+    REALTYPE* newFirstDerivTmp =  (REALTYPE*) mallocAligned(sizeof(REALTYPE) * kPaddedPatternCount * kStateCount * kPartitionCount);
+    REALTYPE* newSecondDerivTmp =  (REALTYPE*) mallocAligned(sizeof(REALTYPE) * kPaddedPatternCount * kStateCount * kPartitionCount);
+
+    if (newGrandDenominatorDerivTmp == NULL ||
+        newGrandNumeratorDerivTmp == NULL ||
+        newFirstDerivTmp == NULL ||
+        newSecondDerivTmp == NULL) {
+
+        free(newGrandDenominatorDerivTmp);
+        free(newGrandNumeratorDerivTmp);
+        free(newFirstDerivTmp);
+        free(newSecondDerivTmp);
+
+        throw std::bad_alloc();
+    }
+
+    free(grandDenominatorDerivTmp);
+    free(grandNumeratorDerivTmp);
+    free(firstDerivTmp);
+    free(secondDerivTmp);
+
+    grandDenominatorDerivTmp = newGrandDenominatorDerivTmp;
+    grandNumeratorDerivTmp = newGrandNumeratorDerivTmp;
+    firstDerivTmp = newFirstDerivTmp;
+    secondDerivTmp = newSecondDerivTmp;
 
 
     if (!kPartitionsInitialised) {
@@ -980,16 +1013,22 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setPatternPartitions(int partitionCount,
         if (gPatternPartitions == NULL)
             throw std::bad_alloc();
 
-        if (kAutoPartitioningEnabled) {
+        if (gAutoPartitionOperations != NULL) {
             free(gAutoPartitionOperations);
-            if (kAutoRootPartitioningEnabled) {
-                free(gAutoPartitionIndices);
-                free(gAutoPartitionOutSumLogLikelihoods);
-                kAutoRootPartitioningEnabled = false;
-            }
-            kAutoPartitioningEnabled = false;
+            gAutoPartitionOperations = NULL;
         }
+        if (gAutoPartitionIndices != NULL) {
+            free(gAutoPartitionIndices);
+            gAutoPartitionIndices = NULL;
+        }
+        if (gAutoPartitionOutSumLogLikelihoods != NULL) {
+            free(gAutoPartitionOutSumLogLikelihoods);
+            gAutoPartitionOutSumLogLikelihoods = NULL;
+        }
+        kAutoPartitioningEnabled = false;
+        kAutoRootPartitioningEnabled = false;
     }
+
     if (!kPartitionsInitialised || partitionCount > kMaxPartitionCount) {
         if (kPartitionsInitialised) {
             free(gPatternPartitionsStartPatterns);
@@ -1018,15 +1057,24 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setPatternPartitions(int partitionCount,
 
         delete[] gThreads;
         delete[] gFutures;
-
-        for (int i=0; i<kNumThreads; i++) {
-            free(gThreadOperations[i]);
-        }
-        free(gThreadOperations);
-        free(gThreadOpCounts);
-
-        kThreadingEnabled = false;
     }
+
+    free(gAutoPartitionOperations); gAutoPartitionOperations = NULL;
+    free(gAutoPartitionIndices); gAutoPartitionIndices = NULL;
+    free(gAutoPartitionOutSumLogLikelihoods); gAutoPartitionOutSumLogLikelihoods = NULL;
+
+    kAutoPartitioningEnabled = false;
+    kAutoRootPartitioningEnabled = false;
+    kThreadingEnabled = false;
+    for(int i=0;i<kNumThreads;i++)
+    {
+        free(gThreadOperations[i]); gThreadOperations[i] = NULL;
+    }
+    free(gThreadOperations); gThreadOperations = NULL;
+    free(gThreadOpCounts); gThreadOpCounts = NULL;
+//    delete[] gThreads; gThreads = NULL;
+//    delete[] gFutures; gFutures = NULL;
+    kNumThreads = 0;
 
     if (kFlags & BEAGLE_FLAG_THREADING_CPP) {
         kNumThreads = partitionCount;
@@ -1083,7 +1131,7 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setPatternPartitions(int partitionCount,
 
     return returnCode;
 }
-
+    
 BEAGLE_CPU_TEMPLATE
     int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::setStateFrequencies(int stateFrequenciesIndex,
                                                      const double* inStateFrequencies) {
@@ -2470,13 +2518,6 @@ int BeagleCPUImpl<BEAGLE_CPU_GENERIC>::calculateEdgeDerivatives(const int *postB
 #ifdef BEAGLE_DEBUG_FLOW
         std::cerr<<"Mark 0" << ", Original count = "<< count << ", perThreadCount = " << perThreadCount <<std::endl;
 #endif
-
-
-        if (gThreadOpCounts == NULL) {
-            memset(gThreadOpCounts, 0, sizeof(int) * kNumThreads);
-        }
-
-
 
         std::fill(gThreadOpCounts, gThreadOpCounts + kNumThreads, 0);
 
